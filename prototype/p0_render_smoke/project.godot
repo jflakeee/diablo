@@ -1,0 +1,20 @@
+; Godot 4.x project — D2 Clone P0 렌더 스모크 테스트
+; HD 4000 제약: Compatibility(OpenGL3) 렌더러 강제
+
+config_version=5
+
+[application]
+
+config/name="D2 Clone P0 Render Smoke"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.4")
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

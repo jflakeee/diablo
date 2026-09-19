@@ -1,0 +1,5 @@
+# Godot 4 편집기 캐시
+.godot/
+# 벤치마크 로그
+bench.log
+bench.err.log
