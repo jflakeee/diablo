@@ -100,6 +100,8 @@ Mara's Kaleidoscope(아뮬렛: +2 스킬·전저항), Griffon's Eye(번개 캐�
 | Part 3 | 바바리안스킬·접사대표테이블·큐브레시피전체·액트1/안다리엘 |
 | Part 4 | 6클래스스킬(총210스킬맵)·아이템베이스등급/소켓·대표유니크 |
 
+> ✅ **핵심 전투/수학 공식**(물리데미지·저항캡·블록·전투모디파이어·MF·경험치)은 [Part 5](./2026-09-19-diablo2-mechanics-research-part5.md)에서 정리 완료.
+
 ### 남은 1차-파일 전수 작업 (구현 착수 시 범위별로)
 - `monstats.txt` 몬스터 전수 스탯 · `weapons.txt`/`armor.txt` 베이스 전수 · `uniqueitems.txt`/`setitems.txt` 전수 · 클래스별 `skills.txt` 계수·마나 · 접사 `spawnWeight`.
 - 이는 문서화보다 **구현 시 데이터 임포트**(원본 txt 구조를 JSON으로 이식)가 정확·효율적. → 각 하위 프로젝트 스펙에서 "게임 데이터 임포트" 태스크로 편성 권장.
