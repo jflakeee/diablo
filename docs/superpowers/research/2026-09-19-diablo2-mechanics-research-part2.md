@@ -152,6 +152,8 @@
 
 ## 6. 남은 심화 대상 (다음 라운드)
 
+> ✅ **바바리안 스킬·접사 대표 테이블·큐브 레시피 전체·액트1 몬스터/안다리엘**은 [Part 3](./2026-09-19-diablo2-mechanics-research-part3.md)에서 정리 완료.
+
 - **접사 전체 테이블**(prefix/suffix별 스탯 범위·spawn weight·alvl 요구) — 방대. 1차 소스: [planetdiablo affix DB](https://planetdiablo.eu/diablo2/itemdb/affix_info_en.php), Phrozen Keep `MagicPrefix.txt`/`MagicSuffix.txt`.
 - **클래스별 스킬 데이터 전체**(레벨당 계수·시너지 관계·마나코스트) — 클래스 착수 시 클래스별로.
 - **호라드릭 큐브 레시피 전체 목록** — [diablo2.io/recipes](https://diablo2.io/recipes/).
