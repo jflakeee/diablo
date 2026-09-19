@@ -200,6 +200,8 @@ Fallen / Fallen Shaman · Spike Fiend(Quill Rat) · Zombie · Wendigo · Corrupt
 
 ## 5. 남은 심화 (다음 라운드 후보)
 
+> ✅ **나머지 6개 클래스 스킬·아이템 베이스 등급/소켓·대표 유니크**는 [Part 4](./2026-09-19-diablo2-mechanics-research-part4.md)에서 정리 완료. 나머지(몬스터/베이스/유니크 전수 스탯)는 구현 시 1차 txt 임포트로 처리 권장.
+
 - 나머지 6개 클래스 스킬 전체(각 클래스 착수 시)
 - 몬스터별 정확 HP/AR/Def/저항 원본 테이블(`monstats.txt` 전수)
 - 아이템 베이스 스탯 전수(`weapons.txt`/`armor.txt`: qlvl·소켓상한·내구·요구스탯)
