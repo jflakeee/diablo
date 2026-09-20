@@ -9,6 +9,9 @@
 | P0 입력/루프 | `p0_input_loop` | 25Hz 논리틱 **rate 25.14/s**, 조이스틱+스킬 탭/홀드 | ✅ PASS |
 | Phase 1 | `phase1_arena` | 맵+충돌+몬스터AI+전투공식, **attacks 27 / hits 26 / life 94-157** | ✅ PASS |
 | Phase 2 | `phase2_skills` | 캐릭터(AR/Def/Life/Mana 산출)+스킬(Bash/Berserk/BO/Mastery)+레벨링, **Lv3/kills3/BO: life 157→217/mastery3** | ✅ PASS |
+| Phase 3 | `phase3_items` | 아이템/접사/드롭/인벤토리/장착, **kills5/drops2/picked2, 방어구 장착 def 21→47** | ✅ PASS |
+
+> **🏁 수직 슬라이스(Phase 0~3) 완성** — 로드맵의 "게임이 돈다"(이동→전투→드롭→장착) 지점 도달.
 
 ## 핵심 검증 결론
 - HD 4000에서 Godot이 자동 ANGLE(→D3D11) 전환 → **OpenGL 3.3 불완전 우려 무력화**. Godot 3.6 폴백 불필요.
