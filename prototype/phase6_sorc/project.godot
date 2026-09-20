@@ -1,0 +1,27 @@
+; Godot 4.x — D2 Clone Phase 3: 아이템 + 접사 + 드롭 + 인벤토리
+
+config_version=5
+
+[application]
+
+config/name="D2 Clone Phase 6 Sorc"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.4")
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+
+[physics]
+
+common/physics_ticks_per_second=25
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

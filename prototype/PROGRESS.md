@@ -15,6 +15,7 @@
 
 | Phase 4 | `phase4_craft` | 소켓/보석/룬워드/큐브, **Ruby+38life · Steel(Tir+El) · 순서검증 · El×3→Eld** | ✅ PASS |
 | Phase 5 | `phase5_boss` | 몬스터 AI(근접/원거리/보스)+안다리엘 3패턴, **melee9/nova3/spray1** | ✅ PASS |
+| Phase 6 | `phase6_sorc` | 추가 클래스(소서리스)+투사체 스펠(behavior 추상화), **kills4/spells6/hits5** | ✅ PASS |
 
 ## 핵심 검증 결론
 - HD 4000에서 Godot이 자동 ANGLE(→D3D11) 전환 → **OpenGL 3.3 불완전 우려 무력화**. Godot 3.6 폴백 불필요.
