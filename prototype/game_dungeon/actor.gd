@@ -23,6 +23,9 @@ var attack_rating := 100
 var defense := 10
 var dmg_min := 1
 var dmg_max := 3
+var res_fire := 0      # 화염 저항%
+var block_val := 0     # 방패 블록값
+var leech_pct := 0     # 생명 흡혈%(바바리안 물리 / 소서리스 스펠)
 
 var speed := 4.0
 var gx := 0.0

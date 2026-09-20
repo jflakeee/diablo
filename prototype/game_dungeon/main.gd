@@ -187,7 +187,10 @@ func _spawn_dungeon_monsters() -> void:
 		if kind == "boss":
 			m.set_meta("nova_cd", float(md.get("nova_cd", 3.0)))
 			m.set_meta("spray_cd", float(md.get("spray_cd", 1.5)))
+			m.res_fire = -50   # 안다리엘 화염 약점 (Part 3 §4) → 파이어볼 150%
 			_boss = m
+		else:
+			m.res_fire = int(md.get("res_fire", 0))
 
 func _next_level() -> void:
 	_levels_cleared += 1
@@ -323,6 +326,8 @@ func _start_game() -> void:
 		_player.max_mana = 35 + 2 * _player.stat_energy + 2
 		_player.speed = 5.5
 		_player.skills = {"fireball": 3, "static": 1, "teleport": 1}
+		_player.res_fire = 30    # 소서리스 화염 저항
+		_player.leech_pct = 8    # 스펠 생명 흡혈 8%
 	else:
 		_player = _make_actor("Barbarian", Color(0.9, 0.75, 0.2), 22, 34)
 		_player.stat_str = 30
@@ -333,6 +338,8 @@ func _start_game() -> void:
 		_player.max_mana = CombatLib.barbarian_max_mana(15, 1)
 		_player.speed = 6.0
 		_player.skills = {"bash": 1, "berserk": 1, "battle_orders": 1, "mastery": 1}
+		_player.block_val = 30   # 방패 블록
+		_player.leech_pct = 6    # 물리 생명 흡혈 6%
 	_player.is_player = true
 	_player.level = 1
 	_player.base_max_life = _player.max_life
@@ -791,10 +798,18 @@ func _update_projectiles(delta: float) -> void:
 			continue
 		n.position = n.position.move_toward(t.position, 420.0 * delta)
 		if n.position.distance_to(t.position) < 12.0:
-			# 스펠은 AR 무시, 저항만 적용(프로토타입 저항0 → 전량)
-			t.take_damage(int(p["dmg"]))
+			# 파이어볼 = 화염 데미지 → 대상 화염 저항/약점 적용 (Part 5 §2)
+			var dmg: int = CombatLib.apply_resistance(int(p["dmg"]), t.res_fire)
+			t.take_damage(dmg)
 			_spell_hits += 1
-			_spawn_text(t.position, str(int(p["dmg"])), Color(1, 0.6, 0.2))
+			# 소서리스 스펠 생명 흡혈 (Part 5 §4)
+			if _player.leech_pct > 0 and _player.alive:
+				_player.life = mini(_player.max_life, _player.life + CombatLib.leech_life(dmg, _player.leech_pct))
+				_player.queue_redraw()
+			var txt := "%d🔥" % dmg
+			if t.res_fire < 0:
+				txt = "%d! 약점" % dmg
+			_spawn_text(t.position, txt, Color(1, 0.55, 0.15))
 			if not t.alive:
 				_grant_xp(t.level * 40)
 			n.queue_free()
@@ -831,9 +846,19 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 		var crit := CombatLib.roll_deadly_strike(_rng, Skills.mastery_deadly_strike(m_lvl))
 		if crit:
 			dmg *= 2
-		target.take_damage(dmg)
+		# 크러싱 블로우(바바리안 20%): 현재 생명 비율 감소 (Part 5 §4)
+		var cb := 0
+		if _class == "barbarian" and _rng.randf() < 0.20:
+			cb = CombatLib.crushing_blow(target.life, false, String(target.get_meta("kind", "melee")) == "boss")
+		target.take_damage(dmg + cb)
+		# 생명 흡혈(물리) (Part 5 §4)
+		if _player.leech_pct > 0:
+			_player.life = mini(_player.max_life, _player.life + CombatLib.leech_life(dmg, _player.leech_pct))
+			_player.queue_redraw()
 		_spawn_text(target.position, ("%d!" % dmg) if crit else str(dmg), Color(1, 0.5, 0.2) if crit else Color(1, 0.9, 0.3))
-		_combat_log = "%s→%s %d%s" % [label, target.actor_name, dmg, (" CRIT" if crit else "")]
+		if cb > 0:
+			_spawn_text(target.position + Vector2(16, 0), "CB %d" % cb, Color(1, 0.7, 0.2))
+		_combat_log = "%s→%s %d%s%s" % [label, target.actor_name, dmg, (" CRIT" if crit else ""), (" +CB%d" % cb if cb > 0 else "")]
 		if not target.alive:
 			_grant_xp(target.level * 40)
 	else:
@@ -844,6 +869,10 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 func _monster_attack(m: ActorScript) -> void:
 	_attacks += 1
 	if CombatLib.roll_hit(_rng, m.attack_rating, _player.defense, m.level, _player.level):
+		# 플레이어 블록 판정 (Part 5 §3)
+		if _player.block_val > 0 and CombatLib.roll_block(_rng, _player.block_val, _player.stat_dex, _player.level):
+			_spawn_text(_player.position, "BLOCK", Color(0.6, 0.8, 1.0))
+			return
 		var dmg := CombatLib.physical_damage(_rng, m.dmg_min, m.dmg_max, 0.0)
 		_player.take_damage(dmg)
 		_spawn_text(_player.position, str(dmg), Color(1, 0.4, 0.4))
