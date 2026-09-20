@@ -1,0 +1,2 @@
+WARNING: Your video card drivers are known to have low quality OpenGL 3.3 support, switching to ANGLE.
+   at: DisplayServerWindows (platform/windows/display_server_windows.cpp:8229)

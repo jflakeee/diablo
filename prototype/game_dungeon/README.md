@@ -1,0 +1,37 @@
+# 게임 던전 (Game Dungeon) — 캡스톤: 랜덤 던전 크롤러
+
+모든 시스템의 캡스톤 통합: **랜덤 던전 생성 + A* 내비게이션 + 전투 + 드롭/크래프트 +
+출구 워프(다음 레벨)**. 저사양 실기에서 도는 D2형 던전 크롤러.
+
+## 실행
+```
+godot --path . --rendering-driver opengl3 -- barb    # 바바리안
+godot --path . --rendering-driver opengl3 -- sorc    # 소서리스
+```
+- 조이스틱 이동, 스킬 버튼, Bag. 붉은 타일(출구)에 도달하면 **다음 던전 레벨로 워프**.
+- 3레벨부터 보스(안다리엘) 등장.
+
+### 검증 (자동 플레이)
+```
+godot --path . --rendering-driver opengl3 -- autoquit barb
+godot --path . --rendering-driver opengl3 -- autoquit sorc
+```
+
+## 통합된 전체 루프
+1. `level_gen`으로 **랜덤 던전 생성**(레벨별 결정론 시드) + AStarGrid2D 구축
+2. 플레이어 = 입구, 몬스터 = 랜덤 바닥칸(JSON 정의), 보스 = 3레벨+
+3. **A* 내비게이션**: 플레이어(자동)·몬스터가 경로 따라 이동(400ms 캐시)
+4. 전투(Part 1/5 공식), 드롭→줍기→장착(Part 3), 크래프트(Part 4)
+5. **출구 도달 → `_next_level()`**: 던전 재생성 + 몬스터 재배치
+
+## 실측 (2026-09-20, HD 4000, 결정론 시드)
+```
+sorceress: dungeon_level=2 levels_cleared=1 kills=6 life=84/86    verdict=PASS
+barbarian: dungeon_level=3 levels_cleared=2 kills=7 life=106/163  verdict=PASS
+```
+→ 두 클래스 모두 **다층 던전 클리어→워프** 동작, 런타임 에러 0.
+
+## 정식화
+- 몬스터 A* 부하 최적화(관심영역), 던전 내 몬스터 밀도·묶음(pack) 배치
+- 프리셋 청크 다양화, 특수룸/보스룸, 미니맵, 웨이포인트, 난이도 스케일링
+- 세이브(현재 레벨/캐릭터), 저항·블록 전투 심화, 인벤 그리드 UI
