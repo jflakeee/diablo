@@ -40,6 +40,8 @@ var _attack_ttl := 0.0
 
 var _joy: JoystickScript
 var _hud: Label
+var _menu_layer: CanvasLayer
+var _started := false
 var _inv_panel: Panel
 var _inv_vbox: VBoxContainer
 var _rng := RandomNumberGenerator.new()
@@ -110,8 +112,55 @@ func _ready() -> void:
 	_auto_quit = OS.get_cmdline_user_args().has("autoquit")
 	if OS.get_cmdline_user_args().has("sorc"):
 		_class = "sorceress"
+		_start_game()
 	elif OS.get_cmdline_user_args().has("barb"):
 		_class = "barbarian"
+		_start_game()
+	elif _auto_quit:
+		_start_game()
+	else:
+		_show_class_select()
+
+func _show_class_select() -> void:
+	_menu_layer = CanvasLayer.new()
+	add_child(_menu_layer)
+	var vp := get_viewport_rect().size
+	var bg := ColorRect.new()
+	bg.color = Color(0.05, 0.04, 0.08, 1.0)
+	bg.size = vp
+	_menu_layer.add_child(bg)
+	var title := Label.new()
+	title.text = "DIABLO CLONE"
+	title.add_theme_font_size_override("font_size", 40)
+	title.position = Vector2(vp.x * 0.5 - 130, vp.y * 0.22)
+	_menu_layer.add_child(title)
+	var sub := Label.new()
+	sub.text = "클래스를 선택하세요 / Choose your class"
+	sub.add_theme_font_size_override("font_size", 18)
+	sub.position = Vector2(vp.x * 0.5 - 160, vp.y * 0.22 + 56)
+	_menu_layer.add_child(sub)
+	_add_class_button("⚔  Barbarian  — 근접 · 탱커", Color(0.9, 0.75, 0.2), Vector2(vp.x * 0.5 - 190, vp.y * 0.45), "barbarian")
+	_add_class_button("✦  Sorceress  — 원거리 · 스펠", Color(0.55, 0.45, 0.95), Vector2(vp.x * 0.5 - 190, vp.y * 0.45 + 80), "sorceress")
+
+func _add_class_button(text: String, col: Color, pos: Vector2, cls: String) -> void:
+	var btn := Button.new()
+	btn.text = text
+	btn.position = pos
+	btn.custom_minimum_size = Vector2(380, 60)
+	btn.size = Vector2(380, 60)
+	btn.add_theme_font_size_override("font_size", 22)
+	btn.add_theme_color_override("font_color", col)
+	btn.pressed.connect(_choose_class.bind(cls))
+	_menu_layer.add_child(btn)
+
+func _choose_class(cls: String) -> void:
+	_class = cls
+	if is_instance_valid(_menu_layer):
+		_menu_layer.queue_free()
+	_start_game()
+
+func _start_game() -> void:
+	_started = true
 	_run_start = Time.get_ticks_msec()
 	_rng.randomize()
 
@@ -290,6 +339,8 @@ func _spawn_monster(nm: String, col: Color, w: int, h: int, lvl: int, hp: int, a
 	return m
 
 func _physics_process(delta: float) -> void:
+	if not _started:
+		return
 	_logic_ticks += 1
 	if not _player.alive:
 		return
@@ -450,6 +501,8 @@ func _check_pickup() -> void:
 			_pickup(n)
 
 func _process(delta: float) -> void:
+	if not _started:
+		return
 	if _cam:
 		_cam.position = _cam.position.lerp(_player.position, clampf(delta * 8.0, 0.0, 1.0))
 	_update_projectiles(delta)
