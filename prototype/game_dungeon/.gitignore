@@ -1,3 +1,6 @@
 .godot/
 run.log
 run.err.log
+
+build_web/
+export_presets.cfg.bak
