@@ -8,6 +8,7 @@
 | P0 렌더 | `p0_render_smoke` | 아이소+y-sort 826 스프라이트 **avg 145 / min 116 fps** | ✅ PASS |
 | P0 입력/루프 | `p0_input_loop` | 25Hz 논리틱 **rate 25.14/s**, 조이스틱+스킬 탭/홀드 | ✅ PASS |
 | Phase 1 | `phase1_arena` | 맵+충돌+몬스터AI+전투공식, **attacks 27 / hits 26 / life 94-157** | ✅ PASS |
+| Phase 2 | `phase2_skills` | 캐릭터(AR/Def/Life/Mana 산출)+스킬(Bash/Berserk/BO/Mastery)+레벨링, **Lv3/kills3/BO: life 157→217/mastery3** | ✅ PASS |
 
 ## 핵심 검증 결론
 - HD 4000에서 Godot이 자동 ANGLE(→D3D11) 전환 → **OpenGL 3.3 불완전 우려 무력화**. Godot 3.6 폴백 불필요.
