@@ -14,6 +14,7 @@
 > **🏁 수직 슬라이스(Phase 0~3) 완성** — 로드맵의 "게임이 돈다"(이동→전투→드롭→장착) 지점 도달.
 
 | Phase 4 | `phase4_craft` | 소켓/보석/룬워드/큐브, **Ruby+38life · Steel(Tir+El) · 순서검증 · El×3→Eld** | ✅ PASS |
+| Phase 5 | `phase5_boss` | 몬스터 AI(근접/원거리/보스)+안다리엘 3패턴, **melee9/nova3/spray1** | ✅ PASS |
 
 ## 핵심 검증 결론
 - HD 4000에서 Godot이 자동 ANGLE(→D3D11) 전환 → **OpenGL 3.3 불완전 우려 무력화**. Godot 3.6 폴백 불필요.
