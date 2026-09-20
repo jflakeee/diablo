@@ -246,12 +246,62 @@ func _step(actor: ActorScript, dir: Vector2, delta: float) -> void:
 		actor.gy = ny
 	actor.position = _iso(actor.gx, actor.gy)
 
+var _menu_layer: CanvasLayer
+var _started := false
+
 func _ready() -> void:
 	_auto_quit = OS.get_cmdline_user_args().has("autoquit")
 	if OS.get_cmdline_user_args().has("sorc"):
 		_class = "sorceress"
+		_start_game()
 	elif OS.get_cmdline_user_args().has("barb"):
 		_class = "barbarian"
+		_start_game()
+	elif _auto_quit:
+		_start_game()
+	else:
+		_show_class_select()
+
+func _show_class_select() -> void:
+	_menu_layer = CanvasLayer.new()
+	add_child(_menu_layer)
+	var vp := get_viewport_rect().size
+	var bg := ColorRect.new()
+	bg.color = Color(0.05, 0.04, 0.08, 1.0)
+	bg.size = vp
+	_menu_layer.add_child(bg)
+	var title := Label.new()
+	title.text = "DIABLO CLONE — Dungeon"
+	title.add_theme_font_size_override("font_size", 44)
+	title.position = Vector2(vp.x * 0.5 - 240, vp.y * 0.2)
+	_menu_layer.add_child(title)
+	var sub := Label.new()
+	sub.text = "클래스 선택 / Choose your class"
+	sub.add_theme_font_size_override("font_size", 22)
+	sub.position = Vector2(vp.x * 0.5 - 160, vp.y * 0.2 + 60)
+	_menu_layer.add_child(sub)
+	_add_class_button("⚔  Barbarian  — 근접 · 탱커", Color(0.9, 0.75, 0.2), Vector2(vp.x * 0.5 - 220, vp.y * 0.45), "barbarian")
+	_add_class_button("✦  Sorceress  — 원거리 · 스펠", Color(0.6, 0.5, 0.95), Vector2(vp.x * 0.5 - 220, vp.y * 0.45 + 96), "sorceress")
+
+func _add_class_button(text: String, col: Color, pos: Vector2, cls: String) -> void:
+	var btn := Button.new()
+	btn.text = text
+	btn.position = pos
+	btn.custom_minimum_size = Vector2(440, 74)
+	btn.size = Vector2(440, 74)
+	btn.add_theme_font_size_override("font_size", 26)
+	btn.add_theme_color_override("font_color", col)
+	btn.pressed.connect(_choose_class.bind(cls))
+	_menu_layer.add_child(btn)
+
+func _choose_class(cls: String) -> void:
+	_class = cls
+	if is_instance_valid(_menu_layer):
+		_menu_layer.queue_free()
+	_start_game()
+
+func _start_game() -> void:
+	_started = true
 	_run_start = Time.get_ticks_msec()
 	if _auto_quit:
 		_rng.seed = 42  # 검증 재현성
@@ -310,20 +360,24 @@ func _ready() -> void:
 	add_child(ui)
 	var vp := get_viewport_rect().size
 	_joy = JoystickScript.new()
-	_joy.position = Vector2(40, vp.y - 260)
+	_joy.position = Vector2(50, vp.y - 370)   # 모바일 확대
 	ui.add_child(_joy)
+	# 스킬 버튼(확대): 우하단 2개 + 위 1개
 	if _class == "sorceress":
-		_add_skill_button(ui, "fireball", "Fire", Color.ORANGE_RED, Vector2(vp.x - 110, vp.y - 120))
-		_add_skill_button(ui, "static", "Stat", Color.SKY_BLUE, Vector2(vp.x - 210, vp.y - 120))
-		_add_skill_button(ui, "teleport", "Tele", Color.MEDIUM_PURPLE, Vector2(vp.x - 160, vp.y - 220))
+		_add_skill_button(ui, "fireball", "Fire", Color.ORANGE_RED, Vector2(vp.x - 160, vp.y - 160))
+		_add_skill_button(ui, "static", "Stat", Color.SKY_BLUE, Vector2(vp.x - 300, vp.y - 160))
+		_add_skill_button(ui, "teleport", "Tele", Color.MEDIUM_PURPLE, Vector2(vp.x - 230, vp.y - 300))
 	else:
-		_add_skill_button(ui, "bash", "Bash", Color.ORANGE_RED, Vector2(vp.x - 110, vp.y - 120))
-		_add_skill_button(ui, "berserk", "Bsrk", Color.CRIMSON, Vector2(vp.x - 210, vp.y - 120))
-		_add_skill_button(ui, "battle_orders", "BO", Color.GOLD, Vector2(vp.x - 160, vp.y - 220))
+		_add_skill_button(ui, "bash", "Bash", Color.ORANGE_RED, Vector2(vp.x - 160, vp.y - 160))
+		_add_skill_button(ui, "berserk", "Bsrk", Color.CRIMSON, Vector2(vp.x - 300, vp.y - 160))
+		_add_skill_button(ui, "battle_orders", "BO", Color.GOLD, Vector2(vp.x - 230, vp.y - 300))
 
 	var bag := Button.new()
 	bag.text = "Bag"
-	bag.position = Vector2(vp.x - 90, 16)
+	bag.position = Vector2(vp.x - 150, 20)
+	bag.custom_minimum_size = Vector2(120, 56)
+	bag.size = Vector2(120, 56)
+	bag.add_theme_font_size_override("font_size", 24)
 	bag.pressed.connect(_toggle_bag)
 	ui.add_child(bag)
 
@@ -338,8 +392,8 @@ func _ready() -> void:
 	_inv_panel.add_child(_inv_vbox)
 
 	_hud = Label.new()
-	_hud.position = Vector2(12, 10)
-	_hud.add_theme_font_size_override("font_size", 16)
+	_hud.position = Vector2(14, 12)
+	_hud.add_theme_font_size_override("font_size", 24)
 	ui.add_child(_hud)
 
 	if _class == "barbarian":
@@ -423,6 +477,8 @@ func _spawn_monster(nm: String, col: Color, w: int, h: int, lvl: int, hp: int, a
 	return m
 
 func _physics_process(delta: float) -> void:
+	if not _started:
+		return
 	_logic_ticks += 1
 	if not _player.alive:
 		return
@@ -585,6 +641,8 @@ func _check_pickup() -> void:
 			_pickup(n)
 
 func _process(delta: float) -> void:
+	if not _started:
+		return
 	if _cam:
 		_cam.position = _cam.position.lerp(_player.position, clampf(delta * 8.0, 0.0, 1.0))
 	_update_projectiles(delta)
