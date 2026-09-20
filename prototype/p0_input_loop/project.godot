@@ -1,0 +1,28 @@
+; Godot 4.x — D2 Clone P0 입력 + 고정 틱 게임루프 프로토타입
+; HD 4000: Compatibility(OpenGL3, 자동 ANGLE) / 논리 틱 25Hz(원작 프레임 모델)
+
+config_version=5
+
+[application]
+
+config/name="D2 Clone P0 Input+Loop"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.4")
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+
+[physics]
+
+common/physics_ticks_per_second=25
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
