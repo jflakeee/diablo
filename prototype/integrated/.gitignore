@@ -1,3 +1,5 @@
 .godot/
 run.log
 run.err.log
+
+build_web/
