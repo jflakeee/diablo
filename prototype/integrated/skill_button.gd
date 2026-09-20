@@ -8,7 +8,7 @@ var label_text := "?"
 var color := Color.ORANGE
 
 func _ready() -> void:
-	size = Vector2(88, 88)
+	size = Vector2(132, 132)
 
 func _gui_input(e: InputEvent) -> void:
 	if e is InputEventScreenTouch and e.pressed:
@@ -16,10 +16,10 @@ func _gui_input(e: InputEvent) -> void:
 
 func _draw() -> void:
 	var c := size * 0.5
-	var r := 40.0
+	var r := 62.0
 	var base := color
 	base.a = 0.32
 	draw_circle(c, r, base)
-	draw_arc(c, r, 0.0, TAU, 32, color, 2.0)
+	draw_arc(c, r, 0.0, TAU, 40, color, 3.0)
 	var f := ThemeDB.fallback_font
-	draw_string(f, c + Vector2(-r + 6, 4), label_text, HORIZONTAL_ALIGNMENT_LEFT, 2 * r - 12, 16, Color.WHITE)
+	draw_string(f, c + Vector2(-r + 10, 6), label_text, HORIZONTAL_ALIGNMENT_LEFT, 2 * r - 20, 22, Color.WHITE)

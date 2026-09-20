@@ -240,20 +240,23 @@ func _start_game() -> void:
 	add_child(ui)
 	var vp := get_viewport_rect().size
 	_joy = JoystickScript.new()
-	_joy.position = Vector2(40, vp.y - 260)
+	_joy.position = Vector2(50, vp.y - 370)   # 모바일 확대
 	ui.add_child(_joy)
 	if _class == "sorceress":
-		_add_skill_button(ui, "fireball", "Fire", Color.ORANGE_RED, Vector2(vp.x - 110, vp.y - 120))
-		_add_skill_button(ui, "static", "Stat", Color.SKY_BLUE, Vector2(vp.x - 210, vp.y - 120))
-		_add_skill_button(ui, "teleport", "Tele", Color.MEDIUM_PURPLE, Vector2(vp.x - 160, vp.y - 220))
+		_add_skill_button(ui, "fireball", "Fire", Color.ORANGE_RED, Vector2(vp.x - 160, vp.y - 160))
+		_add_skill_button(ui, "static", "Stat", Color.SKY_BLUE, Vector2(vp.x - 300, vp.y - 160))
+		_add_skill_button(ui, "teleport", "Tele", Color.MEDIUM_PURPLE, Vector2(vp.x - 230, vp.y - 300))
 	else:
-		_add_skill_button(ui, "bash", "Bash", Color.ORANGE_RED, Vector2(vp.x - 110, vp.y - 120))
-		_add_skill_button(ui, "berserk", "Bsrk", Color.CRIMSON, Vector2(vp.x - 210, vp.y - 120))
-		_add_skill_button(ui, "battle_orders", "BO", Color.GOLD, Vector2(vp.x - 160, vp.y - 220))
+		_add_skill_button(ui, "bash", "Bash", Color.ORANGE_RED, Vector2(vp.x - 160, vp.y - 160))
+		_add_skill_button(ui, "berserk", "Bsrk", Color.CRIMSON, Vector2(vp.x - 300, vp.y - 160))
+		_add_skill_button(ui, "battle_orders", "BO", Color.GOLD, Vector2(vp.x - 230, vp.y - 300))
 
 	var bag := Button.new()
 	bag.text = "Bag"
-	bag.position = Vector2(vp.x - 90, 16)
+	bag.position = Vector2(vp.x - 150, 20)
+	bag.custom_minimum_size = Vector2(120, 56)
+	bag.size = Vector2(120, 56)
+	bag.add_theme_font_size_override("font_size", 24)
 	bag.pressed.connect(_toggle_bag)
 	ui.add_child(bag)
 
@@ -269,7 +272,7 @@ func _start_game() -> void:
 
 	_hud = Label.new()
 	_hud.position = Vector2(12, 10)
-	_hud.add_theme_font_size_override("font_size", 16)
+	_hud.add_theme_font_size_override("font_size", 24)
 	ui.add_child(_hud)
 
 	if _class == "barbarian":
