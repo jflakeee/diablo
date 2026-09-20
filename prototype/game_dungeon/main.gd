@@ -251,6 +251,7 @@ func _step(actor: ActorScript, dir: Vector2, delta: float) -> void:
 
 var _menu_layer: CanvasLayer
 var _started := false
+var _leech_total := 0
 
 func _ready() -> void:
 	_auto_quit = OS.get_cmdline_user_args().has("autoquit")
@@ -672,8 +673,8 @@ func _process(delta: float) -> void:
 
 	if _auto_quit and elapsed >= 50.0:
 		var dex := Vector2(_player.gx, _player.gy).distance_to(Vector2(_exit_cell.x, _exit_cell.y))
-		print("[GD][RESULT] class=%s dungeon_level=%d levels_cleared=%d kills=%d life=%d/%d pos=(%.0f,%.0f) exit=(%d,%d) dist=%.1f" % [
-			_class, _dlevel, _levels_cleared, _kills, _player.life, _player.max_life, _player.gx, _player.gy, _exit_cell.x, _exit_cell.y, dex])
+		print("[GD][RESULT] class=%s dungeon_level=%d levels_cleared=%d kills=%d life=%d/%d leech_total=%d dist=%.1f" % [
+			_class, _dlevel, _levels_cleared, _kills, _player.life, _player.max_life, _leech_total, dex])
 		var ok: bool = _kills > 0 and _player.alive
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "PLAYER_DIED"))
 		get_tree().quit()
@@ -804,7 +805,9 @@ func _update_projectiles(delta: float) -> void:
 			_spell_hits += 1
 			# 소서리스 스펠 생명 흡혈 (Part 5 §4)
 			if _player.leech_pct > 0 and _player.alive:
-				_player.life = mini(_player.max_life, _player.life + CombatLib.leech_life(dmg, _player.leech_pct))
+				var h := CombatLib.leech_life(dmg, _player.leech_pct)
+				_player.life = mini(_player.max_life, _player.life + h)
+				_leech_total += h
 				_player.queue_redraw()
 			var txt := "%d🔥" % dmg
 			if t.res_fire < 0:
@@ -853,7 +856,9 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 		target.take_damage(dmg + cb)
 		# 생명 흡혈(물리) (Part 5 §4)
 		if _player.leech_pct > 0:
-			_player.life = mini(_player.max_life, _player.life + CombatLib.leech_life(dmg, _player.leech_pct))
+			var h := CombatLib.leech_life(dmg, _player.leech_pct)
+			_player.life = mini(_player.max_life, _player.life + h)
+			_leech_total += h
 			_player.queue_redraw()
 		_spawn_text(target.position, ("%d!" % dmg) if crit else str(dmg), Color(1, 0.5, 0.2) if crit else Color(1, 0.9, 0.3))
 		if cb > 0:
