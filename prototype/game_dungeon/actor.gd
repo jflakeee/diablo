@@ -46,6 +46,11 @@ func setup(tex: Texture2D) -> void:
 	_sprite.texture = tex
 	add_child(_sprite)
 
+func set_sprite_texture(tex: Texture2D, scale_v: float = 1.0) -> void:
+	if _sprite:
+		_sprite.texture = tex
+		_sprite.scale = Vector2(scale_v, scale_v)
+
 func skill_level(id: String) -> int:
 	return int(skills.get(id, 0))
 

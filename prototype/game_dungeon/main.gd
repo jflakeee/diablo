@@ -12,6 +12,7 @@ const Item := preload("res://item.gd")
 const Craft := preload("res://craft.gd")
 const Data := preload("res://data.gd")
 const LevelGen := preload("res://level_gen.gd")
+const PixelGen := preload("res://pixel_gen.gd")
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -141,12 +142,23 @@ func _generate_dungeon() -> void:
 	_grid = lvl["grid"]
 	_ent_cell = lvl["entrance"]
 	_exit_cell = lvl["exit"]
-	var floor_tex := _tex_diamond(TILE_W, TILE_H, Color(0.22, 0.42, 0.28))
-	var wall_tex := _tex_diamond(TILE_W, TILE_H, Color(0.30, 0.28, 0.26))
+	# 제작기로 타일 변종 몇 개 미리 생성(성능: 재사용)
+	var floor_texs := [
+		PixelGen.iso_tile(TILE_W, TILE_H, Color(0.26, 0.42, 0.28), 1, true),
+		PixelGen.iso_tile(TILE_W, TILE_H, Color(0.24, 0.40, 0.26), 5, true),
+		PixelGen.iso_tile(TILE_W, TILE_H, Color(0.28, 0.44, 0.30), 9, false),
+	]
+	var wall_texs := [
+		PixelGen.iso_tile(TILE_W, TILE_H, Color(0.30, 0.28, 0.26), 2, true),
+		PixelGen.iso_tile(TILE_W, TILE_H, Color(0.26, 0.24, 0.23), 6, true),
+	]
 	for y in _gh:
 		for x in _gw:
 			var s := Sprite2D.new()
-			s.texture = floor_tex if int(_grid[y][x]) == 1 else wall_tex
+			if int(_grid[y][x]) == 1:
+				s.texture = floor_texs[(x * 7 + y) % 3]
+			else:
+				s.texture = wall_texs[(x * 5 + y) % 2]
 			s.position = _iso(x, y)
 			_tiles_node.add_child(s)
 	var em := Sprite2D.new()
@@ -182,6 +194,8 @@ func _spawn_dungeon_monsters() -> void:
 		var col := Color(float(md["color"][0]), float(md["color"][1]), float(md["color"][2]))
 		var cell := _random_floor_cell() if kind != "boss" else _random_floor_cell()
 		var m := _spawn_monster(String(md["name"]), col, int(md["w"]), int(md["h"]), int(md["level"]), int(md["hp"]), int(md["ar"]), int(md["def"]), int(md["dmin"]), int(md["dmax"]), float(md["speed"]), cell.x, cell.y)
+		# 제작기 몬스터 스프라이트 (보스는 크게)
+		m.set_sprite_texture(PixelGen.monster(col, cell.x * 13 + cell.y), 1.7 if kind == "boss" else 1.0)
 		if kind != "melee":
 			m.set_meta("kind", kind)
 		if kind == "boss":
@@ -350,6 +364,9 @@ func _start_game() -> void:
 	_player.gx = _ent_cell.x
 	_player.gy = _ent_cell.y
 	_player.position = _iso(_player.gx, _player.gy)
+	# 제작기 캐릭터 스프라이트
+	var robe := Color(0.3, 0.3, 0.75) if _class == "sorceress" else Color(0.7, 0.2, 0.15)
+	_player.set_sprite_texture(PixelGen.character(robe, 10), 1.1)
 
 	_spawn_dungeon_monsters()
 
@@ -954,11 +971,13 @@ func _on_monster_died(m: Node) -> void:
 func _spawn_ground(it: Dictionary, gx: float, gy: float) -> void:
 	var n := Node2D.new()
 	var spr := Sprite2D.new()
-	spr.texture = _tex_rect(14, 14, Item.quality_color(String(it["quality"])))
+	spr.texture = PixelGen.icon("sword" if String(it["slot"]) == "weapon" else "shield", 0)  # 제작기 아이콘
+	spr.scale = Vector2(0.8, 0.8)
+	spr.modulate = Item.quality_color(String(it["quality"]))
 	n.add_child(spr)
 	var lbl := Label.new()
 	lbl.text = Item.display_name(it)
-	lbl.position = Vector2(-30, -26)
+	lbl.position = Vector2(-30, -30)
 	lbl.add_theme_font_size_override("font_size", 12)
 	lbl.add_theme_color_override("font_color", Item.quality_color(String(it["quality"])))
 	n.add_child(lbl)
