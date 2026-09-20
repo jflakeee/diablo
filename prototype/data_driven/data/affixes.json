@@ -1,0 +1,18 @@
+{
+  "prefixes": [
+    {"name": "Jagged",  "stat": "ed",  "min": 10, "max": 20, "alvl": 1,  "slot": "weapon"},
+    {"name": "Deadly",  "stat": "ed",  "min": 21, "max": 30, "alvl": 5,  "slot": "weapon"},
+    {"name": "Vicious", "stat": "ed",  "min": 31, "max": 40, "alvl": 8,  "slot": "weapon"},
+    {"name": "Bronze",  "stat": "ar",  "min": 10, "max": 20, "alvl": 1,  "slot": "any"},
+    {"name": "Gold",    "stat": "ar",  "min": 40, "max": 60, "alvl": 8,  "slot": "any"},
+    {"name": "Sturdy",  "stat": "def", "min": 5,  "max": 14, "alvl": 1,  "slot": "armor"}
+  ],
+  "suffixes": [
+    {"name": "of the Jackal", "stat": "life",    "min": 1,  "max": 5,  "alvl": 1,  "slot": "any"},
+    {"name": "of the Wolf",   "stat": "life",    "min": 11, "max": 20, "alvl": 15, "slot": "any"},
+    {"name": "of Energy",     "stat": "mana",    "min": 1,  "max": 6,  "alvl": 1,  "slot": "any"},
+    {"name": "of Strength",   "stat": "str",     "min": 1,  "max": 4,  "alvl": 1,  "slot": "any"},
+    {"name": "of Dexterity",  "stat": "dex",     "min": 1,  "max": 4,  "alvl": 1,  "slot": "any"},
+    {"name": "of the Fox",    "stat": "res_all", "min": 3,  "max": 8,  "alvl": 5,  "slot": "any"}
+  ]
+}

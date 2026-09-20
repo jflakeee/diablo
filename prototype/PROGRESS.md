@@ -24,6 +24,10 @@
 
 > **🎮 통합 심화:** 단계별 프로토타입 → 단일 플레이 프로젝트로 병합(공용 모듈 1벌, 바바리안·소서리스 클래스 선택). 정식화 백로그는 [검증 상태 종합 §3](../docs/superpowers/specs/2026-09-20-prototype-verification-status.md).
 
+| 데이터구동 | `data_driven` | 몬스터/아이템/접사 JSON 로드, **monsters=6 로드 PASS, JSON몹 전투 PASS** | ✅ PASS |
+
+> **🗃️ 데이터 파이프라인 심화:** 콘텐츠를 코드→JSON 분리. 몬스터 추가 = JSON 편집. 정식화 시 원본 txt→JSON 임포트로 대량 콘텐츠 수용.
+
 ## 핵심 검증 결론
 - HD 4000에서 Godot이 자동 ANGLE(→D3D11) 전환 → **OpenGL 3.3 불완전 우려 무력화**. Godot 3.6 폴백 불필요.
 - 렌더 헤드룸 충분(원작 규모 근사 826개서 116fps 최저).

@@ -1,0 +1,12 @@
+{
+  "weapons": [
+    {"name": "Short Sword", "slot": "weapon", "dmin": 2, "dmax": 7,  "qlvl": 1},
+    {"name": "Hand Axe",    "slot": "weapon", "dmin": 3, "dmax": 10, "qlvl": 2},
+    {"name": "Mace",        "slot": "weapon", "dmin": 3, "dmax": 8,  "qlvl": 3}
+  ],
+  "armor": [
+    {"name": "Quilted Armor", "slot": "armor", "defense": 9,  "qlvl": 1},
+    {"name": "Leather Armor", "slot": "armor", "defense": 14, "qlvl": 3},
+    {"name": "Ring Mail",     "slot": "armor", "defense": 26, "qlvl": 7}
+  ]
+}
