@@ -10,6 +10,7 @@ const CombatLib := preload("res://combat.gd")
 const Skills := preload("res://skills.gd")
 const Item := preload("res://item.gd")
 const Craft := preload("res://craft.gd")
+const PixelGen := preload("res://pixel_gen.gd")
 
 const TILE_W := 64
 const TILE_H := 32
@@ -171,13 +172,24 @@ func _start_game() -> void:
 	for b in [Vector2i(7, 7), Vector2i(12, 6), Vector2i(13, 13), Vector2i(6, 13)]:
 		_blocked[b] = true
 
-	var floor_tex := _tex_diamond(TILE_W, TILE_H, Color(0.22, 0.45, 0.28))
-	var wall_tex := _tex_diamond(TILE_W, TILE_H, Color(0.35, 0.33, 0.30))
+	# 제작기 타일 변종
+	var floor_texs := [
+		PixelGen.iso_tile(TILE_W, TILE_H, Color(0.26, 0.42, 0.28), 1, true),
+		PixelGen.iso_tile(TILE_W, TILE_H, Color(0.24, 0.40, 0.26), 5, true),
+		PixelGen.iso_tile(TILE_W, TILE_H, Color(0.28, 0.44, 0.30), 9, false),
+	]
+	var wall_texs := [
+		PixelGen.iso_tile(TILE_W, TILE_H, Color(0.32, 0.30, 0.28), 2, true),
+		PixelGen.iso_tile(TILE_W, TILE_H, Color(0.28, 0.26, 0.25), 6, true),
+	]
 	for gx in GRID:
 		for gy in GRID:
 			var edge := gx == 0 or gy == 0 or gx == GRID - 1 or gy == GRID - 1
 			var s := Sprite2D.new()
-			s.texture = wall_tex if (edge or _blocked.has(Vector2i(gx, gy))) else floor_tex
+			if edge or _blocked.has(Vector2i(gx, gy)):
+				s.texture = wall_texs[(gx * 5 + gy) % 2]
+			else:
+				s.texture = floor_texs[(gx * 7 + gy) % 3]
 			s.position = _iso(gx, gy)
 			s.y_sort_enabled = false
 			_world.add_child(s)
@@ -211,6 +223,8 @@ func _start_game() -> void:
 	_player.gx = 10.0
 	_player.gy = 10.0
 	_player.position = _iso(_player.gx, _player.gy)
+	var robe := Color(0.3, 0.3, 0.75) if _class == "sorceress" else Color(0.7, 0.2, 0.15)
+	_player.set_sprite_texture(PixelGen.character(robe, 10), 1.1)
 
 	_spawn_monster("Fallen", Color(0.2, 0.35, 0.85), 20, 28, 2, 15, 55, 8, 1, 3, 3.4, 5, 5)
 	_spawn_monster("Fallen", Color(0.2, 0.35, 0.85), 20, 28, 2, 15, 55, 8, 1, 3, 3.4, 6, 4)
@@ -325,6 +339,8 @@ func _add_skill_button(ui: CanvasLayer, id: String, label: String, col: Color, p
 
 func _spawn_monster(nm: String, col: Color, w: int, h: int, lvl: int, hp: int, ar: int, df: int, dmin: int, dmax: int, spd: float, gx: int, gy: int) -> ActorScript:
 	var m := _make_actor(nm, col, w, h)
+	# 제작기 몬스터 스프라이트 (안다리엘 보스는 크게)
+	m.set_sprite_texture(PixelGen.monster(col, gx * 13 + gy), 1.7 if nm == "Andariel" else 1.0)
 	m.level = lvl
 	m.base_max_life = hp
 	m.max_life = hp
@@ -783,11 +799,13 @@ func _on_monster_died(m: Node) -> void:
 func _spawn_ground(it: Dictionary, gx: float, gy: float) -> void:
 	var n := Node2D.new()
 	var spr := Sprite2D.new()
-	spr.texture = _tex_rect(14, 14, Item.quality_color(String(it["quality"])))
+	spr.texture = PixelGen.icon("sword" if String(it["slot"]) == "weapon" else "shield", 0)
+	spr.scale = Vector2(0.8, 0.8)
+	spr.modulate = Item.quality_color(String(it["quality"]))
 	n.add_child(spr)
 	var lbl := Label.new()
 	lbl.text = Item.display_name(it)
-	lbl.position = Vector2(-30, -26)
+	lbl.position = Vector2(-30, -30)
 	lbl.add_theme_font_size_override("font_size", 12)
 	lbl.add_theme_color_override("font_color", Item.quality_color(String(it["quality"])))
 	n.add_child(lbl)
