@@ -1,0 +1,9 @@
+; Godot 4.x — D2 Clone Phase 7: 온라인(계정/동기화/거래) 최소 프로토타입
+
+config_version=5
+
+[application]
+
+config/name="D2 Clone Phase 7 Online"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.4")
