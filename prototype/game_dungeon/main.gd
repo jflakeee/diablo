@@ -25,6 +25,17 @@ var _exit_cell := Vector2i(1, 1)
 var _tiles_node: Node2D
 var _dlevel := 1
 var _levels_cleared := 0
+# ── 액트 구조(보스 클라이맥스 + 퀘스트) ──
+const ACT_LEN := 3            # 액트당 던전 층수(마지막 층=보스)
+var _act := 1
+var _acts_cleared := 0
+var _exit_locked := false
+
+func _level_in_act() -> int:
+	return ((_dlevel - 1) % ACT_LEN) + 1
+
+func _is_boss_level() -> bool:
+	return _level_in_act() == ACT_LEN
 
 const TILE_W := 64
 const TILE_H := 32
@@ -246,15 +257,17 @@ func _spawn_dungeon_monsters() -> void:
 			boss_def = md
 		else:
 			pool.append(md)
-	# 던전 레벨에 따라 잡몹 수(4+레벨, 최대 8) — 풀에서 랜덤 조합
-	var count := mini(4 + _dlevel, 8)
+	var boss_lv := _is_boss_level()
+	_exit_locked = boss_lv and not boss_def.is_empty()
+	# 잡몹 수: 일반 층은 4+레벨(최대 8), 보스 층은 줄여서 보스에 집중
+	var count := 3 if boss_lv else mini(4 + _dlevel, 8)
 	for i in count:
 		if pool.is_empty():
 			break
 		var md: Dictionary = pool[_rng.randi_range(0, pool.size() - 1)]
 		_spawn_one(md, _random_floor_cell())
-	# 보스: 3레벨 이상
-	if _dlevel >= 3 and not boss_def.is_empty():
+	# 보스: 액트 마지막 층에만 등장(퀘스트 목표)
+	if boss_lv and not boss_def.is_empty():
 		_spawn_one(boss_def, _random_floor_cell())
 
 # 유니크 보스 모디파이어(Part 3 §4 몬스터 팩) — D2 상징 접두 능력
@@ -346,6 +359,31 @@ func _add_name_tag(m: ActorScript, text: String, color: Color) -> void:
 	lbl.add_theme_constant_override("outline_size", 3)
 	lbl.position = Vector2(-float(text.length()) * 3.0, -52)
 	m.add_child(lbl)
+
+# 액트 보스 처치 보상 — 출구 해제 + 유니크 확정 + 스킬포인트 + 골드 보너스
+func _complete_act(boss: Node) -> void:
+	_exit_locked = false
+	_acts_cleared += 1
+	# 확정 유니크 드롭(가능한 베이스 중 랜덤)
+	var uniq_bases: Array = Item.UNIQUES.keys()
+	var pick_name := String(uniq_bases[_rng.randi_range(0, uniq_bases.size() - 1)])
+	var base: Dictionary = {}
+	for b in Item.WEAPON_BASES + Item.ARMOR_BASES:
+		if String(b["name"]) == pick_name:
+			base = b
+			break
+	if not base.is_empty():
+		var uq := Item.generate(_rng, base, _player.level + 10, "unique")
+		_spawn_ground(uq, boss.gx, boss.gy)
+		_items_dropped += 1
+	# 스킬 포인트 + 골드 보너스
+	_player.skill_points += 2
+	if _auto_quit:
+		_auto_spend_points()
+	var bonus := 500 + _act * 300
+	_gold += bonus
+	_combat_log = "★ ACT %d 클리어! 출구 개방 · 유니크 · 스킬+2 · +%dg" % [_act, bonus]
+	_act += 1
 
 func _next_level() -> void:
 	_levels_cleared += 1
@@ -863,10 +901,13 @@ func _physics_process(delta: float) -> void:
 
 	_check_pickup()
 
-	# 출구 도달 → 다음 던전 레벨(워프)
+	# 출구 도달 → 다음 던전 레벨(워프). 보스 층은 보스 처치 전 잠금.
 	if Vector2(_player.gx, _player.gy).distance_to(Vector2(_exit_cell.x, _exit_cell.y)) < 1.3:
-		_next_level()
-		return
+		if _exit_locked:
+			_combat_log = "🔒 출구 봉인 — 보스를 처치하라!"
+		else:
+			_next_level()
+			return
 
 	for m in _monsters:
 		if not m.alive:
@@ -1141,6 +1182,8 @@ func _process(delta: float) -> void:
 		_hud.text += "\n용병 Rogue Scout %s  킬 %d" % [ms, _merc_kills]
 	if _stat_points > 0 or _player.skill_points > 0:
 		_hud.text += "  ▲포인트: 스탯%d 스킬%d (Char)" % [_stat_points, _player.skill_points]
+	var quest := "🔒 보스 처치 필요" if _exit_locked else ("⚔ 보스 층" if _is_boss_level() else "탐험 중")
+	_hud.text += "\nACT %d · 층 %d/%d · %s (클리어 %d)" % [_act, _level_in_act(), ACT_LEN, quest, _acts_cleared]
 
 	if _auto_quit and elapsed >= 50.0:
 		var dex := Vector2(_player.gx, _player.gy).distance_to(Vector2(_exit_cell.x, _exit_cell.y))
@@ -1152,6 +1195,8 @@ func _process(delta: float) -> void:
 		print("[MERC] kills=%d state=%s" % [_merc_kills, mstate])
 		print("[GOLD] gold=%d sold_total=%d gambles=%d" % [_gold, _gold_sold, _gambles])
 		print("[MAP] tex=%s grid=%dx%d monster_dots=%d" % [str(_minimap != null and _minimap.tex != null), _minimap.gw if _minimap else 0, _minimap.gh if _minimap else 0, _minimap.monster_cells.size() if _minimap else 0])
+		print("[ACT] act=%d level_in_act=%d/%d boss_level=%s exit_locked=%s acts_cleared=%d" % [
+			_act, _level_in_act(), ACT_LEN, str(_is_boss_level()), str(_exit_locked), _acts_cleared])
 		print("[CHAR] str=%d dex=%d vit=%d energy=%d mastery=%d unspent(stat=%d skill=%d)" % [
 			_player.stat_str, _player.stat_dex, _player.stat_vit, _player.stat_energy,
 			_player.skill_level("mastery" if _class != "sorceress" else "fireball"), _stat_points, _player.skill_points])
@@ -1505,6 +1550,9 @@ func _grant_xp(amount: int) -> void:
 func _on_monster_died(m: Node) -> void:
 	_kills += 1
 	_play_sfx("death")
+	# 액트 보스 처치 → 퀘스트 완료
+	if _boss != null and m == _boss:
+		_complete_act(m)
 	# 등급별 강화 드롭 (챔피언/유니크 = 더 많은 롤 + MF + ilvl 보너스)
 	var rank := String(m.get_meta("rank", ""))
 	var rolls := 1
