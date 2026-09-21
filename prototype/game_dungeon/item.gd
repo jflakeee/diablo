@@ -16,6 +16,16 @@ const ARMOR_BASES := [
 	{"name": "Ring Mail", "slot": "armor", "defense": 26},
 ]
 
+# 유니크 아이템(고정 스탯) — 베이스명 → 유니크
+const UNIQUES := {
+	"Short Sword": {"name": "Rixot's Keen", "affixes": {"ed": 50, "fdmg": 10, "ar": 40}},
+	"Hand Axe": {"name": "The Gnasher", "affixes": {"ed": 70, "ar": 40, "cdmg": 8}},
+	"Mace": {"name": "Crushflange", "affixes": {"ed": 60, "str": 10, "ldmg": 12}},
+	"Quilted Armor": {"name": "Greyform", "affixes": {"def": 30, "res_all": 12, "dex": 8, "life": 15}},
+	"Leather Armor": {"name": "Iceblink", "affixes": {"def": 45, "res_cold": 35, "res_all": 10, "life": 25}},
+	"Ring Mail": {"name": "Silks of the Victor", "affixes": {"def": 55, "res_all": 15, "mana": 30, "str": 8}},
+}
+
 # stat 코드: ed(%ED) ar(+AR) def(+방어) life(+생명) mana(+마나) str dex res_all(+전저항)
 const PREFIXES := [
 	{"name": "Jagged", "stat": "ed", "min": 10, "max": 20, "alvl": 1, "slot": "weapon"},
@@ -76,6 +86,12 @@ static func generate(rng: RandomNumberGenerator, base: Dictionary, ilvl: int, qu
 	}
 	if quality == "normal":
 		return it
+	if quality == "unique" and UNIQUES.has(String(base["name"])):
+		var u: Dictionary = UNIQUES[String(base["name"])]
+		it["prefix"] = String(u["name"])   # 유니크 이름 저장
+		for k in u["affixes"]:
+			it["affixes"][k] = int(u["affixes"][k])
+		return it
 	var n_pre := 0
 	var n_suf := 0
 	if quality == "magic":
@@ -106,17 +122,24 @@ static func roll_drop(rng: RandomNumberGenerator, monster_level: int, magic_find
 	var ilvl := monster_level + 8   # 데모: 접사 다양성 위해 상향(정식은 mlvl 그대로)
 	var eff_mf := (magic_find * 600.0) / (magic_find + 600.0) if magic_find > 0 else 0.0
 	var rare_chance := 4.0 * (1.0 + eff_mf / 100.0)
+	var uniq_mf := (magic_find * 250.0) / (magic_find + 250.0) if magic_find > 0 else 0.0
+	var uniq_chance := 2.0 * (1.0 + uniq_mf / 100.0)
 	var r := rng.randf() * 100.0
 	var quality := "magic"
-	if r < rare_chance:
+	if r < uniq_chance and UNIQUES.has(String(base["name"])):
+		quality = "unique"
+	elif r < uniq_chance + rare_chance:
 		quality = "rare"
 	elif r >= 92.0:
 		quality = "normal"
 	return generate(rng, base, ilvl, quality)
 
 static func display_name(it: Dictionary) -> String:
-	if String(it["quality"]) == "normal":
+	var q := String(it["quality"])
+	if q == "normal":
 		return String(it["name"])
+	if q == "unique":
+		return "%s (%s)" % [String(it["prefix"]), String(it["name"])]   # 유니크명 (베이스)
 	var pre := (String(it["prefix"]) + " ") if it["prefix"] != "" else ""
 	var suf := (" " + String(it["suffix"])) if it["suffix"] != "" else ""
 	return pre + String(it["name"]) + suf
@@ -136,6 +159,8 @@ static func quality_color(q: String) -> Color:
 		return Color(0.45, 0.5, 1.0)
 	if q == "rare":
 		return Color(1.0, 0.9, 0.35)
+	if q == "unique":
+		return Color(0.72, 0.55, 0.28)   # 유니크 금갈색
 	return Color(0.85, 0.85, 0.85)
 
 # ── 소켓/룬워드 (Phase 4) ──

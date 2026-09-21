@@ -298,6 +298,9 @@ func _ready() -> void:
 		_difficulty = 2
 	elif OS.get_cmdline_user_args().has("nm"):
 		_difficulty = 1
+	if _auto_quit:
+		var uq := Item.generate(_rng, Item.WEAPON_BASES[1], 20, "unique")
+		print("[UNIQ] ", Item.display_name(uq), " affixes=", uq["affixes"], " color=", Item.quality_color("unique"))
 	if OS.get_cmdline_user_args().has("sorc"):
 		_class = "sorceress"
 		_start_game()
