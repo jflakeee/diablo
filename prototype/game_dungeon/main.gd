@@ -70,6 +70,12 @@ var _merc_kills := 0
 var _merc_revive_t := 0.0
 const MERC_RANGE := 6.0
 const MERC_CD := 1.1
+# ── 골드 경제 & 상인 ──
+var _gold := 0
+const COST_HP_POT := 45
+const COST_MP_POT := 35
+var _vendor_panel: Panel
+var _gold_sold := 0
 var _inv_panel: Panel
 var _inv_vbox: VBoxContainer
 var _rng := RandomNumberGenerator.new()
@@ -609,6 +615,22 @@ func _start_game() -> void:
 	_inv_vbox.custom_minimum_size = Vector2(340, 410)
 	_inv_panel.add_child(_inv_vbox)
 
+	var shop := Button.new()
+	shop.text = "Shop"
+	shop.position = Vector2(vp.x - 290, 20)
+	shop.custom_minimum_size = Vector2(120, 56)
+	shop.size = Vector2(120, 56)
+	shop.add_theme_font_size_override("font_size", 24)
+	shop.pressed.connect(_toggle_vendor)
+	ui.add_child(shop)
+
+	_vendor_panel = Panel.new()
+	_vendor_panel.position = Vector2(vp.x - 380, 50)
+	_vendor_panel.size = Vector2(360, 300)
+	_vendor_panel.visible = false
+	ui.add_child(_vendor_panel)
+	_build_vendor()
+
 	_hud = Label.new()
 	_hud.position = Vector2(14, 12)
 	_hud.add_theme_font_size_override("font_size", 24)
@@ -973,6 +995,11 @@ func _auto_play(delta: float) -> void:
 		_quaff_health()
 	if _player.mana < _player.max_mana * 0.20 and _belt_mp > 0:
 		_quaff_mana()
+	# 상인 이용(검증): 가방 5개↑ 판매, 골드 여유+벨트 부족 시 포션 구매
+	if _inventory.size() >= 5:
+		_sell_all()
+	if _gold >= COST_HP_POT and _belt_hp < 3:
+		_buy_potion("health")
 	if _class == "barbarian" and not _bo_done:
 		_cast_battle_orders()
 		_bo_done = true
@@ -1040,8 +1067,8 @@ func _process(delta: float) -> void:
 	var wn := Item.display_name(_equipped["weapon"]) if not _equipped["weapon"].is_empty() else "-"
 	var an := Item.display_name(_equipped["armor"]) if not _equipped["armor"].is_empty() else "-"
 	var elapsed := float(Time.get_ticks_msec() - _run_start) / 1000.0
-	_hud.text = "%s Lv%d  Life %d/%d  Mana %d/%d\nWpn: %s (%d-%d)  Arm: %s  Def %d\nkills %d  drops %d  bag %d  MF %d   벨트 ♥%d ✦%d\n%s" % [
-		_player.actor_name, _player.level, _player.life, _player.max_life, _player.mana, _player.max_mana,
+	_hud.text = "%s Lv%d  Life %d/%d  Mana %d/%d   골드 %d\nWpn: %s (%d-%d)  Arm: %s  Def %d\nkills %d  drops %d  bag %d  MF %d   벨트 ♥%d ✦%d\n%s" % [
+		_player.actor_name, _player.level, _player.life, _player.max_life, _player.mana, _player.max_mana, _gold,
 		wn, _player.dmg_min, _player.dmg_max, an, _player.defense,
 		_kills, _items_dropped, _inventory.size(), _player_mf, _belt_hp, _belt_mp, _combat_log]
 	if _pot_hp_btn:
@@ -1060,6 +1087,7 @@ func _process(delta: float) -> void:
 		print("[POT] quaffed=%d belt(♥%d ✦%d)" % [_potions_quaffed, _belt_hp, _belt_mp])
 		var mstate := ("alive %d/%d" % [_merc.life, _merc.max_life]) if (_merc != null and _merc.alive) else "down"
 		print("[MERC] kills=%d state=%s" % [_merc_kills, mstate])
+		print("[GOLD] gold=%d sold_total=%d" % [_gold, _gold_sold])
 		var ok: bool = _kills > 0 or _spells_cast > 0
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		get_tree().quit()
@@ -1438,6 +1466,26 @@ func _on_monster_died(m: Node) -> void:
 		_spawn_ground(_make_potion("health"), m.gx, m.gy)
 	elif pr < 0.37 + pot_bonus:
 		_spawn_ground(_make_potion("mana"), m.gx, m.gy)
+	# 골드 드롭(몬스터 레벨·등급 스케일)
+	if _rng.randf() < 0.7:
+		var rank_mult := 1.0
+		if rank == "champion": rank_mult = 2.5
+		elif rank == "unique": rank_mult = 5.0
+		var amt := int(_rng.randi_range(3, 8) * int(m.level) * rank_mult)
+		_spawn_ground(_make_gold(amt), m.gx + _rng.randf_range(-0.3, 0.3), m.gy + _rng.randf_range(-0.3, 0.3))
+
+func _make_gold(amount: int) -> Dictionary:
+	return {"name": "%d Gold" % amount, "slot": "gold", "amount": amount, "quality": "normal", "affixes": {}, "prefix": "", "suffix": ""}
+
+# 아이템 판매가(품질 + 접사 수 기반)
+func _item_value(it: Dictionary) -> int:
+	var q := String(it["quality"])
+	var table := {"normal": 8, "magic": 40, "rare": 110, "unique": 300}
+	var base: int = int(table.get(q, 10))
+	var affix_cnt := 0
+	for _k in it.get("affixes", {}):
+		affix_cnt += 1
+	return base + affix_cnt * 15 + int(it.get("ilvl", 1)) * 2
 
 func _make_potion(ptype: String) -> Dictionary:
 	var nm := "Healing Potion" if ptype == "health" else "Mana Potion"
@@ -1447,12 +1495,15 @@ func _spawn_ground(it: Dictionary, gx: float, gy: float) -> void:
 	var n := Node2D.new()
 	var slot := String(it["slot"])
 	var is_pot := slot == "potion"
+	var is_gold := slot == "gold"
 	var col: Color = Item.quality_color(String(it["quality"]))
 	if is_pot:
 		col = Color(0.85, 0.2, 0.2) if String(it["ptype"]) == "health" else Color(0.3, 0.45, 0.95)
+	elif is_gold:
+		col = Color(1.0, 0.85, 0.25)
 	var spr := Sprite2D.new()
 	spr.texture = PixelGen.icon("sword" if slot == "weapon" else "shield", 0)  # 제작기 아이콘
-	spr.scale = Vector2(0.55, 0.55) if is_pot else Vector2(0.8, 0.8)
+	spr.scale = Vector2(0.4, 0.4) if is_gold else (Vector2(0.55, 0.55) if is_pot else Vector2(0.8, 0.8))
 	spr.modulate = col
 	n.add_child(spr)
 	var lbl := Label.new()
@@ -1473,6 +1524,11 @@ func _pickup(n: Node) -> void:
 	_play_sfx("pickup")
 	_ground.erase(n)
 	n.queue_free()
+	# 골드 → 지갑
+	if String(it["slot"]) == "gold":
+		_gold += int(it["amount"])
+		_spawn_text(_player.position, "+%d gold" % int(it["amount"]), Color(1, 0.85, 0.3))
+		return
 	# 포션 → 벨트(가득 차면 줍지 않음)
 	if String(it["slot"]) == "potion":
 		var pt := String(it["ptype"])
@@ -1509,6 +1565,65 @@ func _toggle_bag() -> void:
 	_inv_panel.visible = not _inv_panel.visible
 	if _inv_panel.visible:
 		_rebuild_inv()
+
+var _vendor_gold_lbl: Label
+func _build_vendor() -> void:
+	var vb := VBoxContainer.new()
+	vb.position = Vector2(12, 10)
+	vb.custom_minimum_size = Vector2(336, 280)
+	_vendor_panel.add_child(vb)
+	var head := Label.new()
+	head.text = "◆ 상인 (Vendor)"
+	head.add_theme_font_size_override("font_size", 20)
+	vb.add_child(head)
+	_vendor_gold_lbl = Label.new()
+	_vendor_gold_lbl.add_theme_color_override("font_color", Color(1, 0.85, 0.3))
+	vb.add_child(_vendor_gold_lbl)
+	_vendor_btn(vb, "생명 포션 구매 (%dg)" % COST_HP_POT, func(): _buy_potion("health"))
+	_vendor_btn(vb, "마나 포션 구매 (%dg)" % COST_MP_POT, func(): _buy_potion("mana"))
+	_vendor_btn(vb, "인벤토리 전부 판매", func(): _sell_all())
+
+func _vendor_btn(vb: VBoxContainer, text: String, cb: Callable) -> void:
+	var b := Button.new()
+	b.text = text
+	b.custom_minimum_size = Vector2(320, 48)
+	b.add_theme_font_size_override("font_size", 18)
+	b.pressed.connect(cb)
+	vb.add_child(b)
+
+func _toggle_vendor() -> void:
+	_vendor_panel.visible = not _vendor_panel.visible
+	_refresh_vendor()
+
+func _refresh_vendor() -> void:
+	if _vendor_gold_lbl:
+		_vendor_gold_lbl.text = "골드: %d    벨트 ♥%d ✦%d    가방 %d" % [_gold, _belt_hp, _belt_mp, _inventory.size()]
+
+func _buy_potion(ptype: String) -> void:
+	var cost := COST_HP_POT if ptype == "health" else COST_MP_POT
+	if _gold < cost:
+		_combat_log = "골드 부족"
+		return
+	if not _add_potion_to_belt(ptype):
+		_combat_log = "벨트 가득참"
+		return
+	_gold -= cost
+	_combat_log = "%s 포션 구매" % ("생명" if ptype == "health" else "마나")
+	_refresh_vendor()
+
+func _sell_all() -> void:
+	if _inventory.is_empty():
+		return
+	var total := 0
+	var cnt := _inventory.size()
+	for it in _inventory:
+		total += _item_value(it)
+	_gold += total
+	_gold_sold += total
+	_inventory.clear()
+	_combat_log = "%d개 판매 → +%dg" % [cnt, total]
+	_rebuild_inv()
+	_refresh_vendor()
 
 func _rebuild_inv() -> void:
 	if _inv_vbox == null:
