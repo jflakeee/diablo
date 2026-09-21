@@ -13,6 +13,7 @@ const Craft := preload("res://craft.gd")
 const Data := preload("res://data.gd")
 const LevelGen := preload("res://level_gen.gd")
 const PixelGen := preload("res://pixel_gen.gd")
+const SfxGen := preload("res://sfx_gen.gd")
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -292,7 +293,33 @@ var _base_res_cold := 0
 var _base_res_light := 0
 var _base_res_poison := 0
 
+var _sfx := {}              # name -> AudioStreamWAV
+var _sfx_pool: Array = []   # AudioStreamPlayer 라운드로빈 풀
+var _sfx_idx := 0
+var _sfx_ready := false
+
+# 절차 생성 효과음 준비(코드 PCM). 실패해도 게임에 영향 X.
+func _setup_sfx() -> void:
+	for n in ["attack", "spell", "hit", "pickup", "levelup", "death"]:
+		_sfx[n] = SfxGen.make(n)
+	for i in 6:
+		var p := AudioStreamPlayer.new()
+		p.bus = "Master"
+		add_child(p)
+		_sfx_pool.append(p)
+	_sfx_ready = true
+
+func _play_sfx(name: String, vol_db: float = -6.0) -> void:
+	if not _sfx_ready or not _sfx.has(name):
+		return
+	var p: AudioStreamPlayer = _sfx_pool[_sfx_idx]
+	_sfx_idx = (_sfx_idx + 1) % _sfx_pool.size()
+	p.stream = _sfx[name]
+	p.volume_db = vol_db
+	p.play()
+
 func _ready() -> void:
+	_setup_sfx()
 	_auto_quit = OS.get_cmdline_user_args().has("autoquit")
 	if OS.get_cmdline_user_args().has("hell"):
 		_difficulty = 2
@@ -301,6 +328,12 @@ func _ready() -> void:
 	if _auto_quit:
 		var uq := Item.generate(_rng, Item.WEAPON_BASES[1], 20, "unique")
 		print("[UNIQ] ", Item.display_name(uq), " affixes=", uq["affixes"], " color=", Item.quality_color("unique"))
+		var sok := 0
+		for sn in _sfx:
+			var st: AudioStreamWAV = _sfx[sn]
+			if st != null and st.data.size() > 0:
+				sok += 1
+		print("[SFX] generated=%d/%d players=%d bytes(attack)=%d" % [sok, _sfx.size(), _sfx_pool.size(), int((_sfx["attack"] as AudioStreamWAV).data.size())])
 	if OS.get_cmdline_user_args().has("sorc"):
 		_class = "sorceress"
 		_start_game()
@@ -841,6 +874,7 @@ func _cast_bolt(target: ActorScript, element: String, color: Color, base_min: in
 		return
 	_player.attack_cd = CombatLib.frames_to_sec(CombatLib.sorc_fcr_frames(_player_fcr))  # FCR
 	_player.pop()
+	_play_sfx("spell")
 	_spells_cast += 1
 	var lvl := _player.skill_level("fireball")
 	var dmg := _rng.randi_range(base_min, base_max) + lvl * 4
@@ -855,6 +889,7 @@ func _cast_lightning(target: ActorScript) -> void:
 		return
 	_player.attack_cd = CombatLib.frames_to_sec(CombatLib.sorc_fcr_frames(_player_fcr))
 	_player.pop()
+	_play_sfx("spell")
 	_spells_cast += 1
 	var raw := _rng.randi_range(6, 30) + _player.skill_level("fireball") * 3
 	var dmg := CombatLib.apply_resistance(raw, target.res_light)
@@ -961,6 +996,7 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 
 	_player.attack_cd = PLAYER_ATTACK_CD
 	_player.pop()
+	_play_sfx("attack")
 	var eff_dex := _player.stat_dex + int(_eq["dex"])
 	var ar := CombatLib.character_ar(eff_dex, ar_bonus) + int(_eq["ar"])
 	var def_val := 0 if ignore_def else int(target.defense)
@@ -968,6 +1004,7 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 	_attacks += 1
 	if CombatLib.roll_hit(_rng, ar, def_val, _player.level, target.level):
 		_hits += 1
+		_play_sfx("hit")
 		var dmg := CombatLib.physical_damage(_rng, _player.dmg_min, _player.dmg_max, dmg_bonus)
 		var crit := CombatLib.roll_deadly_strike(_rng, Skills.mastery_deadly_strike(m_lvl))
 		if crit:
@@ -1086,11 +1123,13 @@ func _grant_xp(amount: int) -> void:
 		_player.level += 1
 		_player.skills["mastery"] = _player.skill_level("mastery") + 1
 		_recompute_player()
+		_play_sfx("levelup", -3.0)
 		_combat_log = "LEVEL UP → %d" % _player.level
 		need = _player.level * 100
 
 func _on_monster_died(m: Node) -> void:
 	_kills += 1
+	_play_sfx("death")
 	var it := Item.roll_drop(_rng, int(m.level), _player_mf)
 	if not it.is_empty():
 		_items_dropped += 1
@@ -1123,6 +1162,7 @@ func _pickup(n: Node) -> void:
 	var it: Dictionary = n.get_meta("item")
 	_inventory.append(it)
 	_items_picked += 1
+	_play_sfx("pickup")
 	_ground.erase(n)
 	n.queue_free()
 	_spawn_text(_player.position, "+" + Item.display_name(it), Item.quality_color(String(it["quality"])))
