@@ -32,6 +32,10 @@ const SUFFIXES := [
 	{"name": "of Strength", "stat": "str", "min": 1, "max": 4, "alvl": 1, "slot": "any"},
 	{"name": "of Dexterity", "stat": "dex", "min": 1, "max": 4, "alvl": 1, "slot": "any"},
 	{"name": "of the Fox", "stat": "res_all", "min": 3, "max": 8, "alvl": 5, "slot": "any"},
+	{"name": "of Warmth", "stat": "res_fire", "min": 10, "max": 30, "alvl": 5, "slot": "any"},
+	{"name": "of the Glacier", "stat": "res_cold", "min": 10, "max": 30, "alvl": 5, "slot": "any"},
+	{"name": "of the Dynamo", "stat": "res_light", "min": 10, "max": 30, "alvl": 5, "slot": "any"},
+	{"name": "of the Lamprey", "stat": "res_poison", "min": 10, "max": 30, "alvl": 5, "slot": "any"},
 ]
 
 static func _eligible(table: Array, ilvl: int, slot: String) -> Array:

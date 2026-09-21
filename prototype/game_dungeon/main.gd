@@ -287,6 +287,10 @@ var _leech_total := 0
 var _difficulty := 0     # 0 Normal / 1 Nightmare / 2 Hell
 var _player_fcr := 63    # 소서리스 FCR
 var _diff_label: Label
+var _base_res_fire := 0
+var _base_res_cold := 0
+var _base_res_light := 0
+var _base_res_poison := 0
 
 func _ready() -> void:
 	_auto_quit = OS.get_cmdline_user_args().has("autoquit")
@@ -393,7 +397,7 @@ func _start_game() -> void:
 		_player.max_mana = 35 + 2 * _player.stat_energy + 2
 		_player.speed = 5.5
 		_player.skills = {"fireball": 3, "icebolt": 3, "lightning": 3, "teleport": 1}
-		_player.res_fire = 30    # 소서리스 화염 저항
+		_base_res_fire = 30      # 소서리스 화염 기본 저항
 		_player.leech_pct = 8    # 스펠 생명 흡혈 8%
 	else:
 		_player = _make_actor("Barbarian", Color(0.9, 0.75, 0.2), 22, 34)
@@ -419,8 +423,11 @@ func _start_game() -> void:
 	# 제작기 캐릭터 스프라이트
 	var robe := Color(0.3, 0.3, 0.75) if _class == "sorceress" else Color(0.7, 0.2, 0.15)
 	_player.set_sprite_texture(PixelGen.character(robe, 10), 1.1)
-	# 난이도 저항 페널티 (Part 2 §3)
-	_player.res_fire += CombatLib.diff_player_resist_penalty(_difficulty)
+	# 초기 장비/저항 계산: 바바리안 시작 무기, 소서리스 스탯 재계산
+	if _class == "barbarian":
+		_equip(Item.generate(_rng, Item.WEAPON_BASES[1], 1, "normal"))  # Hand Axe
+	else:
+		_recompute_player()
 
 	_spawn_dungeon_monsters()
 
@@ -657,18 +664,20 @@ func _boss_nova(m: ActorScript) -> void:
 	_boss_nova_cnt += 1
 	_spawn_text(m.position, "POISON NOVA", Color(0.4, 0.9, 0.3))
 	if Vector2(_player.gx - m.gx, _player.gy - m.gy).length() <= NOVA_RADIUS:
-		var dmg := CombatLib.physical_damage(_rng, m.dmg_min, m.dmg_max, 30.0)
+		var raw := CombatLib.physical_damage(_rng, m.dmg_min, m.dmg_max, 30.0)
+		var dmg := CombatLib.apply_resistance(raw, _player.res_poison)  # 독 → 플레이어 독저항
 		_player.take_damage(dmg)
-		_spawn_text(_player.position, str(dmg), Color(0.4, 0.9, 0.3))
+		_spawn_text(_player.position, "%d☠" % dmg, Color(0.4, 0.9, 0.3))
 
 func _boss_spray(m: ActorScript) -> void:
 	_boss_spray_cnt += 1
 	_flash(m.position, _player.position)
 	_spawn_text(m.position, "poison spray", Color(0.5, 0.8, 0.4))
 	if CombatLib.roll_hit(_rng, m.attack_rating, _player.defense, m.level, _player.level):
-		var dmg := CombatLib.physical_damage(_rng, m.dmg_min, m.dmg_max, 0.0)
+		var raw := CombatLib.physical_damage(_rng, m.dmg_min, m.dmg_max, 0.0)
+		var dmg := CombatLib.apply_resistance(raw, _player.res_poison)  # 독 → 플레이어 독저항
 		_player.take_damage(dmg)
-		_spawn_text(_player.position, str(dmg), Color(0.5, 0.8, 0.4))
+		_spawn_text(_player.position, "%d☠" % dmg, Color(0.5, 0.8, 0.4))
 
 func _walk_toward(tx: float, ty: float, delta: float) -> void:
 	var st: Vector2 = (Vector2(tx, ty) - Vector2(_player.gx, _player.gy))
@@ -1039,6 +1048,13 @@ func _recompute_player() -> void:
 	else:
 		_player.base_max_life = CombatLib.barbarian_max_life(_player.stat_vit, _player.level) + int(eq["life"])
 		_player.base_max_mana = CombatLib.barbarian_max_mana(_player.stat_energy, _player.level) + int(eq["mana"])
+	# 속성 저항 = 기본 + 장비(res_all + 개별) + 난이도 페널티 (Part 2 §3, Part 5 §2)
+	var pen := CombatLib.diff_player_resist_penalty(_difficulty)
+	var rall := int(eq.get("res_all", 0))
+	_player.res_fire = _base_res_fire + rall + int(eq.get("res_fire", 0)) + pen
+	_player.res_cold = _base_res_cold + rall + int(eq.get("res_cold", 0)) + pen
+	_player.res_light = _base_res_light + rall + int(eq.get("res_light", 0)) + pen
+	_player.res_poison = _base_res_poison + rall + int(eq.get("res_poison", 0)) + pen
 	_recompute_vitals(_player)
 
 func _grant_xp(amount: int) -> void:
