@@ -425,7 +425,10 @@ func _start_game() -> void:
 	_player.set_sprite_texture(PixelGen.character(robe, 10), 1.1)
 	# 초기 장비/저항 계산: 바바리안 시작 무기, 소서리스 스탯 재계산
 	if _class == "barbarian":
-		_equip(Item.generate(_rng, Item.WEAPON_BASES[1], 1, "normal"))  # Hand Axe
+		var w := Item.generate(_rng, Item.WEAPON_BASES[1], 1, "magic")  # Fiery Hand Axe
+		w["affixes"]["fdmg"] = 6
+		w["prefix"] = "Fiery"
+		_equip(w)
 	else:
 		_recompute_player()
 
@@ -973,6 +976,21 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 		if _class == "barbarian" and _rng.randf() < 0.20:
 			cb = CombatLib.crushing_blow(target.life, false, String(target.get_meta("kind", "melee")) == "boss")
 		target.take_damage(dmg + cb)
+		# 무기 속성 데미지 (Fiery/Frozen/Shocking) — 대상 속성 저항 적용
+		var edmg := 0
+		var fd := int(_eq.get("fdmg", 0))
+		if fd > 0:
+			edmg += CombatLib.apply_resistance(fd, _target_resist(target, "fire"))
+		var cd := int(_eq.get("cdmg", 0))
+		if cd > 0:
+			edmg += CombatLib.apply_resistance(cd, _target_resist(target, "cold"))
+			target.slow_timer = 1.5   # 냉기 무기 슬로우
+		var ld := int(_eq.get("ldmg", 0))
+		if ld > 0:
+			edmg += CombatLib.apply_resistance(ld, _target_resist(target, "light"))
+		if edmg > 0:
+			target.take_damage(edmg)
+			_spawn_text(target.position + Vector2(-14, 0), "+%d" % edmg, Color(0.6, 0.9, 1.0))
 		# 생명 흡혈(물리) (Part 5 §4)
 		if _player.leech_pct > 0:
 			var h := CombatLib.leech_life(dmg, _player.leech_pct)

@@ -24,6 +24,9 @@ const PREFIXES := [
 	{"name": "Bronze", "stat": "ar", "min": 10, "max": 20, "alvl": 1, "slot": "any"},
 	{"name": "Gold", "stat": "ar", "min": 40, "max": 60, "alvl": 8, "slot": "any"},
 	{"name": "Sturdy", "stat": "def", "min": 5, "max": 14, "alvl": 1, "slot": "armor"},
+	{"name": "Fiery", "stat": "fdmg", "min": 3, "max": 9, "alvl": 1, "slot": "weapon"},
+	{"name": "Frozen", "stat": "cdmg", "min": 2, "max": 7, "alvl": 3, "slot": "weapon"},
+	{"name": "Shocking", "stat": "ldmg", "min": 1, "max": 12, "alvl": 3, "slot": "weapon"},
 ]
 const SUFFIXES := [
 	{"name": "of the Jackal", "stat": "life", "min": 1, "max": 5, "alvl": 1, "slot": "any"},
