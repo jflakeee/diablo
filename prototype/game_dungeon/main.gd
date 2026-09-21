@@ -743,8 +743,34 @@ func _start_game() -> void:
 		_recompute_player()
 
 	_data_selftest()
+	if _auto_quit:
+		_act_reward_selftest()
 	print("[GD] ready — class=%s life=%d dungeon=%dx%d entrance=(%d,%d) exit=(%d,%d)" % [
 		_class, _player.max_life, _gw, _gh, _ent_cell.x, _ent_cell.y, _exit_cell.x, _exit_cell.y])
+
+# 액트 보상 경로(_complete_act) 결정론적 검증 — 더미 보스로 직접 실행
+func _act_reward_selftest() -> void:
+	var g0 := _gold
+	var ground0 := _ground.size()
+	var act0 := _acts_cleared
+	var dummy := _make_actor("TestBoss", Color(1, 0, 0), 20, 20)
+	dummy.gx = _player.gx
+	dummy.gy = _player.gy
+	_exit_locked = true
+	_complete_act(dummy)
+	var ok: bool = (not _exit_locked) and _gold > g0 and _ground.size() > ground0 and _acts_cleared == act0 + 1
+	print("[ACTTEST] exit_unlocked=%s gold+=%d dropped=%s acts_cleared=%d verdict=%s" % [
+		str(not _exit_locked), _gold - g0, str(_ground.size() > ground0), _acts_cleared, ("PASS" if ok else "FAIL")])
+	# 상태 원복(실제 런 오염 방지)
+	dummy.queue_free()
+	for g in _ground.duplicate():
+		if is_instance_valid(g) and g.get_meta("gx", -999) == _player.gx:
+			g.queue_free()
+			_ground.erase(g)
+	_gold = g0
+	_acts_cleared = act0
+	_act = 1
+	_exit_locked = false
 
 func _data_selftest() -> void:
 	var mons := Data.monsters()
