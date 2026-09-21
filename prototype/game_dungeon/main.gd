@@ -76,6 +76,10 @@ const COST_HP_POT := 45
 const COST_MP_POT := 35
 var _vendor_panel: Panel
 var _gold_sold := 0
+# ── 스탯/스킬 포인트 분배(성장) ──
+var _stat_points := 0
+var _char_panel: Panel
+var _char_vbox: VBoxContainer
 var _inv_panel: Panel
 var _inv_vbox: VBoxContainer
 var _rng := RandomNumberGenerator.new()
@@ -631,6 +635,22 @@ func _start_game() -> void:
 	ui.add_child(_vendor_panel)
 	_build_vendor()
 
+	var charb := Button.new()
+	charb.text = "Char"
+	charb.position = Vector2(vp.x - 430, 20)
+	charb.custom_minimum_size = Vector2(120, 56)
+	charb.size = Vector2(120, 56)
+	charb.add_theme_font_size_override("font_size", 24)
+	charb.pressed.connect(_toggle_char)
+	ui.add_child(charb)
+
+	_char_panel = Panel.new()
+	_char_panel.position = Vector2(vp.x - 380, 50)
+	_char_panel.size = Vector2(360, 480)
+	_char_panel.visible = false
+	ui.add_child(_char_panel)
+	_build_char_panel()
+
 	_hud = Label.new()
 	_hud.position = Vector2(14, 12)
 	_hud.add_theme_font_size_override("font_size", 24)
@@ -1078,6 +1098,8 @@ func _process(delta: float) -> void:
 	if _merc != null:
 		var ms := ("♥%d/%d" % [_merc.life, _merc.max_life]) if _merc.alive else "쓰러짐"
 		_hud.text += "\n용병 Rogue Scout %s  킬 %d" % [ms, _merc_kills]
+	if _stat_points > 0 or _player.skill_points > 0:
+		_hud.text += "  ▲포인트: 스탯%d 스킬%d (Char)" % [_stat_points, _player.skill_points]
 
 	if _auto_quit and elapsed >= 50.0:
 		var dex := Vector2(_player.gx, _player.gy).distance_to(Vector2(_exit_cell.x, _exit_cell.y))
@@ -1088,6 +1110,9 @@ func _process(delta: float) -> void:
 		var mstate := ("alive %d/%d" % [_merc.life, _merc.max_life]) if (_merc != null and _merc.alive) else "down"
 		print("[MERC] kills=%d state=%s" % [_merc_kills, mstate])
 		print("[GOLD] gold=%d sold_total=%d" % [_gold, _gold_sold])
+		print("[CHAR] str=%d dex=%d vit=%d energy=%d mastery=%d unspent(stat=%d skill=%d)" % [
+			_player.stat_str, _player.stat_dex, _player.stat_vit, _player.stat_energy,
+			_player.skill_level("mastery" if _class != "sorceress" else "fireball"), _stat_points, _player.skill_points])
 		var ok: bool = _kills > 0 or _spells_cast > 0
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		get_tree().quit()
@@ -1264,7 +1289,9 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 	var s_lvl := _player.skill_level(skill_id)
 	var use_skill := s_lvl > 0 and _player.spend_mana(Skills.mana_cost(skill_id))
 	var ar_bonus := Skills.mastery_ar_pct(m_lvl)
-	var dmg_bonus := Skills.mastery_damage_pct(m_lvl) + float(_eq["ed"])
+	# 힘 → 근접 %ED (D2: str가 무기 물리 데미지 증가). 10 초과분 * 1%
+	var str_ed := float(maxi(0, _player.stat_str + int(_eq["str"]) - 10)) * 1.0
+	var dmg_bonus := Skills.mastery_damage_pct(m_lvl) + float(_eq["ed"]) + str_ed
 	var ignore_def := false
 	var label := "Attack"
 	if use_skill:
@@ -1421,7 +1448,10 @@ func _grant_xp(amount: int) -> void:
 	while _player.xp >= need and _player.level < 20:
 		_player.xp -= need
 		_player.level += 1
-		_player.skills["mastery"] = _player.skill_level("mastery") + 1
+		_stat_points += 5                       # D2: 레벨당 스탯 5점
+		_player.skill_points += 1               # D2: 레벨당 스킬 1점
+		if _auto_quit:
+			_auto_spend_points()                # 검증: 자동 분배
 		_recompute_player()
 		if _merc != null:
 			_merc.level = _player.level
@@ -1594,6 +1624,87 @@ func _vendor_btn(vb: VBoxContainer, text: String, cb: Callable) -> void:
 func _toggle_vendor() -> void:
 	_vendor_panel.visible = not _vendor_panel.visible
 	_refresh_vendor()
+
+# ── 캐릭터 성장 패널 ──
+func _build_char_panel() -> void:
+	_char_vbox = VBoxContainer.new()
+	_char_vbox.position = Vector2(12, 10)
+	_char_vbox.custom_minimum_size = Vector2(360, 460)
+	_char_panel.add_child(_char_vbox)
+	_rebuild_char_panel()
+
+func _class_skill_ids() -> Array:
+	return ["fireball", "icebolt", "lightning", "teleport"] if _class == "sorceress" else ["bash", "berserk", "battle_orders", "mastery"]
+
+func _skill_label(id: String) -> String:
+	var names := {"fireball": "화염구", "icebolt": "냉기화살", "lightning": "번개", "teleport": "순간이동",
+		"bash": "강타", "berserk": "광폭화", "battle_orders": "전투명령", "mastery": "무기숙련"}
+	return String(names.get(id, id))
+
+func _rebuild_char_panel() -> void:
+	if _char_vbox == null:
+		return
+	for c in _char_vbox.get_children():
+		c.queue_free()
+	var head := Label.new()
+	head.add_theme_font_size_override("font_size", 20)
+	head.text = "◆ 캐릭터 Lv%d\n스탯 포인트: %d   스킬 포인트: %d" % [_player.level, _stat_points, _player.skill_points]
+	_char_vbox.add_child(head)
+	# 스탯 분배
+	for pair in [["str", "힘 %d" % _player.stat_str], ["dex", "민첩 %d" % _player.stat_dex], ["vit", "활력 %d" % _player.stat_vit], ["energy", "에너지 %d" % _player.stat_energy]]:
+		var sid: String = pair[0]
+		var b := Button.new()
+		b.text = "＋ %s" % pair[1]
+		b.custom_minimum_size = Vector2(344, 44)
+		b.add_theme_font_size_override("font_size", 18)
+		b.disabled = _stat_points <= 0
+		b.pressed.connect(func(): _spend_stat(sid))
+		_char_vbox.add_child(b)
+	var sep := Label.new()
+	sep.text = "— 스킬 —"
+	_char_vbox.add_child(sep)
+	for sk in _class_skill_ids():
+		var b2 := Button.new()
+		b2.text = "＋ %s (Lv%d)" % [_skill_label(sk), _player.skill_level(sk)]
+		b2.custom_minimum_size = Vector2(344, 44)
+		b2.add_theme_font_size_override("font_size", 18)
+		b2.disabled = _player.skill_points <= 0
+		b2.pressed.connect(func(): _spend_skill(sk))
+		_char_vbox.add_child(b2)
+
+func _toggle_char() -> void:
+	_char_panel.visible = not _char_panel.visible
+	if _char_panel.visible:
+		_rebuild_char_panel()
+
+func _spend_stat(stat: String) -> void:
+	if _stat_points <= 0:
+		return
+	_stat_points -= 1
+	match stat:
+		"str": _player.stat_str += 1
+		"dex": _player.stat_dex += 1
+		"vit": _player.stat_vit += 1
+		"energy": _player.stat_energy += 1
+	_recompute_player()
+	_rebuild_char_panel()
+
+func _spend_skill(id: String) -> void:
+	if _player.skill_points <= 0:
+		return
+	_player.skill_points -= 1
+	_player.skills[id] = _player.skill_level(id) + 1
+	_rebuild_char_panel()
+
+# 오토플레이 자동 분배(검증): 클래스별 우선순위
+func _auto_spend_points() -> void:
+	while _stat_points > 0:
+		if _class == "sorceress":
+			_spend_stat("energy" if _player.stat_energy < _player.stat_vit + 20 else "vit")
+		else:
+			_spend_stat("vit" if _player.stat_vit <= _player.stat_str else "str")
+	while _player.skill_points > 0:
+		_spend_skill("fireball" if _class == "sorceress" else "mastery")
 
 func _refresh_vendor() -> void:
 	if _vendor_gold_lbl:
