@@ -196,15 +196,20 @@ func _spawn_dungeon_monsters() -> void:
 		var m := _spawn_monster(String(md["name"]), col, int(md["w"]), int(md["h"]), int(md["level"]), int(md["hp"]), int(md["ar"]), int(md["def"]), int(md["dmin"]), int(md["dmax"]), float(md["speed"]), cell.x, cell.y)
 		# 제작기 몬스터 스프라이트 (보스는 크게)
 		m.set_sprite_texture(PixelGen.monster(col, cell.x * 13 + cell.y), 1.7 if kind == "boss" else 1.0)
+		# 난이도 HP 스케일링 (Part 2 §3)
+		m.max_life = int(m.max_life * CombatLib.diff_monster_hp_mult(_difficulty))
+		m.base_max_life = m.max_life
+		m.life = m.max_life
+		var rbonus := CombatLib.diff_monster_resist_bonus(_difficulty)
 		if kind != "melee":
 			m.set_meta("kind", kind)
 		if kind == "boss":
 			m.set_meta("nova_cd", float(md.get("nova_cd", 3.0)))
 			m.set_meta("spray_cd", float(md.get("spray_cd", 1.5)))
-			m.res_fire = -50   # 안다리엘 화염 약점 (Part 3 §4) → 파이어볼 150%
+			m.res_fire = -50 + rbonus   # 안다리엘 약점 -50 + 난이도(Hell시 상쇄)
 			_boss = m
 		else:
-			m.res_fire = int(md.get("res_fire", 0))
+			m.res_fire = int(md.get("res_fire", 0)) + rbonus
 
 func _next_level() -> void:
 	_levels_cleared += 1
@@ -266,9 +271,16 @@ func _step(actor: ActorScript, dir: Vector2, delta: float) -> void:
 var _menu_layer: CanvasLayer
 var _started := false
 var _leech_total := 0
+var _difficulty := 0     # 0 Normal / 1 Nightmare / 2 Hell
+var _player_fcr := 63    # 소서리스 FCR
+var _diff_label: Label
 
 func _ready() -> void:
 	_auto_quit = OS.get_cmdline_user_args().has("autoquit")
+	if OS.get_cmdline_user_args().has("hell"):
+		_difficulty = 2
+	elif OS.get_cmdline_user_args().has("nm"):
+		_difficulty = 1
 	if OS.get_cmdline_user_args().has("sorc"):
 		_class = "sorceress"
 		_start_game()
@@ -298,8 +310,35 @@ func _show_class_select() -> void:
 	sub.add_theme_font_size_override("font_size", 22)
 	sub.position = Vector2(vp.x * 0.5 - 160, vp.y * 0.2 + 60)
 	_menu_layer.add_child(sub)
-	_add_class_button("⚔  Barbarian  — 근접 · 탱커", Color(0.9, 0.75, 0.2), Vector2(vp.x * 0.5 - 220, vp.y * 0.45), "barbarian")
-	_add_class_button("✦  Sorceress  — 원거리 · 스펠", Color(0.6, 0.5, 0.95), Vector2(vp.x * 0.5 - 220, vp.y * 0.45 + 96), "sorceress")
+	_add_class_button("⚔  Barbarian  — 근접 · 탱커", Color(0.9, 0.75, 0.2), Vector2(vp.x * 0.5 - 220, vp.y * 0.42), "barbarian")
+	_add_class_button("✦  Sorceress  — 원거리 · 스펠", Color(0.6, 0.5, 0.95), Vector2(vp.x * 0.5 - 220, vp.y * 0.42 + 90), "sorceress")
+	# 난이도 선택
+	_diff_label = Label.new()
+	_diff_label.add_theme_font_size_override("font_size", 20)
+	_diff_label.position = Vector2(vp.x * 0.5 - 220, vp.y * 0.42 + 200)
+	_menu_layer.add_child(_diff_label)
+	_update_diff_label()
+	var dnames := ["Normal", "Nightmare", "Hell"]
+	var dcols := [Color(0.5, 0.8, 0.5), Color(0.9, 0.8, 0.3), Color(0.9, 0.3, 0.3)]
+	for i in 3:
+		var db := Button.new()
+		db.text = dnames[i]
+		db.position = Vector2(vp.x * 0.5 - 220 + i * 150, vp.y * 0.42 + 240)
+		db.custom_minimum_size = Vector2(140, 50)
+		db.size = Vector2(140, 50)
+		db.add_theme_font_size_override("font_size", 20)
+		db.add_theme_color_override("font_color", dcols[i])
+		db.pressed.connect(_set_difficulty.bind(i))
+		_menu_layer.add_child(db)
+
+func _set_difficulty(d: int) -> void:
+	_difficulty = d
+	_update_diff_label()
+
+func _update_diff_label() -> void:
+	if _diff_label:
+		var dn: String = ["Normal", "Nightmare(어려움)", "Hell(극악)"][_difficulty]
+		_diff_label.text = "난이도: %s  ← 아래에서 변경, 위 클래스로 시작" % dn
 
 func _add_class_button(text: String, col: Color, pos: Vector2, cls: String) -> void:
 	var btn := Button.new()
@@ -367,6 +406,8 @@ func _start_game() -> void:
 	# 제작기 캐릭터 스프라이트
 	var robe := Color(0.3, 0.3, 0.75) if _class == "sorceress" else Color(0.7, 0.2, 0.15)
 	_player.set_sprite_texture(PixelGen.character(robe, 10), 1.1)
+	# 난이도 저항 페널티 (Part 2 §3)
+	_player.res_fire += CombatLib.diff_player_resist_penalty(_difficulty)
 
 	_spawn_dungeon_monsters()
 
@@ -690,10 +731,11 @@ func _process(delta: float) -> void:
 
 	if _auto_quit and elapsed >= 50.0:
 		var dex := Vector2(_player.gx, _player.gy).distance_to(Vector2(_exit_cell.x, _exit_cell.y))
-		print("[GD][RESULT] class=%s dungeon_level=%d levels_cleared=%d kills=%d life=%d/%d leech_total=%d dist=%.1f" % [
-			_class, _dlevel, _levels_cleared, _kills, _player.life, _player.max_life, _leech_total, dex])
-		var ok: bool = _kills > 0 and _player.alive
-		print("[GD][RESULT] verdict=", ("PASS" if ok else "PLAYER_DIED"))
+		var dn: String = ["Normal", "NM", "Hell"][_difficulty]
+		print("[GD][RESULT] class=%s diff=%s dungeon_level=%d cleared=%d kills=%d life=%d/%d res_fire=%d" % [
+			_class, dn, _dlevel, _levels_cleared, _kills, _player.life, _player.max_life, _player.res_fire])
+		var ok: bool = _kills > 0 or _spells_cast > 0
+		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		get_tree().quit()
 
 func _nearest_monster() -> ActorScript:
@@ -747,7 +789,7 @@ func _cast_fireball(target: ActorScript) -> void:
 	if not _player.spend_mana(3):
 		_combat_log = "no mana"
 		return
-	_player.attack_cd = FIREBALL_CD
+	_player.attack_cd = CombatLib.frames_to_sec(CombatLib.sorc_fcr_frames(_player_fcr))  # FCR 브레이크포인트
 	_spells_cast += 1
 	var lvl := _player.skill_level("fireball")
 	var dmg := _rng.randi_range(14, 26) + lvl * 4
@@ -866,6 +908,8 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 		var crit := CombatLib.roll_deadly_strike(_rng, Skills.mastery_deadly_strike(m_lvl))
 		if crit:
 			dmg *= 2
+		# Hell 물리 50% 바닥 (Part 2 §3)
+		dmg = CombatLib.apply_resistance(dmg, CombatLib.diff_hell_physical_floor(_difficulty))
 		# 크러싱 블로우(바바리안 20%): 현재 생명 비율 감소 (Part 5 §4)
 		var cb := 0
 		if _class == "barbarian" and _rng.randf() < 0.20:

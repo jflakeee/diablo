@@ -56,6 +56,35 @@ static func crushing_blow(current_life: int, is_ranged: bool, is_boss: bool) -> 
 		frac = (1.0 / 8.0) if is_ranged else (1.0 / 4.0)
 	return int(current_life * frac)
 
+# ── 브레이크포인트 (Part 2 §1) ──
+static func sorc_fcr_frames(fcr: int) -> int:
+	if fcr >= 200: return 7
+	if fcr >= 105: return 8
+	if fcr >= 63: return 9
+	if fcr >= 37: return 10
+	if fcr >= 20: return 11
+	if fcr >= 9: return 12
+	return 13
+
+static func frames_to_sec(frames: int) -> float:
+	return float(frames) / 25.0
+
+# ── 난이도 스케일링 (Part 2 §3) ──
+static func diff_monster_hp_mult(diff: int) -> float:
+	var t := [1.0, 1.8, 3.5]
+	return float(t[clampi(diff, 0, 2)])
+
+static func diff_monster_resist_bonus(diff: int) -> int:
+	var t := [0, 20, 50]
+	return int(t[clampi(diff, 0, 2)])
+
+static func diff_player_resist_penalty(diff: int) -> int:
+	var t := [0, -40, -100]
+	return int(t[clampi(diff, 0, 2)])
+
+static func diff_hell_physical_floor(diff: int) -> int:
+	return 50 if diff >= 2 else 0
+
 # 바바리안 파생 스탯 (Part 1 §2)
 static func barbarian_max_life(vit: int, level: int) -> int:
 	return int(55 + 4 * vit + 2 * level)
