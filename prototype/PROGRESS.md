@@ -53,21 +53,45 @@
 
 > **⚙️ 미적용 연구 적용:** 브레이크포인트(FCR 프레임→시전속도)·난이도 스케일링(몹 HP/저항·플레이어 저항페널티·Hell 물리바닥). 비교분석의 `❌미적용` → `적용`.
 
+## 🕹️ game_dungeon D2 콘텐츠 심화 (정본 · 전부 라이브 배포)
+
+정본 `game_dungeon`에 D2 핵심 시스템을 순차 추가·실기검증(HD4000, 헤드리스 autoquit `verdict=PASS`)·배포(https://jflakeee.github.io/diablo/). 2026-09-21 기준:
+
+| 시스템 | 파일/마커 | 실측 |
+|--------|-----------|------|
+| 4속성 저항/상성 + 무기 속성뎀 | `combat.apply_resistance`, `_target_resist`, fdmg/cdmg/ldmg | 약점/면역/슬로우 동작 |
+| 절차 사운드 | `sfx_gen.gd`(코드 PCM) | 6/6 생성, attack 4410B |
+| 유니크 아이템 | `item.UNIQUES`(6종) | The Gnasher 등 금색 고정스탯 |
+| 챔피언/유니크 몬스터 팩 | `_apply_rank`, `UNIQ_MODS`(6) | champs/uniques 스폰·인챈트 |
+| 포션 & 벨트 | `_belt_hp/_mp`, `_quaff_*` | barb 자동포션 3회 생존 |
+| 용병(Rogue Scout) | `_spawn_merc`, `_merc_fire` | 화염화살 아군 3킬·HP스케일 |
+| 골드/상인/도박 | `_gold`, `_vendor_*`, `_gamble` | gold 1475·판매·도박2회 |
+| 스탯/스킬 육성 | `_stat_points`, `_spend_*` | 힘42/활력43·화염구9 |
+| 자동 지도(미니맵) | `minimap.gd`(텍스처1회+동적점) | tex 생성·grid 전달 |
+| 액트/보스/퀘스트 | `_is_boss_level`, `_complete_act`(ACT_LEN=3) | 보스층 출구잠금·보상 [ACTTEST] PASS |
+
+> **🎯 D2 핵심 8축 라이브:** 전투·파밍·생존·동료·경제·성장·탐색·진행 구조가 하나의 순환으로 맞물림. 저사양 최적화(미니맵 텍스처 블릿, 25Hz 논리틱)로 HD4000 유지.
+
+> **🧹 배포 통합(2026-09-21):** 뒤처진 병렬 빌드 `/integrated/`를 gh-pages에서 삭제. **루트(`/diablo/`)가 유일 정본**.
+
 ## 핵심 검증 결론
 - HD 4000에서 Godot이 자동 ANGLE(→D3D11) 전환 → **OpenGL 3.3 불완전 우려 무력화**. Godot 3.6 폴백 불필요.
 - 렌더 헤드룸 충분(원작 규모 근사 826개서 116fps 최저).
 - 원작 프레임 모델(25Hz 논리틱) 정확 동작 → 브레이크포인트 재현 기반 확보.
 - 딥리서치 전투 공식(명중률·물리데미지·바바리안 Life)이 실제 게임 루프에서 작동.
 
-## GDScript 함정 로그 (재발 방지)
+## GDScript 함정 로그 (재발 방지 · 경고=에러 프로젝트)
 - Dictionary 값은 `d["key"]` (점 접근 불가)
-- `abs()`는 Variant 반환 → `absf()`
+- `abs()`는 Variant 반환 → `absf()`/`absi()`
+- `dict.get(k, default)`는 Variant 반환 → `var x: int = int(table.get(...))` 명시 타입
+- 배열 리터럴 인덱싱 `["a","b"][i]`도 추론 실패 → 명시 타입
 - 신규 프로젝트에서 `class_name` 전역 등록 불안정 → **`preload()` 상수 + 타입 힌트로 사용**
 - 동적 멤버(Node/Variant) 산술은 `:=` 추론 실패 → **명시 타입** 또는 스크립트 타입(`ActorScript`)으로 선언
+- 미사용 지역변수도 경고→에러 (셀프테스트 print에 임시 var 남기지 말 것)
 
-## 다음 후보
-- 두 입력/렌더 경로를 Phase 1에 완전 통합(현재 phase1_arena가 이미 통합본)
-- P2 정식화: AR/Defense 산출식, 저항·블록·전투 모디파이어(Part 5/6)
-- P7: `monstats.txt` 임포트 → 실제 몬스터 스탯
-- P6: 사망 시 드롭(트레저 클래스) 연결
-- P3: 스킬 시스템(바바리안 트리)
+## 다음 후보 (미착수 D2 시스템)
+- 커스/오라(면역 돌파 — Lower Resist/Conviction)
+- 스킬 시너지 + 스킬 트리 확장
+- 호라드릭 큐브 제작 UI 노출(`craft.gd`는 구현됨, 미노출)
+- 웨이포인트(빠른 이동) · 아이템 감정(미감정 레어)
+- `monstats.txt` 임포트 → 대량 몬스터 콘텐츠
