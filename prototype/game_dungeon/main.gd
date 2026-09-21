@@ -711,6 +711,11 @@ func _process(delta: float) -> void:
 		return
 	if _cam:
 		_cam.position = _cam.position.lerp(_player.position, clampf(delta * 8.0, 0.0, 1.0))
+	# 애니메이션(걷기 bob·방향·팝)
+	_player.animate(delta)
+	for am in _monsters:
+		if am.alive:
+			am.animate(delta)
 	_update_projectiles(delta)
 	if _attack_ttl > 0.0:
 		_attack_ttl -= delta
@@ -790,6 +795,7 @@ func _cast_fireball(target: ActorScript) -> void:
 		_combat_log = "no mana"
 		return
 	_player.attack_cd = CombatLib.frames_to_sec(CombatLib.sorc_fcr_frames(_player_fcr))  # FCR 브레이크포인트
+	_player.pop()
 	_spells_cast += 1
 	var lvl := _player.skill_level("fireball")
 	var dmg := _rng.randi_range(14, 26) + lvl * 4
@@ -897,6 +903,7 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 			ignore_def = true
 
 	_player.attack_cd = PLAYER_ATTACK_CD
+	_player.pop()
 	var eff_dex := _player.stat_dex + int(_eq["dex"])
 	var ar := CombatLib.character_ar(eff_dex, ar_bonus) + int(_eq["ar"])
 	var def_val := 0 if ignore_def else int(target.defense)
@@ -934,6 +941,7 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 
 func _monster_attack(m: ActorScript) -> void:
 	_attacks += 1
+	m.pop()
 	if CombatLib.roll_hit(_rng, m.attack_rating, _player.defense, m.level, _player.level):
 		# 플레이어 블록 판정 (Part 5 §3)
 		if _player.block_val > 0 and CombatLib.roll_block(_rng, _player.block_val, _player.stat_dex, _player.level):

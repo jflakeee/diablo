@@ -46,10 +46,41 @@ func setup(tex: Texture2D) -> void:
 	_sprite.texture = tex
 	add_child(_sprite)
 
+var _base_scale := 1.0
+var _prev_pos := Vector2.ZERO
+var _anim_t := 0.0
+var _pop_t := 0.0
+
 func set_sprite_texture(tex: Texture2D, scale_v: float = 1.0) -> void:
 	if _sprite:
 		_sprite.texture = tex
+		_base_scale = scale_v
 		_sprite.scale = Vector2(scale_v, scale_v)
+
+func pop() -> void:   # 공격 시 살짝 팽창
+	_pop_t = 0.16
+
+# 코드 기반 애니메이션: 걷기 bob + 방향 전환 + 공격 팝
+func animate(delta: float) -> void:
+	if _sprite == null:
+		return
+	var moving := position.distance_to(_prev_pos) > 0.6
+	var dx := position.x - _prev_pos.x
+	_prev_pos = position
+	if absf(dx) > 0.2:
+		_sprite.flip_h = dx < 0.0
+	if moving:
+		_anim_t += delta * 12.0
+		_sprite.offset.y = -absf(sin(_anim_t)) * 3.0   # offset은 y-sort에 영향 X
+	else:
+		_anim_t = 0.0
+		_sprite.offset.y = lerpf(_sprite.offset.y, 0.0, clampf(delta * 10.0, 0.0, 1.0))
+	if _pop_t > 0.0:
+		_pop_t -= delta
+		var s := _base_scale * (1.0 + 0.35 * maxf(_pop_t, 0.0) / 0.16)
+		_sprite.scale = Vector2(s, s)
+	else:
+		_sprite.scale = Vector2(_base_scale, _base_scale)
 
 func skill_level(id: String) -> int:
 	return int(skills.get(id, 0))
