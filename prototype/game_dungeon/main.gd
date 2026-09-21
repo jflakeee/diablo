@@ -54,6 +54,15 @@ var _attack_ttl := 0.0
 
 var _joy: JoystickScript
 var _hud: Label
+# ── 포션 & 벨트 (P6 생존) ──
+const BELT_MAX := 8
+const POT_HEAL_PCT := 0.45   # 생명 포션: 최대 생명의 45% 회복
+const POT_MANA_PCT := 0.45   # 마나 포션: 최대 마나의 45% 회복
+var _belt_hp := 2            # 시작 생명 포션
+var _belt_mp := 2            # 시작 마나 포션
+var _potions_quaffed := 0
+var _pot_hp_btn: Button
+var _pot_mp_btn: Button
 var _inv_panel: Panel
 var _inv_vbox: VBoxContainer
 var _rng := RandomNumberGenerator.new()
@@ -589,6 +598,12 @@ func _start_game() -> void:
 	_hud.add_theme_font_size_override("font_size", 24)
 	ui.add_child(_hud)
 
+	# 포션 벨트 버튼(모바일): 좌하단, 조이스틱 위. 빨강=생명 / 파랑=마나
+	_pot_hp_btn = _make_potion_button("♥", Color(0.75, 0.15, 0.15), Vector2(40, vp.y - 470), _quaff_health)
+	_pot_mp_btn = _make_potion_button("✦", Color(0.15, 0.3, 0.8), Vector2(150, vp.y - 470), _quaff_mana)
+	ui.add_child(_pot_hp_btn)
+	ui.add_child(_pot_mp_btn)
+
 	if _class == "barbarian":
 		_equip(Item.generate(_rng, Item.WEAPON_BASES[1], 1, "normal"))  # Hand Axe 3-10
 	else:
@@ -650,6 +665,60 @@ func _add_skill_button(ui: CanvasLayer, id: String, label: String, col: Color, p
 	b.position = pos
 	b.used.connect(_on_skill_used)
 	ui.add_child(b)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not _started or _auto_quit:
+		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_1:
+			_quaff_health()
+		elif event.keycode == KEY_2:
+			_quaff_mana()
+
+func _make_potion_button(glyph: String, col: Color, pos: Vector2, cb: Callable) -> Button:
+	var b := Button.new()
+	b.text = glyph
+	b.position = pos
+	b.custom_minimum_size = Vector2(96, 96)
+	b.size = Vector2(96, 96)
+	b.add_theme_font_size_override("font_size", 34)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = col
+	sb.set_corner_radius_all(48)
+	b.add_theme_stylebox_override("normal", sb)
+	b.pressed.connect(cb)
+	return b
+
+# 생명 포션 소비: 최대 생명의 45% 회복(즉시). 벨트 1개 소모.
+func _quaff_health() -> void:
+	if _belt_hp <= 0 or not _player.alive or _player.life >= _player.max_life:
+		return
+	_belt_hp -= 1
+	_potions_quaffed += 1
+	var heal := int(_player.max_life * POT_HEAL_PCT)
+	_player.life = mini(_player.max_life, _player.life + heal)
+	_player.queue_redraw()
+	_spawn_text(_player.position, "+%d ♥" % heal, Color(0.4, 0.9, 0.4))
+
+func _quaff_mana() -> void:
+	if _belt_mp <= 0 or not _player.alive or _player.mana >= _player.max_mana:
+		return
+	_belt_mp -= 1
+	_potions_quaffed += 1
+	var gain := int(_player.max_mana * POT_MANA_PCT)
+	_player.mana = mini(_player.max_mana, _player.mana + gain)
+	_spawn_text(_player.position, "+%d ✦" % gain, Color(0.4, 0.6, 1.0))
+
+func _add_potion_to_belt(ptype: String) -> bool:
+	if ptype == "mana":
+		if _belt_mp >= BELT_MAX:
+			return false
+		_belt_mp += 1
+	else:
+		if _belt_hp >= BELT_MAX:
+			return false
+		_belt_hp += 1
+	return true
 
 func _spawn_monster(nm: String, col: Color, w: int, h: int, lvl: int, hp: int, ar: int, df: int, dmin: int, dmax: int, spd: float, gx: int, gy: int) -> ActorScript:
 	var m := _make_actor(nm, col, w, h)
@@ -799,6 +868,11 @@ func _walk_toward(tx: float, ty: float, delta: float) -> void:
 	_player.position = _iso(_player.gx, _player.gy)
 
 func _auto_play(delta: float) -> void:
+	# 자동 포션: 생명 35% 미만 / 마나 20% 미만이면 소비(생존)
+	if _player.life < _player.max_life * 0.35 and _belt_hp > 0:
+		_quaff_health()
+	if _player.mana < _player.max_mana * 0.20 and _belt_mp > 0:
+		_quaff_mana()
 	if _class == "barbarian" and not _bo_done:
 		_cast_battle_orders()
 		_bo_done = true
@@ -865,16 +939,21 @@ func _process(delta: float) -> void:
 	var wn := Item.display_name(_equipped["weapon"]) if not _equipped["weapon"].is_empty() else "-"
 	var an := Item.display_name(_equipped["armor"]) if not _equipped["armor"].is_empty() else "-"
 	var elapsed := float(Time.get_ticks_msec() - _run_start) / 1000.0
-	_hud.text = "%s Lv%d  Life %d/%d  Mana %d/%d\nWpn: %s (%d-%d)  Arm: %s  Def %d\nkills %d  drops %d  bag %d  MF %d\n%s" % [
+	_hud.text = "%s Lv%d  Life %d/%d  Mana %d/%d\nWpn: %s (%d-%d)  Arm: %s  Def %d\nkills %d  drops %d  bag %d  MF %d   벨트 ♥%d ✦%d\n%s" % [
 		_player.actor_name, _player.level, _player.life, _player.max_life, _player.mana, _player.max_mana,
 		wn, _player.dmg_min, _player.dmg_max, an, _player.defense,
-		_kills, _items_dropped, _inventory.size(), _player_mf, _combat_log]
+		_kills, _items_dropped, _inventory.size(), _player_mf, _belt_hp, _belt_mp, _combat_log]
+	if _pot_hp_btn:
+		_pot_hp_btn.text = "♥\n%d" % _belt_hp
+	if _pot_mp_btn:
+		_pot_mp_btn.text = "✦\n%d" % _belt_mp
 
 	if _auto_quit and elapsed >= 50.0:
 		var dex := Vector2(_player.gx, _player.gy).distance_to(Vector2(_exit_cell.x, _exit_cell.y))
 		var dn: String = ["Normal", "NM", "Hell"][_difficulty]
 		print("[GD][RESULT] class=%s diff=%s dungeon_level=%d cleared=%d kills=%d life=%d/%d res_fire=%d champs=%d uniques=%d" % [
 			_class, dn, _dlevel, _levels_cleared, _kills, _player.life, _player.max_life, _player.res_fire, _champs, _uniques])
+		print("[POT] quaffed=%d belt(♥%d ✦%d)" % [_potions_quaffed, _belt_hp, _belt_mp])
 		var ok: bool = _kills > 0 or _spells_cast > 0
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		get_tree().quit()
@@ -1243,19 +1322,35 @@ func _on_monster_died(m: Node) -> void:
 		_combat_log = "%s dropped %s" % [m.actor_name, Item.display_name(it2)]
 	elif dropped == 0:
 		_combat_log = "%s slain" % m.actor_name
+	# 포션 드롭(생명 25% / 마나 12%, 등급 보너스) — 땅에 떨어져 줍기
+	var pot_bonus := 0.15 if rank != "" else 0.0
+	var pr := _rng.randf()
+	if pr < 0.25 + pot_bonus:
+		_spawn_ground(_make_potion("health"), m.gx, m.gy)
+	elif pr < 0.37 + pot_bonus:
+		_spawn_ground(_make_potion("mana"), m.gx, m.gy)
+
+func _make_potion(ptype: String) -> Dictionary:
+	var nm := "Healing Potion" if ptype == "health" else "Mana Potion"
+	return {"name": nm, "slot": "potion", "ptype": ptype, "quality": "normal", "affixes": {}, "prefix": "", "suffix": ""}
 
 func _spawn_ground(it: Dictionary, gx: float, gy: float) -> void:
 	var n := Node2D.new()
+	var slot := String(it["slot"])
+	var is_pot := slot == "potion"
+	var col: Color = Item.quality_color(String(it["quality"]))
+	if is_pot:
+		col = Color(0.85, 0.2, 0.2) if String(it["ptype"]) == "health" else Color(0.3, 0.45, 0.95)
 	var spr := Sprite2D.new()
-	spr.texture = PixelGen.icon("sword" if String(it["slot"]) == "weapon" else "shield", 0)  # 제작기 아이콘
-	spr.scale = Vector2(0.8, 0.8)
-	spr.modulate = Item.quality_color(String(it["quality"]))
+	spr.texture = PixelGen.icon("sword" if slot == "weapon" else "shield", 0)  # 제작기 아이콘
+	spr.scale = Vector2(0.55, 0.55) if is_pot else Vector2(0.8, 0.8)
+	spr.modulate = col
 	n.add_child(spr)
 	var lbl := Label.new()
 	lbl.text = Item.display_name(it)
 	lbl.position = Vector2(-30, -30)
 	lbl.add_theme_font_size_override("font_size", 12)
-	lbl.add_theme_color_override("font_color", Item.quality_color(String(it["quality"])))
+	lbl.add_theme_color_override("font_color", col)
 	n.add_child(lbl)
 	n.position = _iso(gx, gy)
 	n.set_meta("item", it)
@@ -1266,11 +1361,18 @@ func _spawn_ground(it: Dictionary, gx: float, gy: float) -> void:
 
 func _pickup(n: Node) -> void:
 	var it: Dictionary = n.get_meta("item")
-	_inventory.append(it)
-	_items_picked += 1
 	_play_sfx("pickup")
 	_ground.erase(n)
 	n.queue_free()
+	# 포션 → 벨트(가득 차면 줍지 않음)
+	if String(it["slot"]) == "potion":
+		var pt := String(it["ptype"])
+		if _add_potion_to_belt(pt):
+			var c := Color(0.85, 0.3, 0.3) if pt == "health" else Color(0.4, 0.6, 1.0)
+			_spawn_text(_player.position, "+" + String(it["name"]), c)
+		return
+	_inventory.append(it)
+	_items_picked += 1
 	_spawn_text(_player.position, "+" + Item.display_name(it), Item.quality_color(String(it["quality"])))
 	if _auto_quit:
 		_auto_equip(it)
