@@ -212,6 +212,9 @@ func _spawn_one(md: Dictionary, cell: Vector2i) -> void:
 	m.life = m.max_life
 	var rbonus := CombatLib.diff_monster_resist_bonus(_difficulty)
 	m.res_fire = int(md.get("res_fire", 0)) + rbonus
+	m.res_cold = int(md.get("res_cold", 0)) + rbonus
+	m.res_light = int(md.get("res_light", 0)) + rbonus
+	m.res_poison = int(md.get("res_poison", 0)) + rbonus
 	if kind != "melee":
 		m.set_meta("kind", kind)
 	if kind == "boss":
@@ -269,8 +272,9 @@ func _path_next(actor: ActorScript, from: Vector2i, to: Vector2i) -> Vector2i:
 func _step(actor: ActorScript, dir: Vector2, delta: float) -> void:
 	if dir.length() < 0.01:
 		return
-	var nx: float = actor.gx + dir.x * actor.speed * delta
-	var ny: float = actor.gy + dir.y * actor.speed * delta
+	var sp := actor.speed * (0.5 if actor.slow_timer > 0.0 else 1.0)  # 냉기 슬로우
+	var nx: float = actor.gx + dir.x * sp * delta
+	var ny: float = actor.gy + dir.y * sp * delta
 	if _walkable(nx, actor.gy):
 		actor.gx = nx
 	if _walkable(actor.gx, ny):
@@ -388,7 +392,7 @@ func _start_game() -> void:
 		_player.max_life = 40 + 2 * _player.stat_vit + 1  # Part 1 §2
 		_player.max_mana = 35 + 2 * _player.stat_energy + 2
 		_player.speed = 5.5
-		_player.skills = {"fireball": 3, "static": 1, "teleport": 1}
+		_player.skills = {"fireball": 3, "icebolt": 3, "lightning": 3, "teleport": 1}
 		_player.res_fire = 30    # 소서리스 화염 저항
 		_player.leech_pct = 8    # 스펠 생명 흡혈 8%
 	else:
@@ -440,8 +444,8 @@ func _start_game() -> void:
 	# 스킬 버튼(확대): 우하단 2개 + 위 1개
 	if _class == "sorceress":
 		_add_skill_button(ui, "fireball", "Fire", Color.ORANGE_RED, Vector2(vp.x - 160, vp.y - 160))
-		_add_skill_button(ui, "static", "Stat", Color.SKY_BLUE, Vector2(vp.x - 300, vp.y - 160))
-		_add_skill_button(ui, "teleport", "Tele", Color.MEDIUM_PURPLE, Vector2(vp.x - 230, vp.y - 300))
+		_add_skill_button(ui, "icebolt", "Ice", Color.SKY_BLUE, Vector2(vp.x - 300, vp.y - 160))
+		_add_skill_button(ui, "lightning", "Ltng", Color.YELLOW, Vector2(vp.x - 230, vp.y - 300))
 	else:
 		_add_skill_button(ui, "bash", "Bash", Color.ORANGE_RED, Vector2(vp.x - 160, vp.y - 160))
 		_add_skill_button(ui, "berserk", "Bsrk", Color.CRIMSON, Vector2(vp.x - 300, vp.y - 160))
@@ -693,7 +697,13 @@ func _auto_play(delta: float) -> void:
 		if dd <= rng_use:
 			if _player.attack_cd <= 0.0:
 				if _class == "sorceress":
-					_cast_fireball(tgt)
+					var el := _spells_cast % 3   # 3속성 번갈아
+					if el == 0:
+						_cast_bolt(tgt, "fire", Color(1, 0.5, 0.15), 14, 26)
+					elif el == 1:
+						_cast_bolt(tgt, "cold", Color(0.4, 0.7, 1.0), 10, 20)
+					else:
+						_cast_lightning(tgt)
 				else:
 					_player_attack(tgt, "bash")
 		else:
@@ -788,38 +798,55 @@ func _on_skill_used(id: String) -> void:
 		_combat_log = "no target"
 		return
 	if id == "fireball":
-		_cast_fireball(tgt)
-	elif id == "static":
-		_cast_static(tgt)
+		_cast_bolt(tgt, "fire", Color(1, 0.5, 0.15), 14, 26)
+	elif id == "icebolt":
+		_cast_bolt(tgt, "cold", Color(0.4, 0.7, 1.0), 10, 20)
+	elif id == "lightning":
+		_cast_lightning(tgt)
 	else:
 		if Vector2(_player.gx, _player.gy).distance_to(Vector2(tgt.gx, tgt.gy)) > ATTACK_RANGE + 0.6:
 			_combat_log = "out of range"
 			return
 		_player_attack(tgt, id)
 
-func _cast_fireball(target: ActorScript) -> void:
+func _target_resist(t: ActorScript, element: String) -> int:
+	match element:
+		"fire": return t.res_fire
+		"cold": return t.res_cold
+		"light": return t.res_light
+		"poison": return t.res_poison
+	return 0
+
+# 투사체 스펠(화염/냉기) — 냉기는 슬로우
+func _cast_bolt(target: ActorScript, element: String, color: Color, base_min: int, base_max: int) -> void:
 	if target == null or not _player.alive or _player.attack_cd > 0.0:
 		return
 	if not _player.spend_mana(3):
 		_combat_log = "no mana"
 		return
-	_player.attack_cd = CombatLib.frames_to_sec(CombatLib.sorc_fcr_frames(_player_fcr))  # FCR 브레이크포인트
+	_player.attack_cd = CombatLib.frames_to_sec(CombatLib.sorc_fcr_frames(_player_fcr))  # FCR
 	_player.pop()
 	_spells_cast += 1
 	var lvl := _player.skill_level("fireball")
-	var dmg := _rng.randi_range(14, 26) + lvl * 4
-	_spawn_projectile(_player.position, target, dmg)
-	_combat_log = "Fireball (dmg~%d)" % dmg
+	var dmg := _rng.randi_range(base_min, base_max) + lvl * 4
+	_spawn_projectile(_player.position, target, dmg, element, color)
+	_combat_log = "%s bolt (dmg~%d)" % [element, dmg]
 
-func _cast_static(target: ActorScript) -> void:
-	if target == null or not target.alive or not _player.spend_mana(4):
+# 번개 스펠 — 즉시 명중(hit-scan), 넓은 데미지 범위
+func _cast_lightning(target: ActorScript) -> void:
+	if target == null or not target.alive or not _player.alive or _player.attack_cd > 0.0:
 		return
+	if not _player.spend_mana(4):
+		return
+	_player.attack_cd = CombatLib.frames_to_sec(CombatLib.sorc_fcr_frames(_player_fcr))
+	_player.pop()
 	_spells_cast += 1
-	var dmg := maxi(1, int(target.life * 0.25))   # Static Field: 현재 생명 25% 감소
+	var raw := _rng.randi_range(6, 30) + _player.skill_level("fireball") * 3
+	var dmg := CombatLib.apply_resistance(raw, target.res_light)
 	target.take_damage(dmg)
 	_spell_hits += 1
 	_flash(_player.position, target.position)
-	_spawn_text(target.position, "static %d" % dmg, Color(0.6, 0.8, 1.0))
+	_spawn_text(target.position, "%d⚡" % dmg, Color(1, 1, 0.4))
 	if not target.alive:
 		_grant_xp(target.level * 40)
 
@@ -852,13 +879,13 @@ func _blink_away(target: ActorScript) -> void:
 		_player.position = _iso(tx, ty)
 	_combat_log = "Teleport (kite)"
 
-func _spawn_projectile(from_pos: Vector2, target: ActorScript, dmg: int) -> void:
+func _spawn_projectile(from_pos: Vector2, target: ActorScript, dmg: int, element: String = "fire", color: Color = Color(1, 0.5, 0.15)) -> void:
 	var n := Sprite2D.new()
-	n.texture = _tex_rect(10, 10, Color(1, 0.5, 0.15))
+	n.texture = _tex_rect(10, 10, color)
 	n.position = from_pos
 	n.z_index = 50
 	_world.add_child(n)
-	_projectiles.append({"node": n, "target": target, "dmg": dmg})
+	_projectiles.append({"node": n, "target": target, "dmg": dmg, "element": element})
 
 func _update_projectiles(delta: float) -> void:
 	for p in _projectiles.duplicate():
@@ -873,18 +900,24 @@ func _update_projectiles(delta: float) -> void:
 			continue
 		n.position = n.position.move_toward(t.position, 420.0 * delta)
 		if n.position.distance_to(t.position) < 12.0:
-			# 파이어볼 = 화염 데미지 → 대상 화염 저항/약점 적용 (Part 5 §2)
-			var dmg: int = CombatLib.apply_resistance(int(p["dmg"]), t.res_fire)
+			# 스펠 속성 데미지 → 대상 해당 속성 저항/약점 적용 (Part 5 §2)
+			var element := String(p.get("element", "fire"))
+			var tres := _target_resist(t, element)
+			var dmg: int = CombatLib.apply_resistance(int(p["dmg"]), tres)
 			t.take_damage(dmg)
 			_spell_hits += 1
+			# 냉기 → 슬로우
+			if element == "cold":
+				t.slow_timer = 2.0
 			# 소서리스 스펠 생명 흡혈 (Part 5 §4)
 			if _player.leech_pct > 0 and _player.alive:
 				var h := CombatLib.leech_life(dmg, _player.leech_pct)
 				_player.life = mini(_player.max_life, _player.life + h)
 				_leech_total += h
 				_player.queue_redraw()
-			var txt := "%d🔥" % dmg
-			if t.res_fire < 0:
+			var em := {"fire": "🔥", "cold": "❄", "light": "⚡", "poison": "☠"}
+			var txt := "%d%s" % [dmg, String(em.get(element, ""))]
+			if tres < 0:
 				txt = "%d! 약점" % dmg
 			_spawn_text(t.position, txt, Color(1, 0.55, 0.15))
 			if not t.alive:

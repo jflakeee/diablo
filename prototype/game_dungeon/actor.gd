@@ -24,6 +24,10 @@ var defense := 10
 var dmg_min := 1
 var dmg_max := 3
 var res_fire := 0      # 화염 저항%
+var res_cold := 0      # 냉기 저항%
+var res_light := 0     # 번개 저항%
+var res_poison := 0    # 독 저항%
+var slow_timer := 0.0  # 냉기 슬로우 남은 시간
 var block_val := 0     # 방패 블록값
 var leech_pct := 0     # 생명 흡혈%(바바리안 물리 / 소서리스 스펠)
 
@@ -62,6 +66,8 @@ func pop() -> void:   # 공격 시 살짝 팽창
 
 # 코드 기반 애니메이션: 걷기 bob + 방향 전환 + 공격 팝
 func animate(delta: float) -> void:
+	if slow_timer > 0.0:
+		slow_timer -= delta
 	if _sprite == null:
 		return
 	var moving := position.distance_to(_prev_pos) > 0.6
