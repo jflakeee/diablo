@@ -182,34 +182,43 @@ func _spawn_dungeon_monsters() -> void:
 			m.queue_free()
 	_monsters.clear()
 	_boss = null
-	var trash := 0
+	# 풀에서 보스/잡몹 분리
+	var pool: Array = []
+	var boss_def := {}
 	for md in Data.monsters():
-		var kind := String(md.get("kind", "melee"))
-		if kind == "boss" and _dlevel < 3:
-			continue  # 보스는 3레벨 이상에서만 등장(초반은 클리어→워프 데모)
-		if kind != "boss":
-			trash += 1
-			if trash > 3:
-				continue  # 초반 레벨 잡몹 3마리로 제한
-		var col := Color(float(md["color"][0]), float(md["color"][1]), float(md["color"][2]))
-		var cell := _random_floor_cell() if kind != "boss" else _random_floor_cell()
-		var m := _spawn_monster(String(md["name"]), col, int(md["w"]), int(md["h"]), int(md["level"]), int(md["hp"]), int(md["ar"]), int(md["def"]), int(md["dmin"]), int(md["dmax"]), float(md["speed"]), cell.x, cell.y)
-		# 제작기 몬스터 스프라이트 (보스는 크게)
-		m.set_sprite_texture(PixelGen.monster(col, cell.x * 13 + cell.y), 1.7 if kind == "boss" else 1.0)
-		# 난이도 HP 스케일링 (Part 2 §3)
-		m.max_life = int(m.max_life * CombatLib.diff_monster_hp_mult(_difficulty))
-		m.base_max_life = m.max_life
-		m.life = m.max_life
-		var rbonus := CombatLib.diff_monster_resist_bonus(_difficulty)
-		if kind != "melee":
-			m.set_meta("kind", kind)
-		if kind == "boss":
-			m.set_meta("nova_cd", float(md.get("nova_cd", 3.0)))
-			m.set_meta("spray_cd", float(md.get("spray_cd", 1.5)))
-			m.res_fire = -50 + rbonus   # 안다리엘 약점 -50 + 난이도(Hell시 상쇄)
-			_boss = m
+		if String(md.get("kind", "melee")) == "boss":
+			boss_def = md
 		else:
-			m.res_fire = int(md.get("res_fire", 0)) + rbonus
+			pool.append(md)
+	# 던전 레벨에 따라 잡몹 수(4+레벨, 최대 8) — 풀에서 랜덤 조합
+	var count := mini(4 + _dlevel, 8)
+	for i in count:
+		if pool.is_empty():
+			break
+		var md: Dictionary = pool[_rng.randi_range(0, pool.size() - 1)]
+		_spawn_one(md, _random_floor_cell())
+	# 보스: 3레벨 이상
+	if _dlevel >= 3 and not boss_def.is_empty():
+		_spawn_one(boss_def, _random_floor_cell())
+
+func _spawn_one(md: Dictionary, cell: Vector2i) -> void:
+	var kind := String(md.get("kind", "melee"))
+	var col := Color(float(md["color"][0]), float(md["color"][1]), float(md["color"][2]))
+	var m := _spawn_monster(String(md["name"]), col, int(md["w"]), int(md["h"]), int(md["level"]), int(md["hp"]), int(md["ar"]), int(md["def"]), int(md["dmin"]), int(md["dmax"]), float(md["speed"]), cell.x, cell.y)
+	m.set_sprite_texture(PixelGen.monster(col, cell.x * 13 + cell.y), 1.7 if kind == "boss" else 1.0)
+	# 난이도 HP 스케일링 (Part 2 §3)
+	m.max_life = int(m.max_life * CombatLib.diff_monster_hp_mult(_difficulty))
+	m.base_max_life = m.max_life
+	m.life = m.max_life
+	var rbonus := CombatLib.diff_monster_resist_bonus(_difficulty)
+	m.res_fire = int(md.get("res_fire", 0)) + rbonus
+	if kind != "melee":
+		m.set_meta("kind", kind)
+	if kind == "boss":
+		m.set_meta("nova_cd", float(md.get("nova_cd", 3.0)))
+		m.set_meta("spray_cd", float(md.get("spray_cd", 1.5)))
+		m.res_fire = -50 + rbonus
+		_boss = m
 
 func _next_level() -> void:
 	_levels_cleared += 1
