@@ -202,6 +202,19 @@ func _spawn_dungeon_monsters() -> void:
 	if _dlevel >= 3 and not boss_def.is_empty():
 		_spawn_one(boss_def, _random_floor_cell())
 
+# 유니크 보스 모디파이어(Part 3 §4 몬스터 팩) — D2 상징 접두 능력
+const UNIQ_MODS := [
+	{"id": "extra_fast", "name": "Extra Fast"},
+	{"id": "extra_strong", "name": "Extra Strong"},
+	{"id": "cold_ench", "name": "Cold Enchanted"},
+	{"id": "fire_ench", "name": "Fire Enchanted"},
+	{"id": "light_ench", "name": "Lightning Enchanted"},
+	{"id": "stone_skin", "name": "Stone Skin"},
+]
+var _champs := 0
+var _uniques := 0
+var _forced_rank := false
+
 func _spawn_one(md: Dictionary, cell: Vector2i) -> void:
 	var kind := String(md.get("kind", "melee"))
 	var col := Color(float(md["color"][0]), float(md["color"][1]), float(md["color"][2]))
@@ -223,6 +236,61 @@ func _spawn_one(md: Dictionary, cell: Vector2i) -> void:
 		m.set_meta("spray_cd", float(md.get("spray_cd", 1.5)))
 		m.res_fire = -50 + rbonus
 		_boss = m
+		return
+	# 챔피언/유니크 등급 롤 (일반 몬스터만)
+	var roll := _rng.randf()
+	if _auto_quit and not _forced_rank:      # 셀프테스트: 첫 몬스터 유니크 강제
+		_forced_rank = true
+		_apply_rank(m, "unique")
+	elif roll < 0.05:
+		_apply_rank(m, "unique")
+	elif roll < 0.15:
+		_apply_rank(m, "champion")
+
+# 등급 강화: 스탯 배수 + 인챈트 + 이름표 (Part 3 §4)
+func _apply_rank(m: ActorScript, rank: String) -> void:
+	var base_name := String(m.actor_name)
+	if rank == "champion":
+		_champs += 1
+		m.max_life = int(m.max_life * 1.9)
+		m.dmg_min = int(m.dmg_min * 1.4); m.dmg_max = int(m.dmg_max * 1.4)
+		m.attack_rating = int(m.attack_rating * 1.15)
+		m.speed *= 1.1
+		m.actor_name = "Champion " + base_name
+		m.set_meta("rank", "champion")
+		m.modulate = Color(0.7, 0.85, 1.0)                 # 푸른 광휘
+		_add_name_tag(m, m.actor_name, Color(0.55, 0.75, 1.0))
+	else:
+		_uniques += 1
+		m.max_life = int(m.max_life * 3.0)
+		m.dmg_min = int(m.dmg_min * 1.4); m.dmg_max = int(m.dmg_max * 1.4)
+		m.attack_rating = int(m.attack_rating * 1.25)
+		var mod: Dictionary = UNIQ_MODS[_rng.randi_range(0, UNIQ_MODS.size() - 1)]
+		var mid := String(mod["id"])
+		m.set_meta("rank", "unique")
+		m.set_meta("umod", mid)
+		match mid:
+			"extra_fast": m.speed *= 1.4
+			"extra_strong": m.dmg_min = int(m.dmg_min * 1.6); m.dmg_max = int(m.dmg_max * 1.6)
+			"cold_ench": m.set_meta("enchant", "cold"); m.res_cold += 80
+			"fire_ench": m.set_meta("enchant", "fire"); m.res_fire += 80
+			"light_ench": m.set_meta("enchant", "light"); m.res_light += 80
+			"stone_skin": m.defense = int(m.defense * 4.0); m.max_life = int(m.max_life * 1.3)
+		m.actor_name = "%s %s" % [String(mod["name"]), base_name]
+		m.modulate = Color(1.0, 0.82, 0.35)                # 금색 광휘
+		_add_name_tag(m, m.actor_name, Color(1.0, 0.82, 0.3))
+	m.base_max_life = m.max_life
+	m.life = m.max_life
+
+func _add_name_tag(m: ActorScript, text: String, color: Color) -> void:
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.add_theme_font_size_override("font_size", 11)
+	lbl.add_theme_color_override("font_color", color)
+	lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	lbl.add_theme_constant_override("outline_size", 3)
+	lbl.position = Vector2(-float(text.length()) * 3.0, -52)
+	m.add_child(lbl)
 
 func _next_level() -> void:
 	_levels_cleared += 1
@@ -669,6 +737,7 @@ func _ranged_ai(m: ActorScript, delta: float) -> void:
 			var dmg := CombatLib.physical_damage(_rng, m.dmg_min, m.dmg_max, 0.0)
 			_player.take_damage(dmg)
 			_spawn_text(_player.position, str(dmg), Color(1, 0.6, 0.2))
+			_apply_enchant(m)
 		m.attack_cd = 1.6
 
 # 보스 공격 루틴 상태머신 (Part 3 §4 안다리엘): 독노바(주기)/근접/독분사(원거리)
@@ -804,8 +873,8 @@ func _process(delta: float) -> void:
 	if _auto_quit and elapsed >= 50.0:
 		var dex := Vector2(_player.gx, _player.gy).distance_to(Vector2(_exit_cell.x, _exit_cell.y))
 		var dn: String = ["Normal", "NM", "Hell"][_difficulty]
-		print("[GD][RESULT] class=%s diff=%s dungeon_level=%d cleared=%d kills=%d life=%d/%d res_fire=%d" % [
-			_class, dn, _dlevel, _levels_cleared, _kills, _player.life, _player.max_life, _player.res_fire])
+		print("[GD][RESULT] class=%s diff=%s dungeon_level=%d cleared=%d kills=%d life=%d/%d res_fire=%d champs=%d uniques=%d" % [
+			_class, dn, _dlevel, _levels_cleared, _kills, _player.life, _player.max_life, _player.res_fire, _champs, _uniques])
 		var ok: bool = _kills > 0 or _spells_cast > 0
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		get_tree().quit()
@@ -1059,8 +1128,26 @@ func _monster_attack(m: ActorScript) -> void:
 		var dmg := CombatLib.physical_damage(_rng, m.dmg_min, m.dmg_max, 0.0)
 		_player.take_damage(dmg)
 		_spawn_text(_player.position, str(dmg), Color(1, 0.4, 0.4))
+		_apply_enchant(m)
 	else:
 		_spawn_text(_player.position, "miss", Color(0.85, 0.85, 0.85))
+
+# 유니크 인챈트 원소 피해(피격 시) — 플레이어 저항 적용. 냉기는 슬로우.
+func _apply_enchant(m: ActorScript) -> void:
+	var el := String(m.get_meta("enchant", ""))
+	if el == "":
+		return
+	var amt := _rng.randi_range(6, 14)
+	var res := 0
+	match el:
+		"fire": res = _player.res_fire
+		"cold": res = _player.res_cold; _player.slow_timer = 1.2
+		"light": res = _player.res_light
+	var d := CombatLib.apply_resistance(amt, res)
+	if d > 0:
+		_player.take_damage(d)
+		var c := Color(1, 0.5, 0.2) if el == "fire" else (Color(0.5, 0.8, 1) if el == "cold" else Color(1, 1, 0.4))
+		_spawn_text(_player.position + Vector2(0, -12), "+%d %s" % [d, el], c)
 
 func _cast_battle_orders() -> void:
 	var lvl := _player.skill_level("battle_orders")
@@ -1130,12 +1217,31 @@ func _grant_xp(amount: int) -> void:
 func _on_monster_died(m: Node) -> void:
 	_kills += 1
 	_play_sfx("death")
-	var it := Item.roll_drop(_rng, int(m.level), _player_mf)
-	if not it.is_empty():
+	# 등급별 강화 드롭 (챔피언/유니크 = 더 많은 롤 + MF + ilvl 보너스)
+	var rank := String(m.get_meta("rank", ""))
+	var rolls := 1
+	var mf := _player_mf
+	var mlvl := int(m.level)
+	if rank == "champion":
+		rolls = 2; mf += 120; mlvl += 2
+	elif rank == "unique":
+		rolls = 3; mf += 280; mlvl += 3
+	var dropped := 0
+	for i in rolls:
+		var it := Item.roll_drop(_rng, mlvl, mf)
+		if not it.is_empty():
+			_items_dropped += 1
+			dropped += 1
+			_spawn_ground(it, m.gx, m.gy)
+			_combat_log = "%s dropped %s" % [m.actor_name, Item.display_name(it)]
+	# 유니크는 최소 1개 보장(매직)
+	if rank == "unique" and dropped == 0:
+		var base: Dictionary = Item.WEAPON_BASES[_rng.randi_range(0, Item.WEAPON_BASES.size() - 1)]
+		var it2 := Item.generate(_rng, base, mlvl + 8, "magic")
 		_items_dropped += 1
-		_spawn_ground(it, m.gx, m.gy)
-		_combat_log = "%s dropped %s" % [m.actor_name, Item.display_name(it)]
-	else:
+		_spawn_ground(it2, m.gx, m.gy)
+		_combat_log = "%s dropped %s" % [m.actor_name, Item.display_name(it2)]
+	elif dropped == 0:
 		_combat_log = "%s slain" % m.actor_name
 
 func _spawn_ground(it: Dictionary, gx: float, gy: float) -> void:
