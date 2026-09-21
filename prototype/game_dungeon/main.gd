@@ -14,6 +14,7 @@ const Data := preload("res://data.gd")
 const LevelGen := preload("res://level_gen.gd")
 const PixelGen := preload("res://pixel_gen.gd")
 const SfxGen := preload("res://sfx_gen.gd")
+const MinimapScript := preload("res://minimap.gd")
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -81,6 +82,7 @@ var _gambles := 0
 var _stat_points := 0
 var _char_panel: Panel
 var _char_vbox: VBoxContainer
+var _minimap: Control
 var _inv_panel: Panel
 var _inv_vbox: VBoxContainer
 var _rng := RandomNumberGenerator.new()
@@ -146,6 +148,32 @@ func _make_actor(nm: String, col: Color, w: int, h: int) -> ActorScript:
 	a.setup(_tex_rect(w, h, col))
 	_world.add_child(a)
 	return a
+
+# 미니맵 지형 텍스처(레벨당 1회): 벽=투명 어둠 / 바닥=밝은 회갈색
+func _build_minimap_tex() -> void:
+	if _minimap == null:
+		return
+	var img := Image.create(_gw, _gh, false, Image.FORMAT_RGBA8)
+	for y in _gh:
+		for x in _gw:
+			var wall: bool = int(_grid[y][x]) == 0
+			img.set_pixel(x, y, Color(0.08, 0.07, 0.09, 0.0) if wall else Color(0.55, 0.5, 0.42, 0.92))
+	_minimap.tex = ImageTexture.create_from_image(img)
+	_minimap.gw = _gw
+	_minimap.gh = _gh
+
+func _update_minimap() -> void:
+	if _minimap == null:
+		return
+	_minimap.player_cell = Vector2(_player.gx, _player.gy)
+	_minimap.exit_cell = Vector2(_exit_cell.x, _exit_cell.y)
+	var mc: Array = []
+	for m in _monsters:
+		if m.alive:
+			mc.append(Vector2(m.gx, m.gy))
+	_minimap.monster_cells = mc
+	_minimap.merc_cell = (Vector2(_merc.gx, _merc.gy) if (_merc != null and _merc.alive) else null)
+	_minimap.queue_redraw()
 
 func _build_astar(w: int, h: int, grid: Array) -> AStarGrid2D:
 	var astar := AStarGrid2D.new()
@@ -328,6 +356,7 @@ func _next_level() -> void:
 	_ground.clear()
 	_projectiles.clear()
 	_generate_dungeon()
+	_build_minimap_tex()
 	_player.gx = _ent_cell.x
 	_player.gy = _ent_cell.y
 	_player.position = _iso(_player.gx, _player.gy)
@@ -651,6 +680,13 @@ func _start_game() -> void:
 	_char_panel.visible = false
 	ui.add_child(_char_panel)
 	_build_char_panel()
+
+	# 자동 지도(미니맵) — 좌하단(조이스틱 위쪽 여백)
+	_minimap = MinimapScript.new()
+	_minimap.size = Vector2(190, 190)
+	_minimap.position = Vector2(vp.x - 210, vp.y - 210)
+	ui.add_child(_minimap)
+	_build_minimap_tex()
 
 	_hud = Label.new()
 	_hud.position = Vector2(14, 12)
@@ -1074,6 +1110,7 @@ func _process(delta: float) -> void:
 		_cam.position = _cam.position.lerp(_player.position, clampf(delta * 8.0, 0.0, 1.0))
 	# 애니메이션(걷기 bob·방향·팝)
 	_player.animate(delta)
+	_update_minimap()
 	_merc_ai(delta)
 	for am in _monsters:
 		if am.alive:
@@ -1114,6 +1151,7 @@ func _process(delta: float) -> void:
 		var mstate := ("alive %d/%d" % [_merc.life, _merc.max_life]) if (_merc != null and _merc.alive) else "down"
 		print("[MERC] kills=%d state=%s" % [_merc_kills, mstate])
 		print("[GOLD] gold=%d sold_total=%d gambles=%d" % [_gold, _gold_sold, _gambles])
+		print("[MAP] tex=%s grid=%dx%d monster_dots=%d" % [str(_minimap != null and _minimap.tex != null), _minimap.gw if _minimap else 0, _minimap.gh if _minimap else 0, _minimap.monster_cells.size() if _minimap else 0])
 		print("[CHAR] str=%d dex=%d vit=%d energy=%d mastery=%d unspent(stat=%d skill=%d)" % [
 			_player.stat_str, _player.stat_dex, _player.stat_vit, _player.stat_energy,
 			_player.skill_level("mastery" if _class != "sorceress" else "fireball"), _stat_points, _player.skill_points])
