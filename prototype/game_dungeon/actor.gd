@@ -6,6 +6,7 @@ signal died(actor: Node)
 
 var actor_name := "Actor"
 var is_player := false
+var is_ally := false      # 용병 등 아군(초록 체력바)
 var level := 1
 var stat_str := 10
 var stat_dex := 10
@@ -115,7 +116,7 @@ func _draw() -> void:
 	var life_frac := clampf(float(life) / float(maxi(max_life, 1)), 0.0, 1.0)
 	var top := Vector2(-w * 0.5, -36.0)
 	draw_rect(Rect2(top, Vector2(w, 5)), Color(0, 0, 0, 0.6))
-	var fill := Color(0.3, 0.8, 0.35) if is_player else Color(0.85, 0.22, 0.2)
+	var fill := Color(0.3, 0.8, 0.35) if (is_player or is_ally) else Color(0.85, 0.22, 0.2)
 	draw_rect(Rect2(top, Vector2(w * life_frac, 5)), fill)
 	if is_player:
 		var mana_frac := clampf(float(mana) / float(maxi(max_mana, 1)), 0.0, 1.0)

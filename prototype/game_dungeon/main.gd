@@ -63,6 +63,13 @@ var _belt_mp := 2            # 시작 마나 포션
 var _potions_quaffed := 0
 var _pot_hp_btn: Button
 var _pot_mp_btn: Button
+# ── 용병(Rogue Scout, Act 1) — 원거리 화염 화살 아군 ──
+var _merc: ActorScript
+var _merc_cd := 0.0
+var _merc_kills := 0
+var _merc_revive_t := 0.0
+const MERC_RANGE := 6.0
+const MERC_CD := 1.1
 var _inv_panel: Panel
 var _inv_vbox: VBoxContainer
 var _rng := RandomNumberGenerator.new()
@@ -313,6 +320,14 @@ func _next_level() -> void:
 	_player.gx = _ent_cell.x
 	_player.gy = _ent_cell.y
 	_player.position = _iso(_player.gx, _player.gy)
+	# 용병도 새 레벨 입구로 이동(죽었으면 부활)
+	if _merc != null:
+		if not _merc.alive:
+			_merc_revive()
+		else:
+			_merc.gx = _player.gx + 1
+			_merc.gy = _player.gy
+			_merc.position = _iso(_merc.gx, _merc.gy)
 	_spawn_dungeon_monsters()
 	if is_instance_valid(_cam):
 		_cam.position = _player.position
@@ -545,6 +560,7 @@ func _start_game() -> void:
 	else:
 		_recompute_player()
 
+	_spawn_merc()
 	_spawn_dungeon_monsters()
 
 	_attack_line = Line2D.new()
@@ -785,6 +801,85 @@ func _physics_process(delta: float) -> void:
 		else:
 			_melee_ai(m, delta)
 
+# 용병 스폰(플레이어 옆). 스탯은 플레이어 레벨에 스케일.
+func _spawn_merc() -> void:
+	_merc = _make_actor("Rogue Scout", Color(0.55, 0.25, 0.35), 20, 32)
+	_merc.is_ally = true
+	_merc.died.connect(_on_merc_died)
+	_merc.set_sprite_texture(PixelGen.character(Color(0.5, 0.15, 0.2), 7), 1.0)
+	_merc.level = _player.level
+	_merc_scale_stats()
+	_merc.gx = _player.gx + 1
+	_merc.gy = _player.gy
+	_merc.position = _iso(_merc.gx, _merc.gy)
+
+func _merc_scale_stats() -> void:
+	var lv := _player.level
+	_merc.max_life = 60 + lv * 22
+	_merc.base_max_life = _merc.max_life
+	if _merc.alive:
+		_merc.life = _merc.max_life
+	_merc.attack_rating = 120 + lv * 18
+	_merc.dmg_min = 6 + lv * 2
+	_merc.dmg_max = 12 + lv * 3
+	_merc.speed = 5.6
+
+# 용병 AI: 플레이어 추종 + 최근접 몬스터에 화염 화살(원거리)
+func _merc_ai(delta: float) -> void:
+	if _merc == null:
+		return
+	if not _merc.alive:
+		# 레벨 전환/시간 경과 시 부활
+		_merc_revive_t -= delta
+		if _merc_revive_t <= 0.0:
+			_merc_revive()
+		return
+	_merc.animate(delta)
+	_merc_cd = maxf(0.0, _merc_cd - delta)
+	var tgt := _nearest_monster()
+	var pd := Vector2(_player.gx - _merc.gx, _player.gy - _merc.gy).length()
+	if tgt != null and Vector2(_merc.gx, _merc.gy).distance_to(Vector2(tgt.gx, tgt.gy)) <= MERC_RANGE:
+		if pd > 4.5:                       # 너무 멀면 플레이어에게 복귀 우선
+			_nav_toward(_merc, _player.gx, _player.gy, delta)
+		elif _merc_cd <= 0.0:
+			_merc_fire(tgt)
+			_merc_cd = MERC_CD
+	elif pd > 2.2:                          # 몬스터 없음/사거리 밖 → 플레이어 추종
+		_nav_toward(_merc, _player.gx, _player.gy, delta)
+
+func _merc_fire(tgt: ActorScript) -> void:
+	_merc.pop()
+	if CombatLib.roll_hit(_rng, _merc.attack_rating, tgt.defense, _merc.level, tgt.level):
+		var phys := CombatLib.physical_damage(_rng, _merc.dmg_min, _merc.dmg_max, 0.0)
+		var fire := _rng.randi_range(3, 8) + _merc.level
+		# 물리 화살(저항 무시) 즉시 + 화염 부가(저항 적용)
+		var pre_alive := tgt.alive
+		tgt.take_damage(phys)
+		var fdmg := CombatLib.apply_resistance(fire, _target_resist(tgt, "fire"))
+		if fdmg > 0 and tgt.alive:
+			tgt.take_damage(fdmg)
+		_spawn_text(tgt.position + Vector2(0, -8), "%d+%d🔥" % [phys, fdmg], Color(1, 0.7, 0.3))
+		_flash(_merc.position, tgt.position)
+		if pre_alive and not tgt.alive:
+			_merc_kills += 1
+			_grant_xp(tgt.level * 40)     # 용병 킬도 플레이어 XP(D2)
+
+func _on_merc_died(_a: Node) -> void:
+	_merc_revive_t = 8.0                    # 8초 후 부활
+	_combat_log = "용병 쓰러짐 (8초 후 부활)"
+
+func _merc_revive() -> void:
+	if _merc == null:
+		return
+	_merc.alive = true
+	_merc.modulate = Color(1, 1, 1, 1)
+	_merc_scale_stats()
+	_merc.life = _merc.max_life
+	_merc.gx = _player.gx + 1
+	_merc.gy = _player.gy
+	_merc.position = _iso(_merc.gx, _merc.gy)
+	_combat_log = "용병 부활"
+
 func _approach(m: ActorScript, delta: float, stop_dist: float) -> float:
 	var d := Vector2(_player.gx - m.gx, _player.gy - m.gy).length()
 	if d > stop_dist:
@@ -845,6 +940,11 @@ func _boss_nova(m: ActorScript) -> void:
 		var dmg := CombatLib.apply_resistance(raw, _player.res_poison)  # 독 → 플레이어 독저항
 		_player.take_damage(dmg)
 		_spawn_text(_player.position, "%d☠" % dmg, Color(0.4, 0.9, 0.3))
+	# 용병도 노바 범위면 피해(독저항 없음)
+	if _merc != null and _merc.alive and Vector2(_merc.gx - m.gx, _merc.gy - m.gy).length() <= NOVA_RADIUS:
+		var md := int(CombatLib.physical_damage(_rng, m.dmg_min, m.dmg_max, 30.0))
+		_merc.take_damage(md)
+		_spawn_text(_merc.position, "%d☠" % md, Color(0.4, 0.9, 0.3))
 
 func _boss_spray(m: ActorScript) -> void:
 	_boss_spray_cnt += 1
@@ -923,6 +1023,7 @@ func _process(delta: float) -> void:
 		_cam.position = _cam.position.lerp(_player.position, clampf(delta * 8.0, 0.0, 1.0))
 	# 애니메이션(걷기 bob·방향·팝)
 	_player.animate(delta)
+	_merc_ai(delta)
 	for am in _monsters:
 		if am.alive:
 			am.animate(delta)
@@ -947,6 +1048,9 @@ func _process(delta: float) -> void:
 		_pot_hp_btn.text = "♥\n%d" % _belt_hp
 	if _pot_mp_btn:
 		_pot_mp_btn.text = "✦\n%d" % _belt_mp
+	if _merc != null:
+		var ms := ("♥%d/%d" % [_merc.life, _merc.max_life]) if _merc.alive else "쓰러짐"
+		_hud.text += "\n용병 Rogue Scout %s  킬 %d" % [ms, _merc_kills]
 
 	if _auto_quit and elapsed >= 50.0:
 		var dex := Vector2(_player.gx, _player.gy).distance_to(Vector2(_exit_cell.x, _exit_cell.y))
@@ -954,6 +1058,8 @@ func _process(delta: float) -> void:
 		print("[GD][RESULT] class=%s diff=%s dungeon_level=%d cleared=%d kills=%d life=%d/%d res_fire=%d champs=%d uniques=%d" % [
 			_class, dn, _dlevel, _levels_cleared, _kills, _player.life, _player.max_life, _player.res_fire, _champs, _uniques])
 		print("[POT] quaffed=%d belt(♥%d ✦%d)" % [_potions_quaffed, _belt_hp, _belt_mp])
+		var mstate := ("alive %d/%d" % [_merc.life, _merc.max_life]) if (_merc != null and _merc.alive) else "down"
+		print("[MERC] kills=%d state=%s" % [_merc_kills, mstate])
 		var ok: bool = _kills > 0 or _spells_cast > 0
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		get_tree().quit()
@@ -1289,6 +1395,9 @@ func _grant_xp(amount: int) -> void:
 		_player.level += 1
 		_player.skills["mastery"] = _player.skill_level("mastery") + 1
 		_recompute_player()
+		if _merc != null:
+			_merc.level = _player.level
+			_merc_scale_stats()
 		_play_sfx("levelup", -3.0)
 		_combat_log = "LEVEL UP → %d" % _player.level
 		need = _player.level * 100
