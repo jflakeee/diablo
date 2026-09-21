@@ -76,6 +76,7 @@ const COST_HP_POT := 45
 const COST_MP_POT := 35
 var _vendor_panel: Panel
 var _gold_sold := 0
+var _gambles := 0
 # ── 스탯/스킬 포인트 분배(성장) ──
 var _stat_points := 0
 var _char_panel: Panel
@@ -1020,6 +1021,9 @@ func _auto_play(delta: float) -> void:
 		_sell_all()
 	if _gold >= COST_HP_POT and _belt_hp < 3:
 		_buy_potion("health")
+	# 골드 여유 시 도박(검증)
+	if _gold > _gamble_cost() + 400:
+		_gamble()
 	if _class == "barbarian" and not _bo_done:
 		_cast_battle_orders()
 		_bo_done = true
@@ -1109,7 +1113,7 @@ func _process(delta: float) -> void:
 		print("[POT] quaffed=%d belt(♥%d ✦%d)" % [_potions_quaffed, _belt_hp, _belt_mp])
 		var mstate := ("alive %d/%d" % [_merc.life, _merc.max_life]) if (_merc != null and _merc.alive) else "down"
 		print("[MERC] kills=%d state=%s" % [_merc_kills, mstate])
-		print("[GOLD] gold=%d sold_total=%d" % [_gold, _gold_sold])
+		print("[GOLD] gold=%d sold_total=%d gambles=%d" % [_gold, _gold_sold, _gambles])
 		print("[CHAR] str=%d dex=%d vit=%d energy=%d mastery=%d unspent(stat=%d skill=%d)" % [
 			_player.stat_str, _player.stat_dex, _player.stat_vit, _player.stat_energy,
 			_player.skill_level("mastery" if _class != "sorceress" else "fireball"), _stat_points, _player.skill_points])
@@ -1612,6 +1616,7 @@ func _build_vendor() -> void:
 	_vendor_btn(vb, "생명 포션 구매 (%dg)" % COST_HP_POT, func(): _buy_potion("health"))
 	_vendor_btn(vb, "마나 포션 구매 (%dg)" % COST_MP_POT, func(): _buy_potion("mana"))
 	_vendor_btn(vb, "인벤토리 전부 판매", func(): _sell_all())
+	_vendor_btn(vb, "🎲 도박 — 무작위 아이템", func(): _gamble())
 
 func _vendor_btn(vb: VBoxContainer, text: String, cb: Callable) -> void:
 	var b := Button.new()
@@ -1708,7 +1713,7 @@ func _auto_spend_points() -> void:
 
 func _refresh_vendor() -> void:
 	if _vendor_gold_lbl:
-		_vendor_gold_lbl.text = "골드: %d    벨트 ♥%d ✦%d    가방 %d" % [_gold, _belt_hp, _belt_mp, _inventory.size()]
+		_vendor_gold_lbl.text = "골드: %d    벨트 ♥%d ✦%d    가방 %d    도박비 %dg" % [_gold, _belt_hp, _belt_mp, _inventory.size(), _gamble_cost()]
 
 func _buy_potion(ptype: String) -> void:
 	var cost := COST_HP_POT if ptype == "health" else COST_MP_POT
@@ -1720,6 +1725,35 @@ func _buy_potion(ptype: String) -> void:
 		return
 	_gold -= cost
 	_combat_log = "%s 포션 구매" % ("생명" if ptype == "health" else "마나")
+	_refresh_vendor()
+
+func _gamble_cost() -> int:
+	return 200 + _player.level * 45
+
+# 도박: 골드 지불 → 무작위 아이템(매직 70% / 레어 22% / 유니크 8%)
+func _gamble() -> void:
+	var cost := _gamble_cost()
+	if _gold < cost:
+		_combat_log = "골드 부족 (도박 %dg)" % cost
+		return
+	_gold -= cost
+	_gambles += 1
+	var base: Dictionary
+	if _rng.randf() < 0.5:
+		base = Item.WEAPON_BASES[_rng.randi_range(0, Item.WEAPON_BASES.size() - 1)]
+	else:
+		base = Item.ARMOR_BASES[_rng.randi_range(0, Item.ARMOR_BASES.size() - 1)]
+	var ilvl := _player.level + 5
+	var r := _rng.randf() * 100.0
+	var q := "magic"
+	if r < 8.0 and Item.UNIQUES.has(String(base["name"])):
+		q = "unique"
+	elif r < 30.0:
+		q = "rare"
+	var it := Item.generate(_rng, base, ilvl, q)
+	_inventory.append(it)
+	_combat_log = "🎲 도박(%dg): %s" % [cost, Item.display_name(it)]
+	_rebuild_inv()
 	_refresh_vendor()
 
 func _sell_all() -> void:
