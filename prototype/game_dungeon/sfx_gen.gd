@@ -3,6 +3,7 @@ extends RefCounted
 # preload로 사용: const SfxGen := preload("res://sfx_gen.gd")
 
 const RATE := 22050
+const VERSION := 1
 
 static func _wav(data: PackedByteArray) -> AudioStreamWAV:
 	var w := AudioStreamWAV.new()

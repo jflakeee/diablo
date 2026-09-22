@@ -12,6 +12,8 @@
         3,
         6
       ],
+      "recipe_id": "andariel",
+      "recipe_type": "monster",
       "region": [
         207,
         395,
@@ -24,6 +26,8 @@
         0,
         1
       ],
+      "recipe_id": "Barbarian",
+      "recipe_type": "hero",
       "region": [
         16,
         76,
@@ -36,6 +40,8 @@
         3,
         5
       ],
+      "recipe_id": "blood_hawk",
+      "recipe_type": "monster",
       "region": [
         207,
         331,
@@ -48,6 +54,8 @@
         1,
         2
       ],
+      "recipe_id": "coin",
+      "recipe_type": "icon",
       "region": [
         80,
         144,
@@ -60,6 +68,8 @@
         0,
         6
       ],
+      "recipe_id": "corrupt_rogue",
+      "recipe_type": "monster",
       "region": [
         15,
         395,
@@ -72,6 +82,8 @@
         2,
         0
       ],
+      "recipe_id": "dirt",
+      "recipe_type": "tile",
       "region": [
         128,
         16,
@@ -84,6 +96,8 @@
         1,
         3
       ],
+      "recipe_id": "emerald",
+      "recipe_type": "icon",
       "region": [
         80,
         208,
@@ -96,6 +110,8 @@
         0,
         4
       ],
+      "recipe_id": "fallen",
+      "recipe_type": "monster",
       "region": [
         15,
         267,
@@ -108,6 +124,8 @@
         1,
         4
       ],
+      "recipe_id": "fallen_shaman",
+      "recipe_type": "monster",
       "region": [
         79,
         267,
@@ -120,6 +138,8 @@
         1,
         6
       ],
+      "recipe_id": "ghoul",
+      "recipe_type": "monster",
       "region": [
         79,
         395,
@@ -132,6 +152,8 @@
         2,
         5
       ],
+      "recipe_id": "goat_man",
+      "recipe_type": "monster",
       "region": [
         143,
         331,
@@ -144,6 +166,8 @@
         0,
         0
       ],
+      "recipe_id": "grass",
+      "recipe_type": "tile",
       "region": [
         0,
         16,
@@ -156,6 +180,8 @@
         3,
         0
       ],
+      "recipe_id": "hell",
+      "recipe_type": "tile",
       "region": [
         192,
         16,
@@ -168,6 +194,8 @@
         3,
         1
       ],
+      "recipe_id": "potion",
+      "recipe_type": "icon",
       "region": [
         208,
         80,
@@ -180,6 +208,8 @@
         3,
         3
       ],
+      "recipe_id": "Rogue",
+      "recipe_type": "hero",
       "region": [
         208,
         204,
@@ -192,6 +222,8 @@
         2,
         2
       ],
+      "recipe_id": "ruby",
+      "recipe_type": "icon",
       "region": [
         144,
         144,
@@ -204,6 +236,8 @@
         2,
         3
       ],
+      "recipe_id": "rune",
+      "recipe_type": "icon",
       "region": [
         144,
         208,
@@ -216,6 +250,8 @@
         3,
         2
       ],
+      "recipe_id": "sapphire",
+      "recipe_type": "icon",
       "region": [
         208,
         144,
@@ -228,6 +264,8 @@
         0,
         2
       ],
+      "recipe_id": "shield",
+      "recipe_type": "icon",
       "region": [
         16,
         144,
@@ -240,6 +278,8 @@
         0,
         5
       ],
+      "recipe_id": "skeleton",
+      "recipe_type": "monster",
       "region": [
         15,
         331,
@@ -252,6 +292,8 @@
         1,
         5
       ],
+      "recipe_id": "skeleton_archer",
+      "recipe_type": "monster",
       "region": [
         79,
         331,
@@ -264,6 +306,8 @@
         1,
         1
       ],
+      "recipe_id": "Sorceress",
+      "recipe_type": "hero",
       "region": [
         80,
         76,
@@ -276,6 +320,8 @@
         2,
         4
       ],
+      "recipe_id": "spike_fiend",
+      "recipe_type": "monster",
       "region": [
         143,
         267,
@@ -288,6 +334,8 @@
         1,
         0
       ],
+      "recipe_id": "stone",
+      "recipe_type": "tile",
       "region": [
         64,
         16,
@@ -300,6 +348,8 @@
         2,
         1
       ],
+      "recipe_id": "sword",
+      "recipe_type": "icon",
       "region": [
         144,
         80,
@@ -312,6 +362,8 @@
         2,
         6
       ],
+      "recipe_id": "tainted",
+      "recipe_type": "monster",
       "region": [
         143,
         395,
@@ -324,6 +376,8 @@
         0,
         3
       ],
+      "recipe_id": "topaz",
+      "recipe_type": "icon",
       "region": [
         16,
         208,
@@ -336,6 +390,8 @@
         3,
         4
       ],
+      "recipe_id": "zombie",
+      "recipe_type": "monster",
       "region": [
         207,
         267,
@@ -351,5 +407,10 @@
     "monsters": "1d52eeddab9a82f4e8825a137de3553d",
     "palettes": "aed771d5383bc3117f1f41385168a53d",
     "recipes": "e0d1efe55084a729b317c4f4c5e7cabb"
+  },
+  "provenance": {
+    "direct_edit": false,
+    "license": "project_original",
+    "origin": "project_generated"
   }
 }

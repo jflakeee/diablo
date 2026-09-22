@@ -552,7 +552,7 @@ func _ready() -> void:
 			var st: AudioStreamWAV = _sfx[sn]
 			if st != null and st.data.size() > 0:
 				sok += 1
-		print("[SFX] generated=%d/%d players=%d bytes(attack)=%d" % [sok, _sfx.size(), _sfx_pool.size(), int((_sfx["attack"] as AudioStreamWAV).data.size())])
+		print("[SFX] generator=%d generated=%d/%d players=%d bytes(attack)=%d" % [SfxGen.VERSION, sok, _sfx.size(), _sfx_pool.size(), int((_sfx["attack"] as AudioStreamWAV).data.size())])
 	if OS.get_cmdline_user_args().has("sorc"):
 		_class = "sorceress"
 		_start_game()

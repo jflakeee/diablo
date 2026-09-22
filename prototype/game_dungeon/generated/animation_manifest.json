@@ -44,7 +44,9 @@
           ],
           "loop": true
         }
-      }
+      },
+      "recipe_id": "andariel",
+      "recipe_type": "monster"
     },
     "barbarian": {
       "animations": {
@@ -216,7 +218,9 @@
           ],
           "loop": true
         }
-      }
+      },
+      "recipe_id": "Barbarian",
+      "recipe_type": "hero"
     },
     "blood_hawk": {
       "animations": {
@@ -262,7 +266,9 @@
           ],
           "loop": true
         }
-      }
+      },
+      "recipe_id": "blood_hawk",
+      "recipe_type": "monster"
     },
     "corrupt_rogue": {
       "animations": {
@@ -308,7 +314,9 @@
           ],
           "loop": true
         }
-      }
+      },
+      "recipe_id": "corrupt_rogue",
+      "recipe_type": "monster"
     },
     "fallen": {
       "animations": {
@@ -354,7 +362,9 @@
           ],
           "loop": true
         }
-      }
+      },
+      "recipe_id": "fallen",
+      "recipe_type": "monster"
     },
     "fallen_shaman": {
       "animations": {
@@ -400,7 +410,9 @@
           ],
           "loop": true
         }
-      }
+      },
+      "recipe_id": "fallen_shaman",
+      "recipe_type": "monster"
     },
     "ghoul": {
       "animations": {
@@ -446,7 +458,9 @@
           ],
           "loop": true
         }
-      }
+      },
+      "recipe_id": "ghoul",
+      "recipe_type": "monster"
     },
     "goat_man": {
       "animations": {
@@ -492,7 +506,9 @@
           ],
           "loop": true
         }
-      }
+      },
+      "recipe_id": "goat_man",
+      "recipe_type": "monster"
     },
     "rogue": {
       "animations": {
@@ -664,7 +680,9 @@
           ],
           "loop": true
         }
-      }
+      },
+      "recipe_id": "Rogue",
+      "recipe_type": "hero"
     },
     "skeleton": {
       "animations": {
@@ -710,7 +728,9 @@
           ],
           "loop": true
         }
-      }
+      },
+      "recipe_id": "skeleton",
+      "recipe_type": "monster"
     },
     "skeleton_archer": {
       "animations": {
@@ -756,7 +776,9 @@
           ],
           "loop": true
         }
-      }
+      },
+      "recipe_id": "skeleton_archer",
+      "recipe_type": "monster"
     },
     "sorceress": {
       "animations": {
@@ -928,7 +950,9 @@
           ],
           "loop": true
         }
-      }
+      },
+      "recipe_id": "Sorceress",
+      "recipe_type": "hero"
     },
     "spike_fiend": {
       "animations": {
@@ -974,7 +998,9 @@
           ],
           "loop": true
         }
-      }
+      },
+      "recipe_id": "spike_fiend",
+      "recipe_type": "monster"
     },
     "tainted": {
       "animations": {
@@ -1020,7 +1046,9 @@
           ],
           "loop": true
         }
-      }
+      },
+      "recipe_id": "tainted",
+      "recipe_type": "monster"
     },
     "zombie": {
       "animations": {
@@ -1066,11 +1094,13 @@
           ],
           "loop": true
         }
-      }
+      },
+      "recipe_id": "zombie",
+      "recipe_type": "monster"
     }
   },
   "atlas": "animation_atlas.png",
-  "atlas_md5": "f1f19dc5f003ceb02f34f927d1b5b50c",
+  "atlas_md5": "1b5cc620c31d15137a036c7dfb1a2d32",
   "atlas_size": [
     512,
     576
@@ -1082,5 +1112,10 @@
     "monsters": "1d52eeddab9a82f4e8825a137de3553d",
     "palettes": "aed771d5383bc3117f1f41385168a53d",
     "recipes": "e0d1efe55084a729b317c4f4c5e7cabb"
+  },
+  "provenance": {
+    "direct_edit": false,
+    "license": "project_original",
+    "origin": "project_generated"
   }
 }

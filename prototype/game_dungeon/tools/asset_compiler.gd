@@ -93,8 +93,18 @@ func _verify_outputs(path: String) -> bool:
 	var anim_manifest = JSON.parse_string(anim_file.get_as_text())
 	if not static_manifest is Dictionary or not anim_manifest is Dictionary:
 		return false
-	return static_manifest.get("entries", {}).size() == 28 \
-		and anim_manifest.get("actors", {}).size() == 15 \
+	var entries: Dictionary = static_manifest.get("entries", {})
+	var actors: Dictionary = anim_manifest.get("actors", {})
+	for entry in entries.values():
+		if String((entry as Dictionary).get("recipe_id", "")).is_empty() or String((entry as Dictionary).get("recipe_type", "")).is_empty():
+			return false
+	for actor in actors.values():
+		if String((actor as Dictionary).get("recipe_id", "")).is_empty() or String((actor as Dictionary).get("recipe_type", "")).is_empty():
+			return false
+	return entries.size() == 28 \
+		and actors.size() == 15 \
+		and String(static_manifest.get("provenance", {}).get("origin", "")) == "project_generated" \
+		and String(anim_manifest.get("provenance", {}).get("origin", "")) == "project_generated" \
 		and String(static_manifest.get("atlas_md5", "")) == FileAccess.get_md5(path.path_join("atlas.png")) \
 		and String(anim_manifest.get("atlas_md5", "")) == FileAccess.get_md5(path.path_join("animation_atlas.png"))
 
@@ -161,13 +171,16 @@ func _build_atlas(samples: Array) -> bool:
 		var py := row * ATLAS_CELL + (ATLAS_CELL - source.get_height()) / 2
 		atlas.blit_rect(source, Rect2i(Vector2i.ZERO, source.get_size()), Vector2i(px, py))
 		var id := String(samples[i][1]).to_lower().replace(" ", "_")
-		entries[id] = {"region": [px, py, source.get_width(), source.get_height()], "cell": [col, row]}
+		var recipe: Dictionary = samples[i][3]
+		entries[id] = {"region": [px, py, source.get_width(), source.get_height()], "cell": [col, row],
+			"recipe_id": String(recipe.get("id", "")), "recipe_type": String(recipe.get("type", ""))}
 	var atlas_path := OUTPUT + "/atlas.png"
 	if atlas.save_png(atlas_path) != OK:
 		return false
 	var manifest := {
 		"format_version": 2,
 		"generator_version": PixelGen.VERSION,
+		"provenance": {"origin": "project_generated", "license": "project_original", "direct_edit": false},
 		"inputs": {"recipes": FileAccess.get_md5(RECIPE_PATH),
 			"monsters": FileAccess.get_md5("res://data/monsters.json"),
 			"palettes": FileAccess.get_md5("res://art/monster_palettes.json"),
@@ -187,26 +200,25 @@ func _build_atlas(samples: Array) -> bool:
 func _build_animation_atlas(samples: Array) -> bool:
 	var jobs: Array = []
 	var actors := {}
-	var defs := [
-		["barbarian", Color(0.7, 0.2, 0.15), 10],
-		["sorceress", Color(0.3, 0.3, 0.75), 11],
-		["rogue", Color(0.5, 0.15, 0.2), 7],
-	]
 	var dirs := ["s", "e", "n", "w"]
-	for def in defs:
-		var actor_id := String(def[0])
-		actors[actor_id] = {"animations": {}}
-		for direction in 4:
-			var anim: String = "walk_" + String(dirs[direction])
-			var keys: Array = []
-			for fi in 3:
-				var key := "hero/%s/%s/%d" % [actor_id, anim, fi]
-				jobs.append({"key": key, "texture": PixelGen.hero(actor_id, def[1], int(def[2]), direction, fi)})
-				keys.append(key)
-			actors[actor_id]["animations"][anim] = {"fps": 8.0, "loop": true, "frame_keys": [keys[1], keys[0], keys[2], keys[0]]}
 	for sample in samples:
 		var recipe: Dictionary = sample[3]
-		if String(recipe.get("type", "")) != "monster":
+		var recipe_type := String(recipe.get("type", ""))
+		if recipe_type == "hero":
+			var actor_id := String(recipe.get("kind", recipe["id"])).to_lower()
+			var color := Color.from_string(String(recipe.get("color", "#808080")), Color.GRAY)
+			var seed := int(recipe.get("seed", 0))
+			actors[actor_id] = {"recipe_id": String(recipe["id"]), "recipe_type": "hero", "animations": {}}
+			for direction in 4:
+				var anim: String = "walk_" + String(dirs[direction])
+				var keys: Array = []
+				for fi in 3:
+					var key := "hero/%s/%s/%d" % [actor_id, anim, fi]
+					jobs.append({"key": key, "texture": PixelGen.hero(actor_id, color, seed, direction, fi)})
+					keys.append(key)
+				actors[actor_id]["animations"][anim] = {"fps": 8.0, "loop": true, "frame_keys": [keys[1], keys[0], keys[2], keys[0]]}
+			continue
+		if recipe_type != "monster":
 			continue
 		var id := String(recipe["id"]).to_lower().replace(" ", "_")
 		var kind := String(recipe.get("kind", recipe["id"]))
@@ -217,7 +229,8 @@ func _build_animation_atlas(samples: Array) -> bool:
 			var key := "monster/%s/walk/%d" % [id, fi]
 			jobs.append({"key": key, "texture": PixelGen.monster_named(kind, color, seed, fi)})
 			keys.append(key)
-		actors[id] = {"animations": {"walk": {"fps": 8.0, "loop": true, "frame_keys": [keys[1], keys[0], keys[2], keys[0]]}}}
+		actors[id] = {"recipe_id": String(recipe["id"]), "recipe_type": "monster",
+			"animations": {"walk": {"fps": 8.0, "loop": true, "frame_keys": [keys[1], keys[0], keys[2], keys[0]]}}}
 	var packed: Dictionary = Packer.pack(jobs, OUTPUT + "/animation_atlas.png")
 	if not bool(packed.get("ok", false)):
 		push_error(String(packed.get("error", "animation pack failed")))
@@ -231,6 +244,7 @@ func _build_animation_atlas(samples: Array) -> bool:
 			anim.erase("frame_keys")
 			anim["frames"] = frames
 	var manifest := {"format_version": 2, "generator_version": PixelGen.VERSION,
+		"provenance": {"origin": "project_generated", "license": "project_original", "direct_edit": false},
 		"inputs": {"recipes": FileAccess.get_md5(RECIPE_PATH),
 			"monsters": FileAccess.get_md5("res://data/monsters.json"),
 			"palettes": FileAccess.get_md5("res://art/monster_palettes.json"),
