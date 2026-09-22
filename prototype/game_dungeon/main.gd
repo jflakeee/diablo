@@ -17,6 +17,7 @@ const SfxGen := preload("res://sfx_gen.gd")
 const MinimapScript := preload("res://minimap.gd")
 const Automation := preload("res://automation.gd")
 const AssetCatalog := preload("res://asset_catalog.gd")
+const MobileUI := preload("res://mobile_ui.gd")
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -126,6 +127,7 @@ var _compiled_monsters := 0
 var _generated_monsters := 0
 var _run_start := 0
 var _auto_quit := false
+var _ui_selftest_ok := true
 
 func _iso(gx: float, gy: float) -> Vector2:
 	return Vector2((gx - gy) * TILE_W * 0.5, (gx + gy) * TILE_H * 0.5)
@@ -532,6 +534,8 @@ func _ready() -> void:
 	if _auto_quit:
 		print("[AUTO] selftest verdict=", "PASS" if _automation.selftest() else "FAIL")
 		print("[ANIM] selftest verdict=", "PASS" if ActorScript.animation_selftest() else "FAIL")
+		_ui_selftest_ok = MobileUI.selftest()
+		print("[MOBILE_UI] ratios=4 targets>=48 primary>=72 safe_margin=16 verdict=", "PASS" if _ui_selftest_ok else "FAIL")
 		print("[ASSET] atlas=%s entries=%d selftest=%s" % [str(_assets.available()), _assets.entry_count(), "PASS" if _assets.selftest() else "FAIL"])
 		_automation = Automation.new() # 셀프테스트 상태를 실제 플레이와 분리
 		var uq := Item.generate(_rng, Item.WEAPON_BASES[1], 20, "unique")
@@ -693,22 +697,23 @@ func _start_game() -> void:
 	var ui := CanvasLayer.new()
 	add_child(ui)
 	var vp := get_viewport_rect().size
+	var mobile_layout := MobileUI.layout(vp, MobileUI.logical_safe_area(vp))
 	_joy = JoystickScript.new()
-	_joy.position = Vector2(50, vp.y - 370)   # 모바일 확대
+	_joy.position = mobile_layout["joystick"]
 	ui.add_child(_joy)
 	# 스킬 버튼(확대): 우하단 2개 + 위 1개
 	if _class == "sorceress":
-		_add_skill_button(ui, "fireball", "Fire", Color.ORANGE_RED, Vector2(vp.x - 160, vp.y - 160))
-		_add_skill_button(ui, "icebolt", "Ice", Color.SKY_BLUE, Vector2(vp.x - 300, vp.y - 160))
-		_add_skill_button(ui, "lightning", "Ltng", Color.YELLOW, Vector2(vp.x - 230, vp.y - 300))
+		_add_skill_button(ui, "fireball", "Fire", Color.ORANGE_RED, mobile_layout["skill_primary"])
+		_add_skill_button(ui, "icebolt", "Ice", Color.SKY_BLUE, mobile_layout["skill_secondary"])
+		_add_skill_button(ui, "lightning", "Ltng", Color.YELLOW, mobile_layout["skill_utility"])
 	else:
-		_add_skill_button(ui, "bash", "Bash", Color.ORANGE_RED, Vector2(vp.x - 160, vp.y - 160))
-		_add_skill_button(ui, "berserk", "Bsrk", Color.CRIMSON, Vector2(vp.x - 300, vp.y - 160))
-		_add_skill_button(ui, "battle_orders", "BO", Color.GOLD, Vector2(vp.x - 230, vp.y - 300))
+		_add_skill_button(ui, "bash", "Bash", Color.ORANGE_RED, mobile_layout["skill_primary"])
+		_add_skill_button(ui, "berserk", "Bsrk", Color.CRIMSON, mobile_layout["skill_secondary"])
+		_add_skill_button(ui, "battle_orders", "BO", Color.GOLD, mobile_layout["skill_utility"])
 
 	var bag := Button.new()
 	bag.text = "Bag"
-	bag.position = Vector2(vp.x - 150, 20)
+	bag.position = mobile_layout["bag"]
 	bag.custom_minimum_size = Vector2(120, 56)
 	bag.size = Vector2(120, 56)
 	bag.add_theme_font_size_override("font_size", 24)
@@ -716,7 +721,7 @@ func _start_game() -> void:
 	ui.add_child(bag)
 
 	_inv_panel = Panel.new()
-	_inv_panel.position = Vector2(vp.x - 380, 50)
+	_inv_panel.position = mobile_layout["panel"]
 	_inv_panel.size = Vector2(360, 430)
 	_inv_panel.visible = false
 	ui.add_child(_inv_panel)
@@ -727,7 +732,7 @@ func _start_game() -> void:
 
 	var shop := Button.new()
 	shop.text = "Shop"
-	shop.position = Vector2(vp.x - 290, 20)
+	shop.position = mobile_layout["shop"]
 	shop.custom_minimum_size = Vector2(120, 56)
 	shop.size = Vector2(120, 56)
 	shop.add_theme_font_size_override("font_size", 24)
@@ -735,7 +740,7 @@ func _start_game() -> void:
 	ui.add_child(shop)
 
 	_vendor_panel = Panel.new()
-	_vendor_panel.position = Vector2(vp.x - 380, 50)
+	_vendor_panel.position = mobile_layout["panel"]
 	_vendor_panel.size = Vector2(360, 500)
 	_vendor_panel.visible = false
 	ui.add_child(_vendor_panel)
@@ -743,7 +748,7 @@ func _start_game() -> void:
 
 	var charb := Button.new()
 	charb.text = "Char"
-	charb.position = Vector2(vp.x - 430, 20)
+	charb.position = mobile_layout["char"]
 	charb.custom_minimum_size = Vector2(120, 56)
 	charb.size = Vector2(120, 56)
 	charb.add_theme_font_size_override("font_size", 24)
@@ -751,7 +756,7 @@ func _start_game() -> void:
 	ui.add_child(charb)
 
 	_char_panel = Panel.new()
-	_char_panel.position = Vector2(vp.x - 380, 50)
+	_char_panel.position = mobile_layout["panel"]
 	_char_panel.size = Vector2(360, 480)
 	_char_panel.visible = false
 	ui.add_child(_char_panel)
@@ -760,18 +765,18 @@ func _start_game() -> void:
 	# 자동 지도(미니맵) — 좌하단(조이스틱 위쪽 여백)
 	_minimap = MinimapScript.new()
 	_minimap.size = Vector2(190, 190)
-	_minimap.position = Vector2(vp.x - 210, vp.y - 210)
+	_minimap.position = mobile_layout["minimap"]
 	ui.add_child(_minimap)
 	_build_minimap_tex()
 
 	_hud = Label.new()
-	_hud.position = Vector2(14, 12)
+	_hud.position = mobile_layout["hud"]
 	_hud.add_theme_font_size_override("font_size", 24)
 	ui.add_child(_hud)
 
 	# 포션 벨트 버튼(모바일): 좌하단, 조이스틱 위. 빨강=생명 / 파랑=마나
-	_pot_hp_btn = _make_potion_button("♥", Color(0.75, 0.15, 0.15), Vector2(40, vp.y - 470), _quaff_health)
-	_pot_mp_btn = _make_potion_button("✦", Color(0.15, 0.3, 0.8), Vector2(150, vp.y - 470), _quaff_mana)
+	_pot_hp_btn = _make_potion_button("♥", Color(0.75, 0.15, 0.15), mobile_layout["potion_hp"], _quaff_health)
+	_pot_mp_btn = _make_potion_button("✦", Color(0.15, 0.3, 0.8), mobile_layout["potion_mp"], _quaff_mana)
 	ui.add_child(_pot_hp_btn)
 	ui.add_child(_pot_mp_btn)
 
@@ -1293,7 +1298,7 @@ func _process(delta: float) -> void:
 			_player.state_count(), _merc.state_count() if _merc != null else 0])
 		var asset_report := _assets.validate_runtime()
 		print("[ASSET] monsters compiled=%d fallback=%d runtime=%s" % [_compiled_monsters, _generated_monsters, str(asset_report)])
-		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"])
+		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and _ui_selftest_ok
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		_release_runtime_resources()
 		get_tree().quit()
