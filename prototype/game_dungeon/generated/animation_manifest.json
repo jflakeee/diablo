@@ -1,0 +1,712 @@
+{
+  "actors": {
+    "andariel": {
+      "animations": {
+        "walk": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                335,
+                267,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                271,
+                267,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                399,
+                267,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                271,
+                267,
+                34,
+                42
+              ]
+            }
+          ],
+          "loop": true
+        }
+      }
+    },
+    "barbarian": {
+      "animations": {
+        "walk_e": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                80,
+                12,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                16,
+                12,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                144,
+                12,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                16,
+                12,
+                32,
+                40
+              ]
+            }
+          ],
+          "loop": true
+        },
+        "walk_n": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                272,
+                12,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                208,
+                12,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                336,
+                12,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                208,
+                12,
+                32,
+                40
+              ]
+            }
+          ],
+          "loop": true
+        },
+        "walk_s": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                464,
+                12,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                400,
+                12,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                16,
+                76,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                400,
+                12,
+                32,
+                40
+              ]
+            }
+          ],
+          "loop": true
+        },
+        "walk_w": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                144,
+                76,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                80,
+                76,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                208,
+                76,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                80,
+                76,
+                32,
+                40
+              ]
+            }
+          ],
+          "loop": true
+        }
+      }
+    },
+    "blood_hawk": {
+      "animations": {
+        "walk": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                15,
+                331,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                463,
+                267,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                79,
+                331,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                463,
+                267,
+                34,
+                42
+              ]
+            }
+          ],
+          "loop": true
+        }
+      }
+    },
+    "fallen": {
+      "animations": {
+        "walk": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                207,
+                331,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                143,
+                331,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                271,
+                331,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                143,
+                331,
+                34,
+                42
+              ]
+            }
+          ],
+          "loop": true
+        }
+      }
+    },
+    "rogue": {
+      "animations": {
+        "walk_e": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                336,
+                76,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                272,
+                76,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                400,
+                76,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                272,
+                76,
+                32,
+                40
+              ]
+            }
+          ],
+          "loop": true
+        },
+        "walk_n": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                16,
+                140,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                464,
+                76,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                80,
+                140,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                464,
+                76,
+                32,
+                40
+              ]
+            }
+          ],
+          "loop": true
+        },
+        "walk_s": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                208,
+                140,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                144,
+                140,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                272,
+                140,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                144,
+                140,
+                32,
+                40
+              ]
+            }
+          ],
+          "loop": true
+        },
+        "walk_w": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                400,
+                140,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                336,
+                140,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                464,
+                140,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                336,
+                140,
+                32,
+                40
+              ]
+            }
+          ],
+          "loop": true
+        }
+      }
+    },
+    "skeleton": {
+      "animations": {
+        "walk": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                399,
+                331,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                335,
+                331,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                463,
+                331,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                335,
+                331,
+                34,
+                42
+              ]
+            }
+          ],
+          "loop": true
+        }
+      }
+    },
+    "sorceress": {
+      "animations": {
+        "walk_e": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                80,
+                204,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                16,
+                204,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                144,
+                204,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                16,
+                204,
+                32,
+                40
+              ]
+            }
+          ],
+          "loop": true
+        },
+        "walk_n": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                272,
+                204,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                208,
+                204,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                336,
+                204,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                208,
+                204,
+                32,
+                40
+              ]
+            }
+          ],
+          "loop": true
+        },
+        "walk_s": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                464,
+                204,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                400,
+                204,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                16,
+                268,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                400,
+                204,
+                32,
+                40
+              ]
+            }
+          ],
+          "loop": true
+        },
+        "walk_w": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                144,
+                268,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                80,
+                268,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                208,
+                268,
+                32,
+                40
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                80,
+                268,
+                32,
+                40
+              ]
+            }
+          ],
+          "loop": true
+        }
+      }
+    }
+  },
+  "atlas": "animation_atlas.png",
+  "atlas_md5": "c43008021f5f3ad8686d3421767db0fc",
+  "atlas_size": [
+    512,
+    384
+  ],
+  "format_version": 2,
+  "generator_version": 3
+}

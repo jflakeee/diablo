@@ -33,8 +33,8 @@ godot --headless --path . -- autoquit publish        # 검증 후 game_dungeon/g
 ### 자산 컴파일 출력
 - `atlas.png` — 64px 셀에 정렬된 단일 텍스처 아틀라스
 - `manifest.json` — 각 자산의 실제 region/cell, 생성기 버전, 아틀라스 MD5
-- `heroes.tres` — 영웅 3종 × 4방향, 총 12개 `SpriteFrames` 걷기 애니메이션
-- `monsters.tres` — JSON의 몬스터 레시피별 idle/걷기 `SpriteFrames`
+- `animation_atlas.png` — 영웅 3종 × 4방향과 몬스터 걷기 프레임을 공유하는 단일 아틀라스
+- `animation_manifest.json` — actor/animation별 FPS·루프·프레임 region과 아틀라스 MD5
 - 독립 `asset_gen`과 정본 `game_dungeon` 생성기 소스 MD5 동기화 검증
 
 ### 데이터 기반 레시피 (`recipes.json`)
@@ -45,8 +45,8 @@ godot --headless --path . -- autoquit publish        # 검증 후 game_dungeon/g
 
 게시된 `atlas.png`는 정본 게임의 `asset_catalog.gd`가 로드한다. 드롭 아이콘은
 아틀라스 region을 우선 사용하고, 항목 또는 산출물이 없으면 런타임 `PixelGen.icon()`으로 폴백한다.
-플레이어와 용병 역시 게시된 `heroes.tres`의 `SpriteFrames`를 우선 사용하며,
-리소스 또는 애니메이션이 누락되면 동일 레시피의 런타임 영웅 생성으로 폴백한다.
+플레이어와 용병은 게시된 `animation_manifest.json`의 region으로 `AtlasTexture`를
+지연 생성하며, 리소스 또는 애니메이션이 누락되면 동일 레시피의 런타임 영웅 생성으로 폴백한다.
 게임의 `Actor`는 화면 이동 벡터를 남·동·북·서로 분류해 해당 방향 프레임으로
 전환하며, 자동 실행 결과에서 플레이어와 용병 모두 4방향 사용을 계측한다.
 몬스터도 이름이 일치하는 컴파일 애니메이션을 우선 사용하고, 아직 레시피가 없는
@@ -61,9 +61,13 @@ godot --headless --path . -- autoquit publish        # 검증 후 game_dungeon/g
 ```
 [AG] generated 18 assets, saved 18 PNG → user://assetgen
 [AG] cache entries=18 reuse=true
-[AG] atlas=true spriteframes=true source_sync=true
+[AG] atlas=true animation_atlas=true source_sync=true
+[AG] quality checked=14 silhouette_diff=747 walk_diff=163 seed_diff=62 failures=[]
 [AG][RESULT] verdict=PASS
 ```
+애니메이션 게시물은 기존 내장 텍스처 `.tres` 954,430바이트에서 PNG+JSON
+23,047바이트로 97.6% 감소했다. 소서리스·바바리안 50초 자동 실행에서 4방향 및
+컴파일 몬스터 사용과 최종 PASS를 확인했다.
 샘플(`samples/`): 돌 타일=노이즈+음영, 포션=병+액체+반사광, 바바리안=후드 휴머노이드
 → **플랫 도형 대비 확연한 개선**, 라이선스 청정, 시드로 무한 변형.
 

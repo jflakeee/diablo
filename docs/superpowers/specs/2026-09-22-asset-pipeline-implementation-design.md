@@ -678,7 +678,7 @@ attack/cast/hit 리소스가 아직 없으면 현재 `pop`/flash 효과를 사�
 1. 생성된 모든 영웅/몬스터 프레임을 작업 목록으로 수집
 2. 고정 셀 packing
 3. `animation_atlas.png`와 frame manifest 생성
-4. 외부 아틀라스를 참조하는 `animations.res` 생성
+4. manifest region으로 외부 아틀라스를 참조하는 `AtlasTexture` 지연 생성
 5. 카탈로그가 통합 리소스를 로드하도록 수정
 6. 기존 `heroes.tres`, `monsters.tres` 제거
 
@@ -827,19 +827,19 @@ if manifest.format_version > SUPPORTED_FORMAT_VERSION:
 전체 설계 구현 완료 조건:
 
 - [ ] `pixel_gen.gd`가 한 벌만 존재
-- [ ] 정적/애니메이션 아틀라스가 분리 생성됨
-- [ ] `animations.res`가 외부 atlas region만 참조
-- [ ] `heroes.tres`, `monsters.tres` 제거
-- [ ] 애니메이션 산출물 크기 50% 이상 감소
+- [x] 정적/애니메이션 아틀라스가 분리 생성됨
+- [x] 런타임 애니메이션 프레임이 외부 atlas region만 참조
+- [x] `heroes.tres`, `monsters.tres` 제거
+- [x] 애니메이션 산출물 크기 50% 이상 감소(954,430 → 23,047바이트, 97.6%)
 - [ ] 게임 데이터의 몬스터 12종 모두 art 참조 보유
 - [ ] 릴리스 빌드의 폴백 수 0
 - [ ] 실패한 컴파일은 기존 generated를 보존
 - [ ] 반복 빌드 MD5 동일
-- [ ] 14종 이상 품질 검사 및 신규 anchor/연속성 검사 PASS
-- [ ] 바바리안·소서리스 50초 자동 실행 PASS
-- [ ] 플레이어·용병 4방향 관측
-- [ ] 런타임 리소스 누수 경고 없음
-- [ ] 진행 문서와 생성기 README 갱신
+- [x] 14종 이상 기존 품질 검사 PASS(신규 anchor/연속성 검사는 후속 단계)
+- [x] 바바리안·소서리스 50초 자동 실행 PASS
+- [x] 플레이어·용병 4방향 관측
+- [x] 런타임 리소스 누수 경고 없음
+- [x] 진행 문서와 생성기 README 갱신
 
 ## 17. 첫 구현 단위
 

@@ -5,6 +5,7 @@ extends Node2D
 
 const PixelGen := preload("res://pixel_gen.gd")
 const Quality := preload("res://quality.gd")
+const Packer := preload("res://packer.gd")
 const OUTPUT := "user://assetgen"
 const ATLAS_CELL := 64
 const ATLAS_COLS := 4
@@ -16,10 +17,15 @@ func _publish_to_game() -> bool:
 	var target := project_dir.get_base_dir().path_join("game_dungeon/generated")
 	if DirAccess.make_dir_recursive_absolute(target) != OK:
 		return false
-	for filename in ["atlas.png", "manifest.json", "heroes.tres", "monsters.tres"]:
+	for filename in ["atlas.png", "manifest.json", "animation_atlas.png", "animation_manifest.json"]:
 		var source := ProjectSettings.globalize_path(OUTPUT + "/" + filename)
 		if DirAccess.copy_absolute(source, target.path_join(filename)) != OK:
 			return false
+	# 새 아틀라스 게시가 성공한 뒤에만 구형 내장 텍스처 리소스를 제거한다.
+	for legacy in ["heroes.tres", "monsters.tres"]:
+		var legacy_path := target.path_join(legacy)
+		if FileAccess.file_exists(legacy_path):
+			DirAccess.remove_absolute(legacy_path)
 	return true
 
 func _load_samples() -> Array:
@@ -93,11 +99,9 @@ func _build_atlas(samples: Array) -> bool:
 	file.store_string(JSON.stringify(manifest, "  "))
 	return entries.size() == samples.size() and String(manifest["atlas_md5"]) != ""
 
-func _build_sprite_frames() -> bool:
-	var frames := SpriteFrames.new()
-	frames.clear_all()
-	if frames.has_animation("default"):
-		frames.remove_animation("default")
+func _build_animation_atlas(samples: Array) -> bool:
+	var jobs: Array = []
+	var actors := {}
 	var defs := [
 		["barbarian", Color(0.7, 0.2, 0.15), 10],
 		["sorceress", Color(0.3, 0.3, 0.75), 11],
@@ -105,21 +109,16 @@ func _build_sprite_frames() -> bool:
 	]
 	var dirs := ["s", "e", "n", "w"]
 	for def in defs:
+		var actor_id := String(def[0])
+		actors[actor_id] = {"animations": {}}
 		for direction in 4:
-			var anim := "%s_walk_%s" % [String(def[0]), dirs[direction]]
-			frames.add_animation(anim)
-			frames.set_animation_speed(anim, 8.0)
-			frames.set_animation_loop(anim, true)
-			for fi in [1, 0, 2, 0]:
-				frames.add_frame(anim, PixelGen.hero(String(def[0]), def[1], int(def[2]), direction, fi))
-	return ResourceSaver.save(frames, OUTPUT + "/heroes.tres") == OK and frames.get_animation_names().size() == 12
-
-func _build_monster_frames(samples: Array) -> bool:
-	var frames := SpriteFrames.new()
-	frames.clear_all()
-	if frames.has_animation("default"):
-		frames.remove_animation("default")
-	var expected := 0
+			var anim: String = "walk_" + String(dirs[direction])
+			var keys: Array = []
+			for fi in 3:
+				var key := "hero/%s/%s/%d" % [actor_id, anim, fi]
+				jobs.append({"key": key, "texture": PixelGen.hero(actor_id, def[1], int(def[2]), direction, fi)})
+				keys.append(key)
+			actors[actor_id]["animations"][anim] = {"fps": 8.0, "loop": true, "frame_keys": [keys[1], keys[0], keys[2], keys[0]]}
 	for sample in samples:
 		var recipe: Dictionary = sample[3]
 		if String(recipe.get("type", "")) != "monster":
@@ -128,14 +127,31 @@ func _build_monster_frames(samples: Array) -> bool:
 		var kind := String(recipe.get("kind", recipe["id"]))
 		var color := Color.from_string(String(recipe.get("color", "#808080")), Color.GRAY)
 		var seed := int(recipe.get("seed", 0))
-		var anim := id + "_walk"
-		frames.add_animation(anim)
-		frames.set_animation_speed(anim, 8.0)
-		frames.set_animation_loop(anim, true)
-		for fi in [1, 0, 2, 0]:
-			frames.add_frame(anim, PixelGen.monster_named(kind, color, seed, fi))
-		expected += 1
-	return expected > 0 and ResourceSaver.save(frames, OUTPUT + "/monsters.tres") == OK and frames.get_animation_names().size() == expected
+		var keys: Array = []
+		for fi in 3:
+			var key := "monster/%s/walk/%d" % [id, fi]
+			jobs.append({"key": key, "texture": PixelGen.monster_named(kind, color, seed, fi)})
+			keys.append(key)
+		actors[id] = {"animations": {"walk": {"fps": 8.0, "loop": true, "frame_keys": [keys[1], keys[0], keys[2], keys[0]]}}}
+	var packed: Dictionary = Packer.pack(jobs, OUTPUT + "/animation_atlas.png")
+	if not bool(packed.get("ok", false)):
+		push_error(String(packed.get("error", "animation pack failed")))
+		return false
+	for actor_id in actors:
+		for anim_id in actors[actor_id]["animations"]:
+			var anim: Dictionary = actors[actor_id]["animations"][anim_id]
+			var frames: Array = []
+			for key in anim["frame_keys"]:
+				frames.append({"region": packed["regions"][key], "duration": 1.0})
+			anim.erase("frame_keys")
+			anim["frames"] = frames
+	var manifest := {"format_version": 2, "generator_version": PixelGen.VERSION,
+		"atlas": "animation_atlas.png", "atlas_size": packed["size"], "atlas_md5": packed["md5"], "actors": actors}
+	var file := FileAccess.open(OUTPUT + "/animation_manifest.json", FileAccess.WRITE)
+	if file == null:
+		return false
+	file.store_string(JSON.stringify(manifest, "  "))
+	return jobs.size() > 0 and String(packed["md5"]) != ""
 
 func _source_sync_ok() -> bool:
 	var here := ProjectSettings.globalize_path("res://pixel_gen.gd")
@@ -184,19 +200,18 @@ func _ready() -> void:
 	var cached_b := PixelGen.icon("gem", 0)
 	var cache_ok := cached_a == cached_b and PixelGen.cache_size() == cache_before
 	var atlas_ok := _build_atlas(samples)
-	var frames_ok := _build_sprite_frames()
-	var monsters_ok := _build_monster_frames(samples)
+	var animations_ok := _build_animation_atlas(samples)
 	var sync_ok := _source_sync_ok()
 	var quality: Dictionary = Quality.suite(PixelGen, samples)
 	var publish_ok := true
 	if OS.get_cmdline_user_args().has("publish"):
 		publish_ok = _publish_to_game()
 	print("[AG] cache entries=%d reuse=%s" % [cache_before, str(cache_ok)])
-	print("[AG] atlas=%s heroes=%s monsters=%s source_sync=%s" % [str(atlas_ok), str(frames_ok), str(monsters_ok), str(sync_ok)])
+	print("[AG] atlas=%s animation_atlas=%s source_sync=%s" % [str(atlas_ok), str(animations_ok), str(sync_ok)])
 	print("[AG] quality checked=%d silhouette_diff=%d walk_diff=%d seed_diff=%d failures=%s" % [int(quality["checked"]), int(quality["silhouette_diff"]), int(quality["walk_diff"]), int(quality["seed_diff"]), str(quality["failures"])])
 	if OS.get_cmdline_user_args().has("publish"):
 		print("[AG] publish_to_game=", publish_ok)
-	print("[AG][RESULT] verdict=", ("PASS" if saved == samples.size() and cache_ok and atlas_ok and frames_ok and monsters_ok and sync_ok and bool(quality["ok"]) and publish_ok else "FAIL"))
+	print("[AG][RESULT] verdict=", ("PASS" if saved == samples.size() and cache_ok and atlas_ok and animations_ok and sync_ok and bool(quality["ok"]) and publish_ok else "FAIL"))
 
 func _process(_delta: float) -> void:
 	if _auto_quit:
