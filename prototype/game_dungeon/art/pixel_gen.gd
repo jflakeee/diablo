@@ -1,7 +1,7 @@
 extends RefCounted
 # 절차적 픽셀 자산 생성기(제작기) PoC — 코드로 타일/캐릭터/아이콘/몬스터 생성.
 # 장점: 라이선스 청정(자체 제작) · 무한 변형(시드) · 초경량(코드만) · 저사양 친화.
-# preload로 사용: const PixelGen := preload("res://pixel_gen.gd")
+# preload로 사용: const PixelGen := preload("res://art/pixel_gen.gd")
 const VERSION := 3
 
 # 같은 레시피를 여러 개체가 공유하도록 GPU 텍스처 생성을 캐시한다.

@@ -18,9 +18,9 @@
 
 코드만으로 PNG 자산 생성. 동일 레시피는 텍스처 캐시에서 재사용한다. 실행:
 ```
-godot --path . --rendering-driver opengl3            # 생성물 갤러리
-godot --headless --path . -- autoquit                # 18종 생성 + 전체 품질 검증
-godot --headless --path . -- autoquit publish        # 검증 후 game_dungeon/generated에 게시
+godot --path prototype/game_dungeon res://tools/asset_compiler.tscn --rendering-driver opengl3
+godot --headless --path prototype/game_dungeon res://tools/asset_compiler.tscn -- autoquit
+godot --headless --path prototype/game_dungeon res://tools/asset_compiler.tscn -- autoquit publish
 ```
 
 ### 생성기 구성
@@ -35,9 +35,9 @@ godot --headless --path . -- autoquit publish        # 검증 후 game_dungeon/g
 - `manifest.json` — 각 자산의 실제 region/cell, 생성기 버전, 아틀라스 MD5
 - `animation_atlas.png` — 영웅 3종 × 4방향과 몬스터 걷기 프레임을 공유하는 단일 아틀라스
 - `animation_manifest.json` — actor/animation별 FPS·루프·프레임 region과 아틀라스 MD5
-- 독립 `asset_gen`과 정본 `game_dungeon` 생성기 소스 MD5 동기화 검증
+- 게임과 컴파일러가 `res://art/pixel_gen.gd` 단일 정본을 직접 사용
 
-### 데이터 기반 레시피 (`recipes.json`)
+### 데이터 기반 레시피 (`art/art_recipes.json`)
 - `tile`/`hero`/`monster`/`icon` 유형과 색상·시드·배율을 JSON으로 정의
 - 빈 ID, 중복 ID, 미지원 유형은 즉시 빌드 실패
 - GDScript 수정 없이 레시피 한 줄로 갤러리·PNG·아틀라스 항목 추가
@@ -61,7 +61,7 @@ godot --headless --path . -- autoquit publish        # 검증 후 game_dungeon/g
 ```
 [AG] generated 18 assets, saved 18 PNG → user://assetgen
 [AG] cache entries=18 reuse=true
-[AG] atlas=true animation_atlas=true source_sync=true
+[AG] atlas=true animation_atlas=true canonical_source=true
 [AG] quality checked=14 silhouette_diff=747 walk_diff=163 seed_diff=62 failures=[]
 [AG][RESULT] verdict=PASS
 ```

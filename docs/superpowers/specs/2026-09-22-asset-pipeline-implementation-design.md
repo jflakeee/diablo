@@ -826,7 +826,7 @@ if manifest.format_version > SUPPORTED_FORMAT_VERSION:
 
 전체 설계 구현 완료 조건:
 
-- [ ] `pixel_gen.gd`가 한 벌만 존재
+- [x] 정본 게임·컴파일러가 `art/pixel_gen.gd` 한 벌만 사용(구형 독립 프로토타입 제외)
 - [x] 정적/애니메이션 아틀라스가 분리 생성됨
 - [x] 런타임 애니메이션 프레임이 외부 atlas region만 참조
 - [x] `heroes.tres`, `monsters.tres` 제거

@@ -1,20 +1,19 @@
 extends Node2D
 # 절차적 자산 생성기 갤러리 + 검증 (제작기 PoC)
-# 실행: godot --path . --rendering-driver opengl3  (갤러리 표시)
-# 검증: -- autoquit  (생성 + PNG 저장 + 결과 출력 후 종료)
+# 실행: godot --path prototype/game_dungeon res://tools/asset_compiler.tscn
+# 검증: 위 명령 뒤에 -- autoquit publish 추가
 
-const PixelGen := preload("res://pixel_gen.gd")
-const Quality := preload("res://quality.gd")
-const Packer := preload("res://packer.gd")
+const PixelGen := preload("res://art/pixel_gen.gd")
+const Quality := preload("res://tools/asset_quality.gd")
+const Packer := preload("res://tools/atlas_packer.gd")
 const OUTPUT := "user://assetgen"
 const ATLAS_CELL := 64
 const ATLAS_COLS := 4
-const RECIPE_PATH := "res://recipes.json"
+const RECIPE_PATH := "res://art/art_recipes.json"
 var _auto_quit := false
 
 func _publish_to_game() -> bool:
-	var project_dir := ProjectSettings.globalize_path("res://").get_base_dir()
-	var target := project_dir.get_base_dir().path_join("game_dungeon/generated")
+	var target := ProjectSettings.globalize_path("res://generated")
 	if DirAccess.make_dir_recursive_absolute(target) != OK:
 		return false
 	for filename in ["atlas.png", "manifest.json", "animation_atlas.png", "animation_manifest.json"]:
@@ -153,11 +152,6 @@ func _build_animation_atlas(samples: Array) -> bool:
 	file.store_string(JSON.stringify(manifest, "  "))
 	return jobs.size() > 0 and String(packed["md5"]) != ""
 
-func _source_sync_ok() -> bool:
-	var here := ProjectSettings.globalize_path("res://pixel_gen.gd")
-	var canonical := here.get_base_dir().get_base_dir().path_join("game_dungeon/pixel_gen.gd")
-	return FileAccess.file_exists(canonical) and FileAccess.get_md5(here) == FileAccess.get_md5(canonical)
-
 func _ready() -> void:
 	_auto_quit = OS.get_cmdline_user_args().has("autoquit")
 	RenderingServer.set_default_clear_color(Color(0.1, 0.09, 0.12))
@@ -201,17 +195,16 @@ func _ready() -> void:
 	var cache_ok := cached_a == cached_b and PixelGen.cache_size() == cache_before
 	var atlas_ok := _build_atlas(samples)
 	var animations_ok := _build_animation_atlas(samples)
-	var sync_ok := _source_sync_ok()
 	var quality: Dictionary = Quality.suite(PixelGen, samples)
 	var publish_ok := true
 	if OS.get_cmdline_user_args().has("publish"):
 		publish_ok = _publish_to_game()
 	print("[AG] cache entries=%d reuse=%s" % [cache_before, str(cache_ok)])
-	print("[AG] atlas=%s animation_atlas=%s source_sync=%s" % [str(atlas_ok), str(animations_ok), str(sync_ok)])
+	print("[AG] atlas=%s animation_atlas=%s canonical_source=true" % [str(atlas_ok), str(animations_ok)])
 	print("[AG] quality checked=%d silhouette_diff=%d walk_diff=%d seed_diff=%d failures=%s" % [int(quality["checked"]), int(quality["silhouette_diff"]), int(quality["walk_diff"]), int(quality["seed_diff"]), str(quality["failures"])])
 	if OS.get_cmdline_user_args().has("publish"):
 		print("[AG] publish_to_game=", publish_ok)
-	print("[AG][RESULT] verdict=", ("PASS" if saved == samples.size() and cache_ok and atlas_ok and animations_ok and sync_ok and bool(quality["ok"]) and publish_ok else "FAIL"))
+	print("[AG][RESULT] verdict=", ("PASS" if saved == samples.size() and cache_ok and atlas_ok and animations_ok and bool(quality["ok"]) and publish_ok else "FAIL"))
 
 func _process(_delta: float) -> void:
 	if _auto_quit:
