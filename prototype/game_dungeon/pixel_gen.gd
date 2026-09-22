@@ -130,6 +130,53 @@ static func character(robe: Color, seed: int) -> Texture2D:
 	_outline(img, Color(0.08, 0.06, 0.08))
 	return _remember(key, ImageTexture.create_from_image(img))
 
+# 클래스·방향·걷기 프레임이 실루엣에 반영되는 영웅 스프라이트.
+# direction: 0=남, 1=동, 2=북, 3=서 / frame: 0=idle, 1·2=walk
+static func hero(kind: String, robe: Color, seed: int, direction: int = 0, frame: int = 0) -> Texture2D:
+	var dir := posmod(direction, 4)
+	var walk := posmod(frame, 3)
+	var key := "hero:%s:%s:%d:%d:%d" % [kind, robe.to_html(), posmod(seed, 8), dir, walk]
+	var hit := _cached(key)
+	if hit != null:
+		return hit
+	var img := _img(32, 40)
+	var skin := Color(0.85, 0.66, 0.47)
+	var step := -1 if walk == 1 else (1 if walk == 2 else 0)
+	if kind == "barbarian":
+		_fill_rect(img, 8, 15, 16, 13, robe)                         # 넓은 흉곽
+		_fill_ellipse(img, 7, 18, 4, 8, skin.darkened(0.08))         # 맨팔
+		_fill_ellipse(img, 25, 18, 4, 8, skin.darkened(0.16))
+		_fill_ellipse(img, 16, 9, 6, 7, skin)
+		_fill_rect(img, 10, 27, 5, 9 + step, robe.darkened(0.35))
+		_fill_rect(img, 18, 27, 5, 9 - step, robe.darkened(0.35))
+		_fill_rect(img, 24, 7, 2, 21, Color(0.35, 0.22, 0.1))       # 도끼 자루
+		_fill_rect(img, 21, 5, 7, 5, Color(0.72, 0.76, 0.8))
+	elif kind == "sorceress":
+		_fill_ellipse(img, 16, 25, 8, 12, robe)                      # 좁고 긴 로브
+		_fill_ellipse(img, 16, 9, 5, 6, skin)
+		_fill_ellipse(img, 16, 5, 7, 4, robe.darkened(0.22))         # 후드
+		_fill_rect(img, 27, 7, 2, 28, Color(0.38, 0.25, 0.12))      # 지팡이
+		_fill_ellipse(img, 28, 6, 3, 3, Color(0.3, 0.75, 1.0))
+		_fill_rect(img, 11 + step, 34, 3, 4, robe.darkened(0.35))
+		_fill_rect(img, 19 - step, 34, 3, 4, robe.darkened(0.35))
+	else: # rogue mercenary
+		_fill_rect(img, 10, 15, 12, 15, robe)
+		_fill_ellipse(img, 16, 9, 5, 6, skin)
+		_fill_rect(img, 11 + step, 29, 4, 8, robe.darkened(0.4))
+		_fill_rect(img, 18 - step, 29, 4, 8, robe.darkened(0.4))
+		for y in range(8, 30):
+			var bx := 5 + absi(y - 19) / 4
+			_px(img, bx, y, Color(0.55, 0.32, 0.12))                  # 활
+	if dir == 2:
+		_fill_rect(img, 12, 8, 8, 3, robe.darkened(0.3))            # 등 방향 표식
+	elif dir in [1, 3]:
+		_fill_rect(img, 15, 8, 5, 2, skin.lightened(0.12))
+	_shade_right(img, 0.13)
+	_outline(img, Color(0.07, 0.05, 0.06))
+	if dir == 3:
+		img.flip_x()
+	return _remember(key, ImageTexture.create_from_image(img))
+
 # ── 몬스터 (둥근 블롭 + 눈) ──
 static func monster(body: Color, seed: int) -> Texture2D:
 	var variant := posmod(seed, 8)
@@ -157,6 +204,52 @@ static func monster(body: Color, seed: int) -> Texture2D:
 	_px(img, 17, 13, Color(0.1, 0, 0))
 	_shade_right(img, 0.12)
 	_outline(img, Color(0.06, 0.05, 0.06))
+	return _remember(key, ImageTexture.create_from_image(img))
+
+static func monster_named(name: String, body: Color, seed: int, frame: int = 0) -> Texture2D:
+	var family := name.to_lower()
+	var walk := posmod(frame, 3)
+	var key := "monster_named:%s:%s:%d:%d" % [family, body.to_html(), posmod(seed, 8), walk]
+	var hit := _cached(key)
+	if hit != null:
+		return hit
+	var img := _img(34, 42)
+	var step := -1 if walk == 1 else (1 if walk == 2 else 0)
+	if "skeleton" in family:
+		var bone := Color(0.86, 0.84, 0.72)
+		_fill_ellipse(img, 17, 8, 6, 6, bone)
+		_fill_rect(img, 15, 14, 4, 15, bone)
+		_fill_rect(img, 9, 16, 6, 3, bone); _fill_rect(img, 19, 16, 7, 3, bone)
+		_fill_rect(img, 12 + step, 27, 3, 11, bone); _fill_rect(img, 20 - step, 27, 3, 11, bone)
+		_px(img, 14, 8, Color(0.05, 0.02, 0.02)); _px(img, 20, 8, Color(0.05, 0.02, 0.02))
+	elif "hawk" in family:
+		_fill_ellipse(img, 17, 20, 6, 8, body)
+		_fill_ellipse(img, 7, 17 + step, 10, 4, body.darkened(0.1))
+		_fill_ellipse(img, 27, 17 - step, 10, 4, body.darkened(0.18))
+		_fill_rect(img, 15, 6, 4, 8, body.lightened(0.1))
+	elif "goat" in family:
+		_fill_ellipse(img, 17, 21, 10, 12, body)
+		_fill_ellipse(img, 17, 8, 6, 6, body.lightened(0.08))
+		_fill_rect(img, 9, 2, 3, 8, body.darkened(0.25)); _fill_rect(img, 23, 2, 3, 8, body.darkened(0.25))
+		_fill_rect(img, 10 + step, 31, 4, 9, body.darkened(0.25)); _fill_rect(img, 21 - step, 31, 4, 9, body.darkened(0.25))
+	elif "andariel" in family:
+		_fill_ellipse(img, 17, 23, 12, 15, body)
+		_fill_ellipse(img, 17, 8, 6, 7, body.lightened(0.15))
+		for x in [5, 9, 25, 29]:
+			_fill_rect(img, x, 3, 2, 22, body.darkened(0.3))
+		_fill_rect(img, 8, 33, 5, 8, body.darkened(0.28)); _fill_rect(img, 22, 33, 5, 8, body.darkened(0.28))
+	elif "fallen" in family:
+		_fill_ellipse(img, 17, 22, 9, 11, body)
+		_fill_ellipse(img, 17, 9, 7, 7, body.lightened(0.08))
+		_fill_rect(img, 8, 2, 3, 8, body.darkened(0.3)); _fill_rect(img, 24, 2, 3, 8, body.darkened(0.3))
+		_fill_rect(img, 10 + step, 31, 4, 8, body.darkened(0.25)); _fill_rect(img, 21 - step, 31, 4, 8, body.darkened(0.25))
+	else:
+		_fill_ellipse(img, 17, 22, 10, 13, body)
+		_fill_ellipse(img, 17, 8, 6, 7, body.lightened(0.08))
+		_fill_rect(img, 9 + step, 32, 5, 8, body.darkened(0.25)); _fill_rect(img, 21 - step, 32, 5, 8, body.darkened(0.25))
+	_fill_ellipse(img, 14, 10, 1, 1, Color(1, 0.72, 0.15)); _fill_ellipse(img, 20, 10, 1, 1, Color(1, 0.72, 0.15))
+	_shade_right(img, 0.14)
+	_outline(img, Color(0.05, 0.035, 0.045))
 	return _remember(key, ImageTexture.create_from_image(img))
 
 # ── 아이템 아이콘 (sword/potion/shield/coin) ──

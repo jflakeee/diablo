@@ -19,10 +19,10 @@ func _ready() -> void:
 	samples.append([PixelGen.iso_tile(64, 32, Color(0.4, 0.38, 0.36), 2, true), "stone", 2.2])
 	samples.append([PixelGen.iso_tile(64, 32, Color(0.45, 0.33, 0.2), 3, true), "dirt", 2.2])
 	samples.append([PixelGen.iso_tile(64, 32, Color(0.5, 0.12, 0.5), 4, true), "hell", 2.2])
-	samples.append([PixelGen.character(Color(0.7, 0.2, 0.15), 10), "Barbarian", 2.6])
-	samples.append([PixelGen.character(Color(0.3, 0.3, 0.75), 11), "Sorceress", 2.6])
-	samples.append([PixelGen.monster(Color(0.3, 0.55, 0.3), 20), "Fallen", 2.6])
-	samples.append([PixelGen.monster(Color(0.6, 0.2, 0.5), 21), "Boss", 2.6])
+	samples.append([PixelGen.hero("barbarian", Color(0.7, 0.2, 0.15), 10), "Barbarian", 2.6])
+	samples.append([PixelGen.hero("sorceress", Color(0.3, 0.3, 0.75), 11), "Sorceress", 2.6])
+	samples.append([PixelGen.monster_named("Fallen", Color(0.75, 0.35, 0.25), 20), "Fallen", 2.6])
+	samples.append([PixelGen.monster_named("Andariel", Color(0.7, 0.15, 0.5), 21), "Andariel", 2.6])
 	samples.append([PixelGen.icon("sword", 0), "sword", 2.6])
 	samples.append([PixelGen.icon("potion", 0), "potion", 2.6])
 	samples.append([PixelGen.icon("shield", 0), "shield", 2.6])
@@ -30,6 +30,9 @@ func _ready() -> void:
 	samples.append([PixelGen.icon("gem", 0), "ruby", 2.6])
 	samples.append([PixelGen.icon("gem", 1), "sapphire", 2.6])
 	samples.append([PixelGen.icon("rune", 2), "rune", 2.6])
+	samples.append([PixelGen.hero("rogue", Color(0.5, 0.15, 0.2), 7), "Rogue", 2.6])
+	samples.append([PixelGen.monster_named("Skeleton", Color(0.85, 0.85, 0.8), 4), "Skeleton", 2.6])
+	samples.append([PixelGen.monster_named("Blood Hawk", Color(0.8, 0.25, 0.25), 5), "Blood Hawk", 2.6])
 
 	var cols := 4
 	var cell := 165

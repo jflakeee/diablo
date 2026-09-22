@@ -24,15 +24,15 @@ godot --headless --path . --quit                     # 12종 생성 + PNG 저장
 
 ### 생성기 구성
 - `iso_tile(base,seed,speckle)` — 아이소 다이아 + **밝기 노이즈 지터 + 가장자리 림/상단 하이라이트 + 돌 얼룩** (grass/stone/dirt/hell)
-- `character(robe,seed)` — 후드 로브 휴머노이드(몸통/어깨/머리/벨트) + **우측 음영 + 외곽선**
-- `monster(body,seed)` — 블롭 + 뿔(시드) + 눈
+- `hero(kind,robe,seed,direction,frame)` — 바바리안/소서리스/용병 전용 실루엣 + 4방향·걷기 프레임
+- `monster_named(name,body,seed,frame)` — Fallen/해골/염소인간/매/안다리엘 계열별 실루엣 + 걷기 프레임
 - `icon(kind,seed)` — sword/potion/shield/coin/gem/rune/material (도형 조합 + 외곽선)
 - 공통: `_fill_ellipse`/`_fill_rect`/`_outline`/`_shade_right`, 해시 노이즈
 
 ### 실측 (2026-09-21, HD 4000)
 ```
-[AG] generated 15 assets, saved 15 PNG → user://assetgen
-[AG] cache entries=15 reuse=true
+[AG] generated 18 assets, saved 18 PNG → user://assetgen
+[AG] cache entries=18 reuse=true
 [AG][RESULT] verdict=PASS
 ```
 샘플(`samples/`): 돌 타일=노이즈+음영, 포션=병+액체+반사광, 바바리안=후드 휴머노이드

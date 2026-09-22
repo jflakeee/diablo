@@ -45,6 +45,9 @@ var bo_pct := 0.0         # Battle Orders 최대 Life/Mana 보너스%
 var bo_timer := 0.0       # 남은 지속(초)
 
 var _sprite: Sprite2D
+var _idle_texture: Texture2D
+var _walk_frames: Array = []
+var _shown_frame := -1
 
 func setup(tex: Texture2D) -> void:
 	_sprite = Sprite2D.new()
@@ -59,6 +62,17 @@ var _pop_t := 0.0
 func set_sprite_texture(tex: Texture2D, scale_v: float = 1.0) -> void:
 	if _sprite:
 		_sprite.texture = tex
+		_base_scale = scale_v
+		_sprite.scale = Vector2(scale_v, scale_v)
+		_idle_texture = tex
+		_walk_frames.clear()
+
+func set_sprite_frames(idle: Texture2D, walk: Array, scale_v: float = 1.0) -> void:
+	_idle_texture = idle
+	_walk_frames = walk
+	_shown_frame = -1
+	if _sprite:
+		_sprite.texture = idle
 		_base_scale = scale_v
 		_sprite.scale = Vector2(scale_v, scale_v)
 
@@ -78,9 +92,17 @@ func animate(delta: float) -> void:
 		_sprite.flip_h = dx < 0.0
 	if moving:
 		_anim_t += delta * 12.0
-		_sprite.offset.y = -absf(sin(_anim_t)) * 3.0   # offset은 y-sort에 영향 X
+		if not _walk_frames.is_empty():
+			var fi := int(_anim_t / 3.0) % _walk_frames.size()
+			if fi != _shown_frame:
+				_shown_frame = fi
+				_sprite.texture = _walk_frames[fi]
+		_sprite.offset.y = -absf(sin(_anim_t)) * 2.0   # offset은 y-sort에 영향 X
 	else:
 		_anim_t = 0.0
+		if _shown_frame != -1 and _idle_texture != null:
+			_shown_frame = -1
+			_sprite.texture = _idle_texture
 		_sprite.offset.y = lerpf(_sprite.offset.y, 0.0, clampf(delta * 10.0, 0.0, 1.0))
 	if _pop_t > 0.0:
 		_pop_t -= delta

@@ -290,7 +290,13 @@ func _spawn_one(md: Dictionary, cell: Vector2i) -> void:
 	var kind := String(md.get("kind", "melee"))
 	var col := Color(float(md["color"][0]), float(md["color"][1]), float(md["color"][2]))
 	var m := _spawn_monster(String(md["name"]), col, int(md["w"]), int(md["h"]), int(md["level"]), int(md["hp"]), int(md["ar"]), int(md["def"]), int(md["dmin"]), int(md["dmax"]), float(md["speed"]), cell.x, cell.y)
-	m.set_sprite_texture(PixelGen.monster(col, cell.x * 13 + cell.y), 1.7 if kind == "boss" else 1.0)
+	var monster_seed := cell.x * 13 + cell.y
+	var monster_name := String(md["name"])
+	m.set_sprite_frames(PixelGen.monster_named(monster_name, col, monster_seed, 0), [
+		PixelGen.monster_named(monster_name, col, monster_seed, 1),
+		PixelGen.monster_named(monster_name, col, monster_seed, 0),
+		PixelGen.monster_named(monster_name, col, monster_seed, 2),
+	], 1.7 if kind == "boss" else 1.0)
 	# 난이도 HP 스케일링 (Part 2 §3)
 	m.max_life = int(m.max_life * CombatLib.diff_monster_hp_mult(_difficulty))
 	m.base_max_life = m.max_life
@@ -633,7 +639,11 @@ func _start_game() -> void:
 	_player.position = _iso(_player.gx, _player.gy)
 	# 제작기 캐릭터 스프라이트
 	var robe := Color(0.3, 0.3, 0.75) if _class == "sorceress" else Color(0.7, 0.2, 0.15)
-	_player.set_sprite_texture(PixelGen.character(robe, 10), 1.1)
+	_player.set_sprite_frames(PixelGen.hero(_class, robe, 10, 0, 0), [
+		PixelGen.hero(_class, robe, 10, 0, 1),
+		PixelGen.hero(_class, robe, 10, 0, 0),
+		PixelGen.hero(_class, robe, 10, 0, 2),
+	], 1.1)
 	# 초기 장비/저항 계산: 바바리안 시작 무기, 소서리스 스탯 재계산
 	if _class == "barbarian":
 		var w := Item.generate(_rng, Item.WEAPON_BASES[1], 1, "magic")  # Fiery Hand Axe
@@ -957,7 +967,12 @@ func _spawn_merc() -> void:
 	_merc = _make_actor("Rogue Scout", Color(0.55, 0.25, 0.35), 20, 32)
 	_merc.is_ally = true
 	_merc.died.connect(_on_merc_died)
-	_merc.set_sprite_texture(PixelGen.character(Color(0.5, 0.15, 0.2), 7), 1.0)
+	var merc_col := Color(0.5, 0.15, 0.2)
+	_merc.set_sprite_frames(PixelGen.hero("rogue", merc_col, 7, 0, 0), [
+		PixelGen.hero("rogue", merc_col, 7, 0, 1),
+		PixelGen.hero("rogue", merc_col, 7, 0, 0),
+		PixelGen.hero("rogue", merc_col, 7, 0, 2),
+	], 1.0)
 	_merc.level = _player.level
 	_merc_scale_stats()
 	_merc.gx = _player.gx + 1
