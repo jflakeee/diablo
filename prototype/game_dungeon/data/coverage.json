@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "classes": {"required_ids": ["warden", "arcanist"], "minimum": 2},
+  "skills": {
+    "minimum": 8,
+    "required_types": ["attack", "spell", "buff", "passive", "mobility"],
+    "required_elements": ["physical", "fire", "cold", "light"]
+  },
+  "monsters": {
+    "minimum": 12,
+    "required_kinds": ["melee", "ranged", "boss"],
+    "required_resistance_roles": ["immune", "resistant", "vulnerable"]
+  },
+  "items": {
+    "minimum_bases": 6,
+    "minimum_uniques": 6,
+    "required_slots": ["weapon", "armor"],
+    "required_affix_stats": ["ed", "ar", "def", "life", "mana", "str", "dex", "res_all"]
+  },
+  "crafting": {"minimum_sigils": 10, "minimum_gems": 7, "minimum_words": 3},
+  "progression": {"difficulties": 3, "levels_per_act": 3}
+}

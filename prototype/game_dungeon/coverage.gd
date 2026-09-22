@@ -1,0 +1,90 @@
+extends RefCounted
+
+const PATH := "res://data/coverage.json"
+
+static func _read_spec() -> Dictionary:
+	var file := FileAccess.open(PATH, FileAccess.READ)
+	if file == null: return {}
+	var json := JSON.new()
+	if json.parse(file.get_as_text()) != OK: return {}
+	return json.data if json.data is Dictionary else {}
+
+static func _has_all(actual: Array, required: Array) -> bool:
+	for value in required:
+		if not actual.has(value): return false
+	return true
+
+static func validate(data_script: GDScript, skills_script: GDScript, item_script: GDScript, craft_script: GDScript) -> Dictionary:
+	var spec := _read_spec()
+	var failures: Array = []
+	var checks := 0
+	if spec.is_empty():
+		return {"ok": false, "checks": 1, "failures": ["coverage spec missing"]}
+
+	var classes: Dictionary = spec["classes"]
+	checks += 2
+	if int(classes["minimum"]) > 2: failures.append("class count")
+	if not _has_all(["warden", "arcanist"], classes["required_ids"]): failures.append("class roles")
+
+	var skill_spec: Dictionary = spec["skills"]
+	var skill_defs: Dictionary = skills_script.DEFS
+	var skill_types: Array = []
+	var elements: Array = []
+	for definition in skill_defs.values():
+		skill_types.append(String(definition.get("type", "")))
+		elements.append(String(definition.get("element", "")))
+	checks += 3
+	if skill_defs.size() < int(skill_spec["minimum"]): failures.append("skill count")
+	if not _has_all(skill_types, skill_spec["required_types"]): failures.append("skill types")
+	if not _has_all(elements, skill_spec["required_elements"]): failures.append("skill elements")
+
+	var monsters: Array = data_script.monsters()
+	var monster_kinds: Array = []
+	var immune := false
+	var resistant := false
+	var vulnerable := false
+	for monster in monsters:
+		monster_kinds.append(String(monster.get("kind", "")))
+		for key in ["res_fire", "res_cold", "res_light", "res_poison"]:
+			var resistance := int(monster.get(key, 0))
+			immune = immune or resistance >= 100
+			resistant = resistant or (resistance > 0 and resistance < 100)
+			vulnerable = vulnerable or resistance < 0
+	var monster_spec: Dictionary = spec["monsters"]
+	checks += 3
+	if monsters.size() < int(monster_spec["minimum"]): failures.append("monster count")
+	if not _has_all(monster_kinds, monster_spec["required_kinds"]): failures.append("monster kinds")
+	if not (immune and resistant and vulnerable): failures.append("monster resistance roles")
+
+	var bases: Dictionary = data_script.item_bases()
+	var affixes: Dictionary = data_script.affixes()
+	var slots: Array = []
+	var base_count := 0
+	for group in ["weapons", "armor"]:
+		for base in bases.get(group, []):
+			base_count += 1
+			slots.append(String(base.get("slot", "")))
+	var stats: Array = []
+	for group in ["prefixes", "suffixes"]:
+		for affix in affixes.get(group, []): stats.append(String(affix.get("stat", "")))
+	# Runtime item tables include elemental affixes in addition to the compact JSON import sample.
+	for affix in item_script.PREFIXES: stats.append(String(affix.get("stat", "")))
+	for affix in item_script.SUFFIXES: stats.append(String(affix.get("stat", "")))
+	var item_spec: Dictionary = spec["items"]
+	checks += 4
+	if base_count < int(item_spec["minimum_bases"]): failures.append("item bases")
+	if item_script.UNIQUES.size() < int(item_spec["minimum_uniques"]): failures.append("unique count")
+	if not _has_all(slots, item_spec["required_slots"]): failures.append("item slots")
+	if not _has_all(stats, item_spec["required_affix_stats"]): failures.append("affix roles")
+
+	var craft_spec: Dictionary = spec["crafting"]
+	checks += 3
+	if craft_script.RUNE_ORDER.size() < int(craft_spec["minimum_sigils"]): failures.append("sigil count")
+	if craft_script.GEM_STATS.size() < int(craft_spec["minimum_gems"]): failures.append("gem count")
+	if craft_script.RUNEWORDS.size() < int(craft_spec["minimum_words"]): failures.append("word count")
+
+	var progression: Dictionary = spec["progression"]
+	checks += 2
+	if int(progression["difficulties"]) != 3: failures.append("difficulty tiers")
+	if int(progression["levels_per_act"]) != 3: failures.append("act structure")
+	return {"ok": failures.is_empty(), "checks": checks, "failures": failures, "monsters": monsters.size(), "skills": skill_defs.size(), "bases": base_count}

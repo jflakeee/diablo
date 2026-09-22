@@ -4,14 +4,14 @@ extends RefCounted
 # preload로 사용: const Skills := preload("res://skills.gd")
 
 const DEFS := {
-	"sundering_strike": {"name": "Sundering Strike", "tree": "combat", "type": "attack", "mana": 2},
-	"void_fury": {"name": "Void Fury", "tree": "combat", "type": "attack", "mana": 4},
-	"iron_chant": {"name": "Iron Chant", "tree": "warcry", "type": "buff", "mana": 10},
-	"weapon_discipline": {"name": "Weapon Discipline", "tree": "discipline", "type": "passive", "mana": 0},
-	"ember_bolt": {"name": "Ember Bolt", "tree": "pyromancy", "type": "spell", "mana": 3},
-	"frost_shard": {"name": "Frost Shard", "tree": "cryomancy", "type": "spell", "mana": 3},
-	"storm_lance": {"name": "Storm Lance", "tree": "tempest", "type": "spell", "mana": 4},
-	"phase_step": {"name": "Phase Step", "tree": "tempest", "type": "mobility", "mana": 6},
+	"sundering_strike": {"name": "Sundering Strike", "tree": "combat", "type": "attack", "element": "physical", "mana": 2},
+	"void_fury": {"name": "Void Fury", "tree": "combat", "type": "attack", "element": "arcane", "mana": 4},
+	"iron_chant": {"name": "Iron Chant", "tree": "warcry", "type": "buff", "element": "physical", "mana": 10},
+	"weapon_discipline": {"name": "Weapon Discipline", "tree": "discipline", "type": "passive", "element": "physical", "mana": 0},
+	"ember_bolt": {"name": "Ember Bolt", "tree": "pyromancy", "type": "spell", "element": "fire", "mana": 3},
+	"frost_shard": {"name": "Frost Shard", "tree": "cryomancy", "type": "spell", "element": "cold", "mana": 3},
+	"storm_lance": {"name": "Storm Lance", "tree": "tempest", "type": "spell", "element": "light", "mana": 4},
+	"phase_step": {"name": "Phase Step", "tree": "tempest", "type": "mobility", "element": "arcane", "mana": 6},
 }
 
 static func def_name(id: String) -> String:

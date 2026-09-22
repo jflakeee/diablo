@@ -34,6 +34,8 @@ warden:   dungeon_level=2 levels_cleared=1 kills>0                verdict=PASS
 
 온라인 권위 계층은 `online_authority.gd`에 분리되어 세션 재접속, 위치 시퀀스와 이동 한도, 소유권·잔액 기반 멱등 에스크로를 검증한다. 실제 ENet 왕복 검사는 서버와 클라이언트를 별도 프로세스로 실행한다.
 
+`data/coverage.json`은 클래스·스킬·몬스터·아이템·제작·진행의 최소 역할 구성을 선언한다. `coverage.gd`가 시작 시 실제 데이터와 대조하므로 콘텐츠 제거 또는 역할 누락은 최종 PASS를 차단한다.
+
 ```powershell
 godot_console --headless --path . res://tools/network_harness.tscn -- net_server
 godot_console --headless --path . res://tools/network_harness.tscn -- net_client

@@ -23,6 +23,7 @@ const Identity := preload("res://identity.gd")
 const SystemTests := preload("res://system_tests.gd")
 const SaveStore := preload("res://save_store.gd")
 const OnlineAuthority := preload("res://online_authority.gd")
+const Coverage := preload("res://coverage.gd")
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -141,6 +142,7 @@ var _identity_selftest_ok := true
 var _system_selftest_ok := true
 var _save_selftest_ok := true
 var _online_selftest_ok := true
+var _coverage_selftest_ok := true
 var _quitting := false
 
 func _iso(gx: float, gy: float) -> Vector2:
@@ -565,6 +567,9 @@ func _ready() -> void:
 		var online_report := OnlineAuthority.selftest()
 		_online_selftest_ok = bool(online_report["ok"])
 		print("[ONLINE] checks=%d failures=%s verdict=%s" % [int(online_report["checks"]), str(online_report["failures"]), "PASS" if _online_selftest_ok else "FAIL"])
+		var coverage_report := Coverage.validate(Data, Skills, Item, Craft)
+		_coverage_selftest_ok = bool(coverage_report["ok"])
+		print("[COVERAGE] checks=%d monsters=%d skills=%d bases=%d failures=%s verdict=%s" % [int(coverage_report["checks"]), int(coverage_report.get("monsters", 0)), int(coverage_report.get("skills", 0)), int(coverage_report.get("bases", 0)), str(coverage_report["failures"]), "PASS" if _coverage_selftest_ok else "FAIL"])
 		print("[ASSET] atlas=%s entries=%d selftest=%s" % [str(_assets.available()), _assets.entry_count(), "PASS" if _assets.selftest() else "FAIL"])
 		_automation = Automation.new() # 셀프테스트 상태를 실제 플레이와 분리
 		var uq := Item.generate(_rng, Item.WEAPON_BASES[1], 20, "unique")
@@ -1455,7 +1460,7 @@ func _process(delta: float) -> void:
 			_player.state_count(), _merc.state_count() if _merc != null else 0])
 		var asset_report := _assets.validate_runtime()
 		print("[ASSET] monsters compiled=%d fallback=%d runtime=%s" % [_compiled_monsters, _generated_monsters, str(asset_report)])
-		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok and _online_selftest_ok
+		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok and _online_selftest_ok and _coverage_selftest_ok
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		_release_runtime_resources()
 		await get_tree().process_frame

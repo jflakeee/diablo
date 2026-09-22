@@ -34,6 +34,7 @@ godot_console --verbose --headless --path prototype/game_dungeon -- autoquit str
 | 동료/경제 | Ember Scout 전투, 골드·판매·도박 | 양 클래스 자동 플레이 결과 | PASS(스모크) |
 | 저장 | 원자 교체, 왕복, v1→v2 이관, 손상 거부 | `[SAVE] checks=4` | PASS |
 | 온라인 권위 | 세션 재접속, 시퀀스/이동 검증, 멱등 에스크로 | `[ONLINE] checks=6`, ENet 2프로세스 하네스 | PASS |
+| 콘텐츠 커버리지 | 클래스·스킬 역할/속성, 적 역할/저항, 장비·접사·제작·진행 최소 구성 | `[COVERAGE] checks=17` | PASS |
 
 ## 아직 독립 합격으로 볼 수 없는 범위
 
