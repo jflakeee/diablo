@@ -7,6 +7,10 @@ const SKILL_SIZE := Vector2(132, 132)
 const JOYSTICK_SIZE := Vector2(320, 320)
 const POTION_SIZE := Vector2(96, 96)
 const MINIMAP_SIZE := Vector2(190, 190)
+const MIN_LOGICAL := Vector2(960, 540)
+
+static func effective_scale(requested: float, viewport: Vector2) -> float:
+	return minf(requested, minf(viewport.x / MIN_LOGICAL.x, viewport.y / MIN_LOGICAL.y))
 
 static func logical_safe_area(viewport: Vector2) -> Rect2:
 	var window_size := Vector2(DisplayServer.window_get_size())
@@ -36,6 +40,8 @@ static func layout(viewport: Vector2, safe: Rect2 = Rect2()) -> Dictionary:
 		"skill_secondary": Vector2(right - SKILL_SIZE.x * 2.0 - 8, bottom - SKILL_SIZE.y),
 		"skill_utility": Vector2(right - SKILL_SIZE.x * 1.5 - 4, bottom - SKILL_SIZE.y * 2.0 - 8),
 		"panel": Vector2(right - 360, top + MENU_SIZE.y + 8),
+		"settings": Vector2((left + right - 96) * 0.5, bottom - 56),
+		"settings_panel": Vector2((left + right - 360) * 0.5, (top + bottom - 250) * 0.5),
 	}
 
 static func _inside(rect: Rect2, bounds: Rect2) -> bool:
@@ -67,5 +73,9 @@ static func selftest() -> bool:
 	for viewport in [Vector2(960, 540), Vector2(960, 720), Vector2(1280, 720), Vector2(1600, 720)]:
 		if not bool(validate(viewport)["ok"]):
 			push_error("Mobile UI layout failed %s: %s" % [str(viewport), str(validate(viewport)["failures"])])
+			return false
+	for requested in [0.8, 1.0, 1.2, 1.4]:
+		var applied := effective_scale(requested, Vector2(1280, 720))
+		if applied > requested or (Vector2(1280, 720) / applied).x < MIN_LOGICAL.x:
 			return false
 	return SKILL_SIZE.x >= 72.0 and POTION_SIZE.x >= 48.0 and MENU_SIZE.y >= 48.0

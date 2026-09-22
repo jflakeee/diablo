@@ -18,6 +18,7 @@ const MinimapScript := preload("res://minimap.gd")
 const Automation := preload("res://automation.gd")
 const AssetCatalog := preload("res://asset_catalog.gd")
 const MobileUI := preload("res://mobile_ui.gd")
+const Accessibility := preload("res://accessibility.gd")
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -96,6 +97,9 @@ var _gambles := 0
 var _stat_points := 0
 var _char_panel: Panel
 var _char_vbox: VBoxContainer
+var _settings_panel: Panel
+var _settings_scale_button: Button
+var _settings_text_button: Button
 var _minimap: Control
 var _inv_panel: Panel
 var _inv_vbox: VBoxContainer
@@ -108,6 +112,7 @@ var _equipped := {"weapon": {}, "armor": {}}
 var _eq := {"str": 0, "dex": 0, "ar": 0, "ed": 0, "life": 0, "mana": 0, "def": 0, "res_all": 0}
 var _player_mf := 50
 var _automation := Automation.new()
+var _accessibility := Accessibility.new()
 var _automation_last_expire := 0
 var _assets := AssetCatalog.new()
 
@@ -377,7 +382,7 @@ func _apply_rank(m: ActorScript, rank: String) -> void:
 func _add_name_tag(m: ActorScript, text: String, color: Color) -> void:
 	var lbl := Label.new()
 	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", 11)
+	lbl.add_theme_font_size_override("font_size", _accessibility.font_size(11))
 	lbl.add_theme_color_override("font_color", color)
 	lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	lbl.add_theme_constant_override("outline_size", 3)
@@ -524,6 +529,7 @@ func _release_runtime_resources() -> void:
 	_assets.clear()
 
 func _ready() -> void:
+	_accessibility.load_settings()
 	_setup_sfx()
 	_auto_quit = OS.get_cmdline_user_args().has("autoquit")
 	_assets.configure(AssetCatalog.MissingPolicy.FAIL if OS.get_cmdline_user_args().has("strict_assets") else AssetCatalog.MissingPolicy.WARN)
@@ -536,6 +542,7 @@ func _ready() -> void:
 		print("[ANIM] selftest verdict=", "PASS" if ActorScript.animation_selftest() else "FAIL")
 		_ui_selftest_ok = MobileUI.selftest()
 		print("[MOBILE_UI] ratios=4 targets>=48 primary>=72 safe_margin=16 verdict=", "PASS" if _ui_selftest_ok else "FAIL")
+		print("[ACCESS] scales=80/100/120/140 text=normal/large persist=true verdict=", "PASS" if Accessibility.selftest() else "FAIL")
 		print("[ASSET] atlas=%s entries=%d selftest=%s" % [str(_assets.available()), _assets.entry_count(), "PASS" if _assets.selftest() else "FAIL"])
 		_automation = Automation.new() # 셀프테스트 상태를 실제 플레이와 분리
 		var uq := Item.generate(_rng, Item.WEAPON_BASES[1], 20, "unique")
@@ -567,19 +574,19 @@ func _show_class_select() -> void:
 	_menu_layer.add_child(bg)
 	var title := Label.new()
 	title.text = "DIABLO CLONE — Dungeon"
-	title.add_theme_font_size_override("font_size", 44)
+	title.add_theme_font_size_override("font_size", _accessibility.font_size(44))
 	title.position = Vector2(vp.x * 0.5 - 240, vp.y * 0.2)
 	_menu_layer.add_child(title)
 	var sub := Label.new()
 	sub.text = "클래스 선택 / Choose your class"
-	sub.add_theme_font_size_override("font_size", 22)
+	sub.add_theme_font_size_override("font_size", _accessibility.font_size(22))
 	sub.position = Vector2(vp.x * 0.5 - 160, vp.y * 0.2 + 60)
 	_menu_layer.add_child(sub)
 	_add_class_button("⚔  Barbarian  — 근접 · 탱커", Color(0.9, 0.75, 0.2), Vector2(vp.x * 0.5 - 220, vp.y * 0.42), "barbarian")
 	_add_class_button("✦  Sorceress  — 원거리 · 스펠", Color(0.6, 0.5, 0.95), Vector2(vp.x * 0.5 - 220, vp.y * 0.42 + 90), "sorceress")
 	# 난이도 선택
 	_diff_label = Label.new()
-	_diff_label.add_theme_font_size_override("font_size", 20)
+	_diff_label.add_theme_font_size_override("font_size", _accessibility.font_size(20))
 	_diff_label.position = Vector2(vp.x * 0.5 - 220, vp.y * 0.42 + 200)
 	_menu_layer.add_child(_diff_label)
 	_update_diff_label()
@@ -591,7 +598,7 @@ func _show_class_select() -> void:
 		db.position = Vector2(vp.x * 0.5 - 220 + i * 150, vp.y * 0.42 + 240)
 		db.custom_minimum_size = Vector2(140, 50)
 		db.size = Vector2(140, 50)
-		db.add_theme_font_size_override("font_size", 20)
+		db.add_theme_font_size_override("font_size", _accessibility.font_size(20))
 		db.add_theme_color_override("font_color", dcols[i])
 		db.pressed.connect(_set_difficulty.bind(i))
 		_menu_layer.add_child(db)
@@ -611,7 +618,7 @@ func _add_class_button(text: String, col: Color, pos: Vector2, cls: String) -> v
 	btn.position = pos
 	btn.custom_minimum_size = Vector2(440, 74)
 	btn.size = Vector2(440, 74)
-	btn.add_theme_font_size_override("font_size", 26)
+	btn.add_theme_font_size_override("font_size", _accessibility.font_size(26))
 	btn.add_theme_color_override("font_color", col)
 	btn.pressed.connect(_choose_class.bind(cls))
 	_menu_layer.add_child(btn)
@@ -695,9 +702,14 @@ func _start_game() -> void:
 	_cam.make_current()
 
 	var ui := CanvasLayer.new()
+	var physical_vp := get_viewport_rect().size
+	var ui_scale := MobileUI.effective_scale(_accessibility.ui_scale, physical_vp)
+	ui.transform = Transform2D.IDENTITY.scaled(Vector2(ui_scale, ui_scale))
 	add_child(ui)
-	var vp := get_viewport_rect().size
-	var mobile_layout := MobileUI.layout(vp, MobileUI.logical_safe_area(vp))
+	var vp := physical_vp / ui_scale
+	var safe := MobileUI.logical_safe_area(physical_vp)
+	safe = Rect2(safe.position / ui_scale, safe.size / ui_scale)
+	var mobile_layout := MobileUI.layout(vp, safe)
 	_joy = JoystickScript.new()
 	_joy.position = mobile_layout["joystick"]
 	ui.add_child(_joy)
@@ -716,7 +728,7 @@ func _start_game() -> void:
 	bag.position = mobile_layout["bag"]
 	bag.custom_minimum_size = Vector2(120, 56)
 	bag.size = Vector2(120, 56)
-	bag.add_theme_font_size_override("font_size", 24)
+	bag.add_theme_font_size_override("font_size", _accessibility.font_size(24))
 	bag.pressed.connect(_toggle_bag)
 	ui.add_child(bag)
 
@@ -735,7 +747,7 @@ func _start_game() -> void:
 	shop.position = mobile_layout["shop"]
 	shop.custom_minimum_size = Vector2(120, 56)
 	shop.size = Vector2(120, 56)
-	shop.add_theme_font_size_override("font_size", 24)
+	shop.add_theme_font_size_override("font_size", _accessibility.font_size(24))
 	shop.pressed.connect(_toggle_vendor)
 	ui.add_child(shop)
 
@@ -751,7 +763,7 @@ func _start_game() -> void:
 	charb.position = mobile_layout["char"]
 	charb.custom_minimum_size = Vector2(120, 56)
 	charb.size = Vector2(120, 56)
-	charb.add_theme_font_size_override("font_size", 24)
+	charb.add_theme_font_size_override("font_size", _accessibility.font_size(24))
 	charb.pressed.connect(_toggle_char)
 	ui.add_child(charb)
 
@@ -762,6 +774,22 @@ func _start_game() -> void:
 	ui.add_child(_char_panel)
 	_build_char_panel()
 
+	var settings_button := Button.new()
+	settings_button.text = "⚙ UI"
+	settings_button.position = mobile_layout["settings"]
+	settings_button.custom_minimum_size = Vector2(96, 56)
+	settings_button.size = Vector2(96, 56)
+	settings_button.add_theme_font_size_override("font_size", _accessibility.font_size(20))
+	settings_button.pressed.connect(_toggle_settings)
+	ui.add_child(settings_button)
+
+	_settings_panel = Panel.new()
+	_settings_panel.position = mobile_layout["settings_panel"]
+	_settings_panel.size = Vector2(360, 250)
+	_settings_panel.visible = false
+	ui.add_child(_settings_panel)
+	_build_settings_panel()
+
 	# 자동 지도(미니맵) — 좌하단(조이스틱 위쪽 여백)
 	_minimap = MinimapScript.new()
 	_minimap.size = Vector2(190, 190)
@@ -771,7 +799,7 @@ func _start_game() -> void:
 
 	_hud = Label.new()
 	_hud.position = mobile_layout["hud"]
-	_hud.add_theme_font_size_override("font_size", 24)
+	_hud.add_theme_font_size_override("font_size", _accessibility.font_size(24))
 	ui.add_child(_hud)
 
 	# 포션 벨트 버튼(모바일): 좌하단, 조이스틱 위. 빨강=생명 / 파랑=마나
@@ -883,13 +911,53 @@ func _make_potion_button(glyph: String, col: Color, pos: Vector2, cb: Callable) 
 	b.position = pos
 	b.custom_minimum_size = Vector2(96, 96)
 	b.size = Vector2(96, 96)
-	b.add_theme_font_size_override("font_size", 34)
+	b.add_theme_font_size_override("font_size", _accessibility.font_size(34))
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = col
 	sb.set_corner_radius_all(48)
 	b.add_theme_stylebox_override("normal", sb)
 	b.pressed.connect(cb)
 	return b
+
+func _build_settings_panel() -> void:
+	var box := VBoxContainer.new()
+	box.position = Vector2(12, 12)
+	box.custom_minimum_size = Vector2(336, 226)
+	_settings_panel.add_child(box)
+	var title := Label.new()
+	title.text = "접근성 / UI 설정"
+	title.add_theme_font_size_override("font_size", _accessibility.font_size(22))
+	box.add_child(title)
+	_settings_scale_button = Button.new()
+	_settings_scale_button.custom_minimum_size = Vector2(336, 52)
+	_settings_scale_button.pressed.connect(_cycle_ui_scale)
+	box.add_child(_settings_scale_button)
+	_settings_text_button = Button.new()
+	_settings_text_button.custom_minimum_size = Vector2(336, 52)
+	_settings_text_button.pressed.connect(_cycle_text_scale)
+	box.add_child(_settings_text_button)
+	var note := Label.new()
+	note.text = "변경 사항은 다음 전투 HUD 생성부터 적용됩니다."
+	note.add_theme_font_size_override("font_size", _accessibility.font_size(14))
+	box.add_child(note)
+	_refresh_settings_labels()
+
+func _refresh_settings_labels() -> void:
+	if _settings_scale_button:
+		_settings_scale_button.text = "UI 배율: %d%%" % roundi(_accessibility.ui_scale * 100.0)
+	if _settings_text_button:
+		_settings_text_button.text = "본문 텍스트: %s" % ("크게" if _accessibility.text_scale > 1.0 else "보통")
+
+func _cycle_ui_scale() -> void:
+	_accessibility.cycle_ui_scale()
+	_refresh_settings_labels()
+
+func _cycle_text_scale() -> void:
+	_accessibility.cycle_text_scale()
+	_refresh_settings_labels()
+
+func _toggle_settings() -> void:
+	_settings_panel.visible = not _settings_panel.visible
 
 # 생명 포션 소비: 최대 생명의 45% 회복(즉시). 벨트 1개 소모.
 func _quaff_health() -> void:
@@ -1754,7 +1822,7 @@ func _spawn_ground(it: Dictionary, gx: float, gy: float) -> void:
 	var lbl := Label.new()
 	lbl.text = Item.display_name(it)
 	lbl.position = Vector2(-30, -30)
-	lbl.add_theme_font_size_override("font_size", 12)
+	lbl.add_theme_font_size_override("font_size", _accessibility.font_size(12))
 	lbl.add_theme_color_override("font_color", col)
 	n.add_child(lbl)
 	n.position = _iso(gx, gy)
@@ -1836,7 +1904,7 @@ func _build_vendor() -> void:
 	_vendor_panel.add_child(vb)
 	var head := Label.new()
 	head.text = "◆ 상인 (Vendor)"
-	head.add_theme_font_size_override("font_size", 20)
+	head.add_theme_font_size_override("font_size", _accessibility.font_size(20))
 	vb.add_child(head)
 	_vendor_gold_lbl = Label.new()
 	_vendor_gold_lbl.add_theme_color_override("font_color", Color(1, 0.85, 0.3))
@@ -1860,7 +1928,7 @@ func _vendor_btn(vb: VBoxContainer, text: String, cb: Callable) -> void:
 	var b := Button.new()
 	b.text = text
 	b.custom_minimum_size = Vector2(320, 48)
-	b.add_theme_font_size_override("font_size", 18)
+	b.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	b.pressed.connect(cb)
 	vb.add_child(b)
 
@@ -1890,7 +1958,7 @@ func _rebuild_char_panel() -> void:
 	for c in _char_vbox.get_children():
 		c.queue_free()
 	var head := Label.new()
-	head.add_theme_font_size_override("font_size", 20)
+	head.add_theme_font_size_override("font_size", _accessibility.font_size(20))
 	head.text = "◆ 캐릭터 Lv%d\n스탯 포인트: %d   스킬 포인트: %d" % [_player.level, _stat_points, _player.skill_points]
 	_char_vbox.add_child(head)
 	# 스탯 분배
@@ -1899,7 +1967,7 @@ func _rebuild_char_panel() -> void:
 		var b := Button.new()
 		b.text = "＋ %s" % pair[1]
 		b.custom_minimum_size = Vector2(344, 44)
-		b.add_theme_font_size_override("font_size", 18)
+		b.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 		b.disabled = _stat_points <= 0
 		b.pressed.connect(func(): _spend_stat(sid))
 		_char_vbox.add_child(b)
@@ -1910,7 +1978,7 @@ func _rebuild_char_panel() -> void:
 		var b2 := Button.new()
 		b2.text = "＋ %s (Lv%d)" % [_skill_label(sk), _player.skill_level(sk)]
 		b2.custom_minimum_size = Vector2(344, 44)
-		b2.add_theme_font_size_override("font_size", 18)
+		b2.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 		b2.disabled = _player.skill_points <= 0
 		b2.pressed.connect(func(): _spend_skill(sk))
 		_char_vbox.add_child(b2)
@@ -2049,7 +2117,7 @@ func _spawn_text(pos: Vector2, text: String, col: Color) -> void:
 	lbl.position = pos + Vector2(-8, -46)
 	lbl.z_index = 100
 	lbl.add_theme_color_override("font_color", col)
-	lbl.add_theme_font_size_override("font_size", 18)
+	lbl.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	_world.add_child(lbl)
 	var tw := create_tween()
 	tw.tween_property(lbl, "position", lbl.position + Vector2(0, -28), 0.8)

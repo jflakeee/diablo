@@ -49,7 +49,7 @@
 > **💾 세이브 심화(P10):** JSON 직렬화 저장/로드 라운드트립. **이로써 로드맵 P0~P13 전 시스템 프로토타입·실기검증 완료.**
 
 | 자산제작기 | `game_dungeon/art`,`tools` | 28자산·24애니 품질, 원자/결정론 verify, strict 폴백 0, AnimatedSprite 상태머신 양 클래스 PASS | ✅ PASS |
-| 모바일 HUD | `mobile_ui.gd` | safe-area 기반 배치, 4:3~20:9 겹침 검사, 터치 48+/주 스킬 72+ 및 실게임 PASS | ✅ PASS |
+| 모바일 HUD | `mobile_ui.gd`,`accessibility.gd` | safe-area·4:3~20:9, 터치 48+/주 스킬 72+, UI 80~140%·큰 글자 저장 및 실게임 PASS | ✅ PASS |
 | 미적용연구 | `research_applied` | FCR/FHR 브레이크포인트 + 난이도(NM/Hell) 스케일링, Normal 클리어/Hell 사망 | ✅ PASS |
 
 > **⚙️ 미적용 연구 적용:** 브레이크포인트(FCR 프레임→시전속도)·난이도 스케일링(몹 HP/저항·플레이어 저항페널티·Hell 물리바닥). 비교분석의 `❌미적용` → `적용`.
