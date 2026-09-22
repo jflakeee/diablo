@@ -320,6 +320,12 @@
       ]
     }
   },
+  "format_version": 2,
   "generator_version": 3,
-  "recipe_md5": "2cc6c8085c9ae326a77e350968a9790e"
+  "inputs": {
+    "archetypes": "eb8f895bce4a81b3c3cbb6a0e72b1540",
+    "monsters": "1d52eeddab9a82f4e8825a137de3553d",
+    "palettes": "aed771d5383bc3117f1f41385168a53d",
+    "recipes": "2cc6c8085c9ae326a77e350968a9790e"
+  }
 }

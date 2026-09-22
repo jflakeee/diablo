@@ -11,22 +11,92 @@ const OUTPUT := "user://assetgen"
 const ATLAS_CELL := 64
 const ATLAS_COLS := 4
 const RECIPE_PATH := "res://art/art_recipes.json"
+const OUTPUT_FILES := ["atlas.png", "manifest.json", "animation_atlas.png", "animation_manifest.json"]
 var _auto_quit := false
 
-func _publish_to_game() -> bool:
+func _clear_owned_directory(path: String) -> void:
+	for filename in OUTPUT_FILES:
+		var candidate := path.path_join(filename)
+		if FileAccess.file_exists(candidate):
+			DirAccess.remove_absolute(candidate)
+	if DirAccess.dir_exists_absolute(path):
+		DirAccess.remove_absolute(path)
+
+func _hashes(path: String) -> Dictionary:
+	var result := {}
+	for filename in OUTPUT_FILES:
+		var candidate := path.path_join(filename)
+		result[filename] = FileAccess.get_md5(candidate) if FileAccess.file_exists(candidate) else ""
+	return result
+
+func _publish_to_game(simulate_failure: bool = false) -> bool:
 	var target := ProjectSettings.globalize_path("res://generated")
-	if DirAccess.make_dir_recursive_absolute(target) != OK:
+	var project_root := ProjectSettings.globalize_path("res://")
+	var next := target + ".next"
+	var previous := target + ".previous"
+	if not target.begins_with(project_root) or not next.begins_with(project_root) or not previous.begins_with(project_root):
+		push_error("Unsafe publish path")
 		return false
-	for filename in ["atlas.png", "manifest.json", "animation_atlas.png", "animation_manifest.json"]:
+	_clear_owned_directory(next)
+	_clear_owned_directory(previous)
+	if DirAccess.make_dir_recursive_absolute(next) != OK:
+		return false
+	for filename in OUTPUT_FILES:
 		var source := ProjectSettings.globalize_path(OUTPUT + "/" + filename)
-		if DirAccess.copy_absolute(source, target.path_join(filename)) != OK:
+		var staged := next.path_join(filename)
+		if DirAccess.copy_absolute(source, staged) != OK or FileAccess.get_md5(source) != FileAccess.get_md5(staged):
+			_clear_owned_directory(next)
 			return false
+	if simulate_failure:
+		_clear_owned_directory(next)
+		return false
+	if DirAccess.make_dir_recursive_absolute(target) != OK or DirAccess.make_dir_recursive_absolute(previous) != OK:
+		_clear_owned_directory(next)
+		return false
+	var backed_up: Array = []
+	for filename in OUTPUT_FILES:
+		var current := target.path_join(filename)
+		if FileAccess.file_exists(current):
+			if DirAccess.rename_absolute(current, previous.path_join(filename)) != OK:
+				for restored in backed_up:
+					DirAccess.rename_absolute(previous.path_join(restored), target.path_join(restored))
+				_clear_owned_directory(next)
+				_clear_owned_directory(previous)
+				return false
+			backed_up.append(filename)
+	var published: Array = []
+	for filename in OUTPUT_FILES:
+		if DirAccess.rename_absolute(next.path_join(filename), target.path_join(filename)) != OK:
+			for added in published:
+				DirAccess.remove_absolute(target.path_join(added))
+			for restored in backed_up:
+				DirAccess.rename_absolute(previous.path_join(restored), target.path_join(restored))
+			_clear_owned_directory(next)
+			_clear_owned_directory(previous)
+			return false
+		published.append(filename)
+	_clear_owned_directory(next)
+	_clear_owned_directory(previous)
 	# 새 아틀라스 게시가 성공한 뒤에만 구형 내장 텍스처 리소스를 제거한다.
 	for legacy in ["heroes.tres", "monsters.tres"]:
 		var legacy_path := target.path_join(legacy)
 		if FileAccess.file_exists(legacy_path):
 			DirAccess.remove_absolute(legacy_path)
 	return true
+
+func _verify_outputs(path: String) -> bool:
+	var static_file := FileAccess.open(path.path_join("manifest.json"), FileAccess.READ)
+	var anim_file := FileAccess.open(path.path_join("animation_manifest.json"), FileAccess.READ)
+	if static_file == null or anim_file == null:
+		return false
+	var static_manifest = JSON.parse_string(static_file.get_as_text())
+	var anim_manifest = JSON.parse_string(anim_file.get_as_text())
+	if not static_manifest is Dictionary or not anim_manifest is Dictionary:
+		return false
+	return static_manifest.get("entries", {}).size() == 26 \
+		and anim_manifest.get("actors", {}).size() == 15 \
+		and String(static_manifest.get("atlas_md5", "")) == FileAccess.get_md5(path.path_join("atlas.png")) \
+		and String(anim_manifest.get("atlas_md5", "")) == FileAccess.get_md5(path.path_join("animation_atlas.png"))
 
 func _load_samples() -> Array:
 	var file := FileAccess.open(RECIPE_PATH, FileAccess.READ)
@@ -96,8 +166,12 @@ func _build_atlas(samples: Array) -> bool:
 	if atlas.save_png(atlas_path) != OK:
 		return false
 	var manifest := {
+		"format_version": 2,
 		"generator_version": PixelGen.VERSION,
-		"recipe_md5": FileAccess.get_md5(RECIPE_PATH),
+		"inputs": {"recipes": FileAccess.get_md5(RECIPE_PATH),
+			"monsters": FileAccess.get_md5("res://data/monsters.json"),
+			"palettes": FileAccess.get_md5("res://art/monster_palettes.json"),
+			"archetypes": FileAccess.get_md5("res://art/monster_archetypes.json")},
 		"atlas": "atlas.png",
 		"atlas_size": [atlas.get_width(), atlas.get_height()],
 		"cell_size": ATLAS_CELL,
@@ -157,6 +231,10 @@ func _build_animation_atlas(samples: Array) -> bool:
 			anim.erase("frame_keys")
 			anim["frames"] = frames
 	var manifest := {"format_version": 2, "generator_version": PixelGen.VERSION,
+		"inputs": {"recipes": FileAccess.get_md5(RECIPE_PATH),
+			"monsters": FileAccess.get_md5("res://data/monsters.json"),
+			"palettes": FileAccess.get_md5("res://art/monster_palettes.json"),
+			"archetypes": FileAccess.get_md5("res://art/monster_archetypes.json")},
 		"atlas": "animation_atlas.png", "atlas_size": packed["size"], "atlas_md5": packed["md5"], "actors": actors}
 	var file := FileAccess.open(OUTPUT + "/animation_manifest.json", FileAccess.WRITE)
 	if file == null:
@@ -208,15 +286,28 @@ func _ready() -> void:
 	var atlas_ok := _build_atlas(samples)
 	var animations_ok := _build_animation_atlas(samples)
 	var quality: Dictionary = Quality.suite(PixelGen, samples)
+	var output_path := ProjectSettings.globalize_path(OUTPUT)
+	var build_ok := saved == samples.size() and cache_ok and atlas_ok and animations_ok and bool(quality["ok"]) and _verify_outputs(output_path)
+	var deterministic := true
+	var failure_preserved := true
+	if OS.get_cmdline_user_args().has("verify") and build_ok:
+		var first_hashes := _hashes(output_path)
+		deterministic = _build_atlas(samples) and _build_animation_atlas(samples) and first_hashes == _hashes(output_path)
+		var target := ProjectSettings.globalize_path("res://generated")
+		var published_before := _hashes(target)
+		failure_preserved = not _publish_to_game(true) and published_before == _hashes(target)
 	var publish_ok := true
 	if OS.get_cmdline_user_args().has("publish"):
-		publish_ok = _publish_to_game()
+		publish_ok = build_ok and deterministic and failure_preserved and _publish_to_game() \
+			and _verify_outputs(ProjectSettings.globalize_path("res://generated"))
 	print("[AG] cache entries=%d reuse=%s" % [cache_before, str(cache_ok)])
 	print("[AG] atlas=%s animation_atlas=%s canonical_source=true" % [str(atlas_ok), str(animations_ok)])
 	print("[AG] quality checked=%d silhouette_diff=%d walk_diff=%d seed_diff=%d failures=%s" % [int(quality["checked"]), int(quality["silhouette_diff"]), int(quality["walk_diff"]), int(quality["seed_diff"]), str(quality["failures"])])
+	if OS.get_cmdline_user_args().has("verify"):
+		print("[AG] deterministic=%s failure_preserved=%s stale_free=%s" % [str(deterministic), str(failure_preserved), str(_verify_outputs(output_path))])
 	if OS.get_cmdline_user_args().has("publish"):
 		print("[AG] publish_to_game=", publish_ok)
-	print("[AG][RESULT] verdict=", ("PASS" if saved == samples.size() and cache_ok and atlas_ok and animations_ok and bool(quality["ok"]) and publish_ok else "FAIL"))
+	print("[AG][RESULT] verdict=", ("PASS" if build_ok and deterministic and failure_preserved and publish_ok else "FAIL"))
 
 func _process(_delta: float) -> void:
 	if _auto_quit:

@@ -21,6 +21,7 @@
 godot --path prototype/game_dungeon res://tools/asset_compiler.tscn --rendering-driver opengl3
 godot --headless --path prototype/game_dungeon res://tools/asset_compiler.tscn -- autoquit
 godot --headless --path prototype/game_dungeon res://tools/asset_compiler.tscn -- autoquit publish
+godot --headless --path prototype/game_dungeon res://tools/asset_compiler.tscn -- autoquit verify publish
 ```
 
 ### 생성기 구성
@@ -71,6 +72,10 @@ godot --headless --path prototype/game_dungeon res://tools/asset_compiler.tscn -
 컴파일 몬스터 사용과 최종 PASS를 확인했다.
 12종 데이터/아트 참조 통합 후 런타임은 `compiled=11 fallback=0`(해당 실행에서 실제
 스폰된 개체 기준), 카탈로그 자가검사는 12종 전부 조회 PASS를 확인했다.
+
+`verify`는 동일 입력 2회 빌드 MD5, manifest/PNG 재검증, 의도적 게시 실패 시 기존
+`generated` 보존을 검사한다. 게시는 `generated.next` 검증과 `generated.previous`
+롤백을 거친다. 게임 검증에 `strict_assets`를 추가하면 누락 자산 폴백을 금지한다.
 샘플(`samples/`): 돌 타일=노이즈+음영, 포션=병+액체+반사광, 바바리안=후드 휴머노이드
 → **플랫 도형 대비 확연한 개선**, 라이선스 청정, 시드로 무한 변형.
 

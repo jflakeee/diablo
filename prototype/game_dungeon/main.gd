@@ -302,6 +302,9 @@ func _spawn_one(md: Dictionary, cell: Vector2i) -> void:
 		m.set_sprite_frames(monster_compiled["idle"], monster_compiled["walk"], 1.7 if kind == "boss" else 1.0)
 	else:
 		_generated_monsters += 1
+		_assets.record_fallback("monster/" + String(md.get("id", monster_name)))
+		if not _assets.allows_fallback():
+			return
 		m.set_sprite_frames(PixelGen.monster_named(monster_name, col, monster_seed, 0), [
 			PixelGen.monster_named(monster_name, col, monster_seed, 1),
 			PixelGen.monster_named(monster_name, col, monster_seed, 0),
@@ -521,6 +524,7 @@ func _release_runtime_resources() -> void:
 func _ready() -> void:
 	_setup_sfx()
 	_auto_quit = OS.get_cmdline_user_args().has("autoquit")
+	_assets.configure(AssetCatalog.MissingPolicy.FAIL if OS.get_cmdline_user_args().has("strict_assets") else AssetCatalog.MissingPolicy.WARN)
 	if OS.get_cmdline_user_args().has("hell"):
 		_difficulty = 2
 	elif OS.get_cmdline_user_args().has("nm"):
@@ -998,6 +1002,9 @@ func _set_hero_art(actor: ActorScript, kind: String, color: Color, seed: int, sc
 	if not compiled.is_empty():
 		actor.set_directional_frames(compiled, scale_v)
 		return
+	_assets.record_fallback("hero/" + kind)
+	if not _assets.allows_fallback():
+		return
 	var generated := {}
 	for direction in 4:
 		generated[direction] = {"idle": PixelGen.hero(kind, color, seed, direction, 0), "walk": [
@@ -1281,8 +1288,9 @@ func _process(delta: float) -> void:
 			_player.stat_str, _player.stat_dex, _player.stat_vit, _player.stat_energy,
 			_player.skill_level("mastery" if _class != "sorceress" else "fireball"), _stat_points, _player.skill_points])
 		print("[ANIM] player_directions=%d merc_directions=%d" % [_player.facing_count(), _merc.facing_count() if _merc != null else 0])
-		print("[ASSET] monsters compiled=%d fallback=%d" % [_compiled_monsters, _generated_monsters])
-		var ok: bool = _kills > 0 or _spells_cast > 0
+		var asset_report := _assets.validate_runtime()
+		print("[ASSET] monsters compiled=%d fallback=%d runtime=%s" % [_compiled_monsters, _generated_monsters, str(asset_report)])
+		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"])
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		_release_runtime_resources()
 		get_tree().quit()
@@ -1727,7 +1735,11 @@ func _spawn_ground(it: Dictionary, gx: float, gy: float) -> void:
 	if icon_kind == "gem":
 		atlas_id = String(it.get("id", "ruby"))
 	var compiled := _assets.texture(atlas_id)
-	spr.texture = compiled if compiled != null else PixelGen.icon(icon_kind, icon_seed)
+	if compiled != null:
+		spr.texture = compiled
+	elif _assets.allows_fallback():
+		_assets.record_fallback("icon/" + atlas_id)
+		spr.texture = PixelGen.icon(icon_kind, icon_seed)
 	spr.scale = Vector2(0.4, 0.4) if is_gold else (Vector2(0.55, 0.55) if is_pot else Vector2(0.8, 0.8))
 	spr.modulate = col
 	n.add_child(spr)

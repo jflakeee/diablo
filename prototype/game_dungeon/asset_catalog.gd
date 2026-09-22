@@ -6,12 +6,18 @@ const ATLAS_PATH := "res://generated/atlas.png"
 const ANIMATION_MANIFEST_PATH := "res://generated/animation_manifest.json"
 const ANIMATION_ATLAS_PATH := "res://generated/animation_atlas.png"
 
+enum MissingPolicy { FALLBACK, WARN, FAIL }
+
 var _atlas: Texture2D
 var _entries := {}
 var _regions := {}
 var _animation_atlas: Texture2D
 var _actors := {}
 var _animation_regions := {}
+var _policy: MissingPolicy = MissingPolicy.WARN if OS.is_debug_build() else MissingPolicy.FAIL
+var _missing := {}
+var _warned := {}
+var _fallbacks := 0
 
 func _init() -> void:
 	if not FileAccess.file_exists(MANIFEST_PATH) or not ResourceLoader.exists(ATLAS_PATH):
@@ -20,7 +26,7 @@ func _init() -> void:
 	if file == null:
 		return
 	var parsed = JSON.parse_string(file.get_as_text())
-	if not parsed is Dictionary or not parsed.has("entries"):
+	if not parsed is Dictionary or int(parsed.get("format_version", 0)) != 2 or not parsed.has("entries"):
 		return
 	_entries = parsed["entries"]
 	_atlas = load(ATLAS_PATH) as Texture2D
@@ -34,11 +40,30 @@ func _init() -> void:
 func available() -> bool:
 	return _atlas != null and not _entries.is_empty()
 
+func configure(policy: MissingPolicy, _fallback_generator: GDScript = null) -> void:
+	_policy = policy
+
+func allows_fallback() -> bool:
+	return _policy != MissingPolicy.FAIL
+
+func _record_missing(id: String) -> void:
+	_missing[id] = true
+	if _policy == MissingPolicy.WARN and not _warned.has(id):
+		push_warning("Missing generated asset: " + id)
+		_warned[id] = true
+	elif _policy == MissingPolicy.FAIL:
+		push_error("Required generated asset missing: " + id)
+
+func record_fallback(id: String) -> void:
+	_fallbacks += 1
+	_record_missing(id)
+
 func texture(id: String) -> Texture2D:
 	var key := id.to_lower().replace(" ", "_")
 	if _regions.has(key):
 		return _regions[key]
 	if _atlas == null or not _entries.has(key):
+		_record_missing("static/" + key)
 		return null
 	var values: Array = _entries[key].get("region", [])
 	if values.size() != 4:
@@ -69,11 +94,32 @@ func hero_directions(kind: String) -> Dictionary:
 func monster_frames(name: String) -> Dictionary:
 	return _actor_frames(name.to_lower().replace(" ", "_"), "walk")
 
+func missing_assets() -> PackedStringArray:
+	var result := PackedStringArray(_missing.keys())
+	result.sort()
+	return result
+
+func fallback_count() -> int:
+	return _fallbacks
+
+func loaded_atlas_count() -> int:
+	return int(_atlas != null) + int(_animation_atlas != null)
+
+func validate_runtime() -> Dictionary:
+	var animation_count := 0
+	for actor in _actors.values():
+		animation_count += (actor as Dictionary).get("animations", {}).size()
+	return {"ok": available() and loaded_atlas_count() == 2 and _missing.is_empty() and _fallbacks == 0,
+		"static_entries": _entries.size(), "actors": _actors.size(), "animations": animation_count,
+		"missing": missing_assets(), "fallback_count": _fallbacks}
+
 func _actor_frames(actor_id: String, anim_id: String) -> Dictionary:
 	if _animation_atlas == null or not _actors.has(actor_id):
+		_record_missing("animation/" + actor_id + "/" + anim_id)
 		return {}
 	var animations: Dictionary = _actors[actor_id].get("animations", {})
 	if not animations.has(anim_id):
+		_record_missing("animation/" + actor_id + "/" + anim_id)
 		return {}
 	var specs: Array = animations[anim_id].get("frames", [])
 	if specs.size() < 3:
@@ -105,7 +151,7 @@ func selftest() -> bool:
 	for monster_id in monster_ids:
 		if monster_frames(monster_id).is_empty():
 			return false
-	return sword != null and potion != null and ruby != null and sword != potion and texture("missing") == null and hero.size() == 4 and ((hero[0] as Dictionary)["walk"] as Array).size() == 3
+	return sword != null and potion != null and ruby != null and sword != potion and hero.size() == 4 and ((hero[0] as Dictionary)["walk"] as Array).size() == 3
 
 func clear() -> void:
 	_regions.clear()
@@ -114,3 +160,6 @@ func clear() -> void:
 	_atlas = null
 	_animation_atlas = null
 	_actors.clear()
+	_missing.clear()
+	_warned.clear()
+	_fallbacks = 0
