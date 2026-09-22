@@ -15,6 +15,7 @@ const LevelGen := preload("res://level_gen.gd")
 const PixelGen := preload("res://pixel_gen.gd")
 const SfxGen := preload("res://sfx_gen.gd")
 const MinimapScript := preload("res://minimap.gd")
+const Automation := preload("res://automation.gd")
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -104,6 +105,8 @@ var _inventory: Array = []
 var _equipped := {"weapon": {}, "armor": {}}
 var _eq := {"str": 0, "dex": 0, "ar": 0, "ed": 0, "life": 0, "mana": 0, "def": 0, "res_all": 0}
 var _player_mf := 50
+var _automation := Automation.new()
+var _automation_last_expire := 0
 
 var _logic_ticks := 0
 var _attacks := 0
@@ -496,6 +499,8 @@ func _ready() -> void:
 	elif OS.get_cmdline_user_args().has("nm"):
 		_difficulty = 1
 	if _auto_quit:
+		print("[AUTO] selftest verdict=", "PASS" if _automation.selftest() else "FAIL")
+		_automation = Automation.new() # 셀프테스트 상태를 실제 플레이와 분리
 		var uq := Item.generate(_rng, Item.WEAPON_BASES[1], 20, "unique")
 		print("[UNIQ] ", Item.display_name(uq), " affixes=", uq["affixes"], " color=", Item.quality_color("unique"))
 		var sok := 0
@@ -698,7 +703,7 @@ func _start_game() -> void:
 
 	_vendor_panel = Panel.new()
 	_vendor_panel.position = Vector2(vp.x - 380, 50)
-	_vendor_panel.size = Vector2(360, 300)
+	_vendor_panel.size = Vector2(360, 500)
 	_vendor_panel.visible = false
 	ui.add_child(_vendor_panel)
 	_build_vendor()
@@ -1183,6 +1188,12 @@ func _process(delta: float) -> void:
 		if am.alive:
 			am.animate(delta)
 	_update_projectiles(delta)
+	var now := int(Time.get_ticks_msec() / 1000)
+	if now != _automation_last_expire:
+		_automation_last_expire = now
+		var mats := _automation.expire_auctions(now)
+		if mats > 0:
+			_combat_log = "경매 만료 자동 분해 → 재료 +%d" % mats
 	if _attack_ttl > 0.0:
 		_attack_ttl -= delta
 		if _attack_ttl <= 0.0:
@@ -1609,9 +1620,13 @@ func _on_monster_died(m: Node) -> void:
 	var pot_bonus := 0.15 if rank != "" else 0.0
 	var pr := _rng.randf()
 	if pr < 0.25 + pot_bonus:
-		_spawn_ground(_make_potion("health"), m.gx, m.gy)
+		_spawn_ground(_make_potion("health", mini(5, 1 + int(m.level) / 4)), m.gx, m.gy)
 	elif pr < 0.37 + pot_bonus:
-		_spawn_ground(_make_potion("mana"), m.gx, m.gy)
+		_spawn_ground(_make_potion("mana", mini(5, 1 + int(m.level) / 4)), m.gx, m.gy)
+	# 보석/재료는 수량 제한 없이 동일 id로 합쳐진다.
+	if _rng.randf() < 0.12 + pot_bonus:
+		var gems := ["ruby", "sapphire", "topaz", "emerald"]
+		_spawn_ground(_make_material(String(gems[_rng.randi_range(0, gems.size() - 1)])), m.gx, m.gy)
 	# 골드 드롭(몬스터 레벨·등급 스케일)
 	if _rng.randf() < 0.7:
 		var rank_mult := 1.0
@@ -1633,9 +1648,12 @@ func _item_value(it: Dictionary) -> int:
 		affix_cnt += 1
 	return base + affix_cnt * 15 + int(it.get("ilvl", 1)) * 2
 
-func _make_potion(ptype: String) -> Dictionary:
+func _make_potion(ptype: String, tier: int = 1) -> Dictionary:
 	var nm := "Healing Potion" if ptype == "health" else "Mana Potion"
-	return {"name": nm, "slot": "potion", "ptype": ptype, "quality": "normal", "affixes": {}, "prefix": "", "suffix": ""}
+	return {"name": nm, "slot": "potion", "ptype": ptype, "tier": tier, "quality": "normal", "affixes": {}, "prefix": "", "suffix": ""}
+
+func _make_material(id: String, amount: int = 1) -> Dictionary:
+	return {"name": id.capitalize(), "id": id, "amount": amount, "slot": "material", "quality": "normal", "affixes": {}, "prefix": "", "suffix": ""}
 
 func _spawn_ground(it: Dictionary, gx: float, gy: float) -> void:
 	var n := Node2D.new()
@@ -1667,6 +1685,8 @@ func _spawn_ground(it: Dictionary, gx: float, gy: float) -> void:
 
 func _pickup(n: Node) -> void:
 	var it: Dictionary = n.get_meta("item")
+	if not _automation.accepts(it):
+		return
 	_play_sfx("pickup")
 	_ground.erase(n)
 	n.queue_free()
@@ -1678,28 +1698,43 @@ func _pickup(n: Node) -> void:
 	# 포션 → 벨트(가득 차면 줍지 않음)
 	if String(it["slot"]) == "potion":
 		var pt := String(it["ptype"])
+		var tier := int(it.get("tier", 1))
+		if _automation.potion_upgrade(pt, tier):
+			_spawn_text(_player.position, "%s 포션 등급 ↑%d" % [pt, tier], Color.LIME_GREEN)
 		if _add_potion_to_belt(pt):
 			var c := Color(0.85, 0.3, 0.3) if pt == "health" else Color(0.4, 0.6, 1.0)
 			_spawn_text(_player.position, "+" + String(it["name"]), c)
 		return
+	if String(it["slot"]) == "material":
+		_automation.add_material(it)
+		_items_picked += int(it.get("amount", 1))
+		_spawn_text(_player.position, "+%s ×%d" % [String(it["name"]), int(it.get("amount", 1))], Color.VIOLET)
+		return
 	_inventory.append(it)
 	_items_picked += 1
 	_spawn_text(_player.position, "+" + Item.display_name(it), Item.quality_color(String(it["quality"])))
-	if _auto_quit:
-		_auto_equip(it)
+	_auto_equip(it)
 	_rebuild_inv()
 
 func _auto_equip(it: Dictionary) -> void:
 	var slot := String(it["slot"])
 	var cur: Dictionary = _equipped[slot]
-	var better := cur.is_empty()
-	if not better:
-		if slot == "weapon":
-			better = int(it["dmax"]) > int(cur["dmax"])
-		else:
-			better = int(it["defense"]) > int(cur["defense"])
-	if better:
+	if _automation.should_equip(it, cur):
+		if not cur.is_empty():
+			_inventory.erase(cur)
+			if not _automation.list_auction(cur, int(Time.get_ticks_msec() / 1000)):
+				_inventory.append(cur)
 		_equip(it)
+		_inventory.erase(it)
+
+func _equip_from_inventory(it: Dictionary) -> void:
+	var slot := String(it["slot"])
+	var old: Dictionary = _equipped[slot]
+	if not old.is_empty() and old != it:
+		if not _automation.list_auction(old, int(Time.get_ticks_msec() / 1000)):
+			_inventory.append(old)
+	_inventory.erase(it)
+	_equip(it)
 
 func _equip(it: Dictionary) -> void:
 	_equipped[String(it["slot"])] = it
@@ -1729,6 +1764,16 @@ func _build_vendor() -> void:
 	_vendor_btn(vb, "마나 포션 구매 (%dg)" % COST_MP_POT, func(): _buy_potion("mana"))
 	_vendor_btn(vb, "인벤토리 전부 판매", func(): _sell_all())
 	_vendor_btn(vb, "🎲 도박 — 무작위 아이템", func(): _gamble())
+	_vendor_btn(vb, "자동 습득 등급 변경", func(): _cycle_automation("pickup_min"))
+	_vendor_btn(vb, "자동 장착 등급 변경", func(): _cycle_automation("equip_min"))
+	_vendor_btn(vb, "자동 경매 등급 변경", func(): _cycle_automation("auction_min"))
+
+func _cycle_automation(key: String) -> void:
+	var levels := ["normal", "magic", "rare", "unique"]
+	var current := String(_automation.get(key))
+	_automation.set(key, levels[(levels.find(current) + 1) % levels.size()])
+	_combat_log = "%s → %s" % [key, String(_automation.get(key))]
+	_rebuild_inv()
 
 func _vendor_btn(vb: VBoxContainer, text: String, cb: Callable) -> void:
 	var b := Button.new()
@@ -1890,15 +1935,26 @@ func _rebuild_inv() -> void:
 	var wn := Item.display_name(_equipped["weapon"]) if not _equipped["weapon"].is_empty() else "-"
 	var an := Item.display_name(_equipped["armor"]) if not _equipped["armor"].is_empty() else "-"
 	var head := Label.new()
-	head.text = "Weapon: %s\nArmor: %s\n— Inventory (%d) — 클릭=장착" % [wn, an, _inventory.size()]
+	head.text = "Weapon: %s\nArmor: %s\n가방 %d · 재료 %d · 경매 %d · 분해재료 %d\n필터 습득≥%s 장착≥%s 경매≥%s" % [wn, an, _inventory.size(), _automation.materials.size(), _automation.auctions.size(), _automation.salvage, _automation.pickup_min, _automation.equip_min, _automation.auction_min]
 	_inv_vbox.add_child(head)
 	for it in _inventory:
+		var row := HBoxContainer.new()
 		var btn := Button.new()
 		btn.text = "%s  [%s]" % [Item.display_name(it), Item.affix_text(it)]
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		btn.add_theme_color_override("font_color", Item.quality_color(String(it["quality"])))
 		var captured: Dictionary = it
-		btn.pressed.connect(func(): _equip(captured))
-		_inv_vbox.add_child(btn)
+		btn.pressed.connect(func(): _equip_from_inventory(captured))
+		row.add_child(btn)
+		var protect := Button.new()
+		protect.text = "🔒" if bool(it.get("salvage_protected", false)) else "분해OK"
+		protect.tooltip_text = "경매 만료 시 자동 분해 금지 전환"
+		protect.pressed.connect(func():
+			captured["salvage_protected"] = not bool(captured.get("salvage_protected", false))
+			_rebuild_inv()
+		)
+		row.add_child(protect)
+		_inv_vbox.add_child(row)
 
 func _flash(from: Vector2, to: Vector2) -> void:
 	_attack_line.clear_points()
