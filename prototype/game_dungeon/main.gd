@@ -122,6 +122,8 @@ var _boss_nova_cnt := 0
 var _boss_spray_cnt := 0
 var _items_dropped := 0
 var _items_picked := 0
+var _compiled_monsters := 0
+var _generated_monsters := 0
 var _run_start := 0
 var _auto_quit := false
 
@@ -294,11 +296,17 @@ func _spawn_one(md: Dictionary, cell: Vector2i) -> void:
 	var m := _spawn_monster(String(md["name"]), col, int(md["w"]), int(md["h"]), int(md["level"]), int(md["hp"]), int(md["ar"]), int(md["def"]), int(md["dmin"]), int(md["dmax"]), float(md["speed"]), cell.x, cell.y)
 	var monster_seed := cell.x * 13 + cell.y
 	var monster_name := String(md["name"])
-	m.set_sprite_frames(PixelGen.monster_named(monster_name, col, monster_seed, 0), [
-		PixelGen.monster_named(monster_name, col, monster_seed, 1),
-		PixelGen.monster_named(monster_name, col, monster_seed, 0),
-		PixelGen.monster_named(monster_name, col, monster_seed, 2),
-	], 1.7 if kind == "boss" else 1.0)
+	var monster_compiled := _assets.monster_frames(monster_name)
+	if not monster_compiled.is_empty():
+		_compiled_monsters += 1
+		m.set_sprite_frames(monster_compiled["idle"], monster_compiled["walk"], 1.7 if kind == "boss" else 1.0)
+	else:
+		_generated_monsters += 1
+		m.set_sprite_frames(PixelGen.monster_named(monster_name, col, monster_seed, 0), [
+			PixelGen.monster_named(monster_name, col, monster_seed, 1),
+			PixelGen.monster_named(monster_name, col, monster_seed, 0),
+			PixelGen.monster_named(monster_name, col, monster_seed, 2),
+		], 1.7 if kind == "boss" else 1.0)
 	# 난이도 HP 스케일링 (Part 2 §3)
 	m.max_life = int(m.max_life * CombatLib.diff_monster_hp_mult(_difficulty))
 	m.base_max_life = m.max_life
@@ -1262,6 +1270,7 @@ func _process(delta: float) -> void:
 			_player.stat_str, _player.stat_dex, _player.stat_vit, _player.stat_energy,
 			_player.skill_level("mastery" if _class != "sorceress" else "fireball"), _stat_points, _player.skill_points])
 		print("[ANIM] player_directions=%d merc_directions=%d" % [_player.facing_count(), _merc.facing_count() if _merc != null else 0])
+		print("[ASSET] monsters compiled=%d fallback=%d" % [_compiled_monsters, _generated_monsters])
 		var ok: bool = _kills > 0 or _spells_cast > 0
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		_assets.clear()

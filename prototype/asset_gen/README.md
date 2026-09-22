@@ -34,6 +34,7 @@ godot --headless --path . -- autoquit publish        # 검증 후 game_dungeon/g
 - `atlas.png` — 64px 셀에 정렬된 단일 텍스처 아틀라스
 - `manifest.json` — 각 자산의 실제 region/cell, 생성기 버전, 아틀라스 MD5
 - `heroes.tres` — 영웅 3종 × 4방향, 총 12개 `SpriteFrames` 걷기 애니메이션
+- `monsters.tres` — JSON의 몬스터 레시피별 idle/걷기 `SpriteFrames`
 - 독립 `asset_gen`과 정본 `game_dungeon` 생성기 소스 MD5 동기화 검증
 
 ### 데이터 기반 레시피 (`recipes.json`)
@@ -48,6 +49,8 @@ godot --headless --path . -- autoquit publish        # 검증 후 game_dungeon/g
 리소스 또는 애니메이션이 누락되면 동일 레시피의 런타임 영웅 생성으로 폴백한다.
 게임의 `Actor`는 화면 이동 벡터를 남·동·북·서로 분류해 해당 방향 프레임으로
 전환하며, 자동 실행 결과에서 플레이어와 용병 모두 4방향 사용을 계측한다.
+몬스터도 이름이 일치하는 컴파일 애니메이션을 우선 사용하고, 아직 레시피가 없는
+종족은 런타임 `monster_named()` 생성으로 폴백한다.
 
 ### 자동 품질 게이트 (`quality.gd`)
 - 불투명 픽셀 밀도, 팔레트 크기, 연결 요소 수, 이미지 경계 잘림 검사

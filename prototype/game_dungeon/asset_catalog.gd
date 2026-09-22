@@ -4,11 +4,13 @@ extends RefCounted
 const MANIFEST_PATH := "res://generated/manifest.json"
 const ATLAS_PATH := "res://generated/atlas.png"
 const HEROES_PATH := "res://generated/heroes.tres"
+const MONSTERS_PATH := "res://generated/monsters.tres"
 
 var _atlas: Texture2D
 var _entries := {}
 var _regions := {}
 var _heroes: SpriteFrames
+var _monsters: SpriteFrames
 
 func _init() -> void:
 	if not FileAccess.file_exists(MANIFEST_PATH) or not ResourceLoader.exists(ATLAS_PATH):
@@ -23,6 +25,8 @@ func _init() -> void:
 	_atlas = load(ATLAS_PATH) as Texture2D
 	if ResourceLoader.exists(HEROES_PATH):
 		_heroes = load(HEROES_PATH) as SpriteFrames
+	if ResourceLoader.exists(MONSTERS_PATH):
+		_monsters = load(MONSTERS_PATH) as SpriteFrames
 
 func available() -> bool:
 	return _atlas != null and not _entries.is_empty()
@@ -68,6 +72,18 @@ func hero_directions(kind: String) -> Dictionary:
 		result[direction] = frames
 	return result
 
+func monster_frames(name: String) -> Dictionary:
+	if _monsters == null:
+		return {}
+	var anim := name.to_lower().replace(" ", "_") + "_walk"
+	if not _monsters.has_animation(anim) or _monsters.get_frame_count(anim) < 3:
+		return {}
+	return {"idle": _monsters.get_frame_texture(anim, 1), "walk": [
+		_monsters.get_frame_texture(anim, 0),
+		_monsters.get_frame_texture(anim, 1),
+		_monsters.get_frame_texture(anim, 2),
+	]}
+
 func selftest() -> bool:
 	if not available() or entry_count() != 18:
 		return false
@@ -75,10 +91,12 @@ func selftest() -> bool:
 	var potion := texture("potion")
 	var ruby := texture("ruby")
 	var hero := hero_directions("barbarian")
-	return sword != null and potion != null and ruby != null and sword != potion and texture("missing") == null and hero.size() == 4 and ((hero[0] as Dictionary)["walk"] as Array).size() == 3
+	var monster := monster_frames("Fallen")
+	return sword != null and potion != null and ruby != null and sword != potion and texture("missing") == null and hero.size() == 4 and ((hero[0] as Dictionary)["walk"] as Array).size() == 3 and not monster.is_empty()
 
 func clear() -> void:
 	_regions.clear()
 	_entries.clear()
 	_atlas = null
 	_heroes = null
+	_monsters = null

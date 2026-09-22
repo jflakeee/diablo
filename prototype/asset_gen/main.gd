@@ -16,7 +16,7 @@ func _publish_to_game() -> bool:
 	var target := project_dir.get_base_dir().path_join("game_dungeon/generated")
 	if DirAccess.make_dir_recursive_absolute(target) != OK:
 		return false
-	for filename in ["atlas.png", "manifest.json", "heroes.tres"]:
+	for filename in ["atlas.png", "manifest.json", "heroes.tres", "monsters.tres"]:
 		var source := ProjectSettings.globalize_path(OUTPUT + "/" + filename)
 		if DirAccess.copy_absolute(source, target.path_join(filename)) != OK:
 			return false
@@ -58,7 +58,7 @@ func _load_samples() -> Array:
 			_:
 				push_error("Unknown asset recipe type: " + asset_type)
 				return []
-		samples.append([texture, id, float(recipe.get("scale", 2.0))])
+		samples.append([texture, id, float(recipe.get("scale", 2.0)), recipe])
 	return samples
 
 func _build_atlas(samples: Array) -> bool:
@@ -114,6 +114,29 @@ func _build_sprite_frames() -> bool:
 				frames.add_frame(anim, PixelGen.hero(String(def[0]), def[1], int(def[2]), direction, fi))
 	return ResourceSaver.save(frames, OUTPUT + "/heroes.tres") == OK and frames.get_animation_names().size() == 12
 
+func _build_monster_frames(samples: Array) -> bool:
+	var frames := SpriteFrames.new()
+	frames.clear_all()
+	if frames.has_animation("default"):
+		frames.remove_animation("default")
+	var expected := 0
+	for sample in samples:
+		var recipe: Dictionary = sample[3]
+		if String(recipe.get("type", "")) != "monster":
+			continue
+		var id := String(recipe["id"]).to_lower().replace(" ", "_")
+		var kind := String(recipe.get("kind", recipe["id"]))
+		var color := Color.from_string(String(recipe.get("color", "#808080")), Color.GRAY)
+		var seed := int(recipe.get("seed", 0))
+		var anim := id + "_walk"
+		frames.add_animation(anim)
+		frames.set_animation_speed(anim, 8.0)
+		frames.set_animation_loop(anim, true)
+		for fi in [1, 0, 2, 0]:
+			frames.add_frame(anim, PixelGen.monster_named(kind, color, seed, fi))
+		expected += 1
+	return expected > 0 and ResourceSaver.save(frames, OUTPUT + "/monsters.tres") == OK and frames.get_animation_names().size() == expected
+
 func _source_sync_ok() -> bool:
 	var here := ProjectSettings.globalize_path("res://pixel_gen.gd")
 	var canonical := here.get_base_dir().get_base_dir().path_join("game_dungeon/pixel_gen.gd")
@@ -162,17 +185,18 @@ func _ready() -> void:
 	var cache_ok := cached_a == cached_b and PixelGen.cache_size() == cache_before
 	var atlas_ok := _build_atlas(samples)
 	var frames_ok := _build_sprite_frames()
+	var monsters_ok := _build_monster_frames(samples)
 	var sync_ok := _source_sync_ok()
 	var quality: Dictionary = Quality.suite(PixelGen, samples)
 	var publish_ok := true
 	if OS.get_cmdline_user_args().has("publish"):
 		publish_ok = _publish_to_game()
 	print("[AG] cache entries=%d reuse=%s" % [cache_before, str(cache_ok)])
-	print("[AG] atlas=%s spriteframes=%s source_sync=%s" % [str(atlas_ok), str(frames_ok), str(sync_ok)])
+	print("[AG] atlas=%s heroes=%s monsters=%s source_sync=%s" % [str(atlas_ok), str(frames_ok), str(monsters_ok), str(sync_ok)])
 	print("[AG] quality checked=%d silhouette_diff=%d walk_diff=%d seed_diff=%d failures=%s" % [int(quality["checked"]), int(quality["silhouette_diff"]), int(quality["walk_diff"]), int(quality["seed_diff"]), str(quality["failures"])])
 	if OS.get_cmdline_user_args().has("publish"):
 		print("[AG] publish_to_game=", publish_ok)
-	print("[AG][RESULT] verdict=", ("PASS" if saved == samples.size() and cache_ok and atlas_ok and frames_ok and sync_ok and bool(quality["ok"]) and publish_ok else "FAIL"))
+	print("[AG][RESULT] verdict=", ("PASS" if saved == samples.size() and cache_ok and atlas_ok and frames_ok and monsters_ok and sync_ok and bool(quality["ok"]) and publish_ok else "FAIL"))
 
 func _process(_delta: float) -> void:
 	if _auto_quit:
