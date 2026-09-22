@@ -61,14 +61,15 @@ godot --headless --path prototype/game_dungeon res://tools/asset_compiler.tscn -
 
 ### 실측 (2026-09-21, HD 4000)
 ```
-[AG] generated 26 assets, saved 26 PNG → user://assetgen
-[AG] cache entries=26 reuse=true
+[AG] generated 28 assets, saved 28 PNG → user://assetgen
+[AG] cache entries=28 reuse=true
 [AG] atlas=true animation_atlas=true canonical_source=true
-[AG] quality checked=22 silhouette_diff=747 walk_diff=163 seed_diff=62 failures=[]
+[AG] quality checked=24 silhouette_diff=747 walk_diff=163 seed_diff=62 failures=[]
+[AG] animation_quality checked=24 max_anchor_drift=1 min_iou=0.802
 [AG][RESULT] verdict=PASS
 ```
 애니메이션 게시물은 기존 내장 텍스처 `.tres` 954,430바이트에서 PNG+JSON
-23,047바이트로 97.6% 감소했다. 소서리스·바바리안 50초 자동 실행에서 4방향 및
+35,439바이트로 96.3% 감소했다. 소서리스·바바리안 50초 자동 실행에서 4방향 및
 컴파일 몬스터 사용과 최종 PASS를 확인했다.
 12종 데이터/아트 참조 통합 후 런타임은 `compiled=11 fallback=0`(해당 실행에서 실제
 스폰된 개체 기준), 카탈로그 자가검사는 12종 전부 조회 PASS를 확인했다.
@@ -76,6 +77,10 @@ godot --headless --path prototype/game_dungeon res://tools/asset_compiler.tscn -
 `verify`는 동일 입력 2회 빌드 MD5, manifest/PNG 재검증, 의도적 게시 실패 시 기존
 `generated` 보존을 검사한다. 게시는 `generated.next` 검증과 `generated.previous`
 롤백을 거친다. 게임 검증에 `strict_assets`를 추가하면 누락 자산 폴백을 금지한다.
+
+Actor는 `AnimatedSprite2D`와 `IDLE/WALK/ATTACK/CAST/HIT/DEATH` 상태 우선순위를
+사용한다. 방향은 논리 그리드 이동, dead zone, 75ms 유지 시간을 적용하며 공격·시전은
+대상 방향을 즉시 반영한다. 전용 전투 프레임이 없는 상태는 기존 pop/flash를 유지한다.
 샘플(`samples/`): 돌 타일=노이즈+음영, 포션=병+액체+반사광, 바바리안=후드 휴머노이드
 → **플랫 도형 대비 확연한 개선**, 라이선스 청정, 시드로 무한 변형.
 

@@ -247,7 +247,7 @@ static func monster_named(name: String, body: Color, seed: int, frame: int = 0) 
 		_fill_ellipse(img, 17, 9, 6, 6, body.lightened(0.15))
 		for x in [6, 10, 22, 26]:
 			_fill_rect(img, x, 3, 2, 22, body.darkened(0.3))
-		_fill_rect(img, 8, 31, 5, 7, body.darkened(0.28)); _fill_rect(img, 22, 31, 5, 7, body.darkened(0.28))
+		_fill_rect(img, 8 + step, 31, 5, 7, body.darkened(0.28)); _fill_rect(img, 22 - step, 31, 5, 7, body.darkened(0.28))
 	elif "fallen" in family:
 		_fill_ellipse(img, 17, 22, 9, 11, body)
 		_fill_ellipse(img, 17, 9, 7, 7, body.lightened(0.08))

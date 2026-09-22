@@ -93,7 +93,7 @@ func _verify_outputs(path: String) -> bool:
 	var anim_manifest = JSON.parse_string(anim_file.get_as_text())
 	if not static_manifest is Dictionary or not anim_manifest is Dictionary:
 		return false
-	return static_manifest.get("entries", {}).size() == 26 \
+	return static_manifest.get("entries", {}).size() == 28 \
 		and anim_manifest.get("actors", {}).size() == 15 \
 		and String(static_manifest.get("atlas_md5", "")) == FileAccess.get_md5(path.path_join("atlas.png")) \
 		and String(anim_manifest.get("atlas_md5", "")) == FileAccess.get_md5(path.path_join("animation_atlas.png"))
@@ -303,6 +303,7 @@ func _ready() -> void:
 	print("[AG] cache entries=%d reuse=%s" % [cache_before, str(cache_ok)])
 	print("[AG] atlas=%s animation_atlas=%s canonical_source=true" % [str(atlas_ok), str(animations_ok)])
 	print("[AG] quality checked=%d silhouette_diff=%d walk_diff=%d seed_diff=%d failures=%s" % [int(quality["checked"]), int(quality["silhouette_diff"]), int(quality["walk_diff"]), int(quality["seed_diff"]), str(quality["failures"])])
+	print("[AG] animation_quality checked=%d max_anchor_drift=%d min_iou=%.3f" % [int(quality["animation_checked"]), int(quality["max_anchor_drift"]), float(quality["min_animation_iou"])])
 	if OS.get_cmdline_user_args().has("verify"):
 		print("[AG] deterministic=%s failure_preserved=%s stale_free=%s" % [str(deterministic), str(failure_preserved), str(_verify_outputs(output_path))])
 	if OS.get_cmdline_user_args().has("publish"):

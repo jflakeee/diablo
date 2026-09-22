@@ -62,6 +62,56 @@ static func pixel_difference(a: Image, b: Image) -> int:
 				different += 1
 	return different
 
+static func opaque_bounds(img: Image) -> Rect2i:
+	var min_x := img.get_width()
+	var min_y := img.get_height()
+	var max_x := -1
+	var max_y := -1
+	for y in img.get_height():
+		for x in img.get_width():
+			if img.get_pixel(x, y).a >= 0.5:
+				min_x = mini(min_x, x); min_y = mini(min_y, y)
+				max_x = maxi(max_x, x); max_y = maxi(max_y, y)
+	return Rect2i(min_x, min_y, maxi(0, max_x - min_x + 1), maxi(0, max_y - min_y + 1))
+
+static func silhouette_iou(a: Image, b: Image) -> float:
+	if a.get_size() != b.get_size():
+		return 0.0
+	var intersection := 0
+	var union := 0
+	for y in a.get_height():
+		for x in a.get_width():
+			var aa := a.get_pixel(x, y).a >= 0.5
+			var bb := b.get_pixel(x, y).a >= 0.5
+			if aa or bb: union += 1
+			if aa and bb: intersection += 1
+	return float(intersection) / float(maxi(union, 1))
+
+static func validate_animation(label: String, frames: Array) -> Dictionary:
+	var failures: Array = []
+	var foot_min := 999
+	var foot_max := -1
+	var head_min := 999
+	var head_max := -1
+	var min_iou := 1.0
+	for frame in frames:
+		var bounds := opaque_bounds(frame)
+		head_min = mini(head_min, bounds.position.y)
+		head_max = maxi(head_max, bounds.position.y)
+		foot_min = mini(foot_min, bounds.end.y - 1)
+		foot_max = maxi(foot_max, bounds.end.y - 1)
+	for i in frames.size():
+		var next := (i + 1) % frames.size()
+		var iou := silhouette_iou(frames[i], frames[next])
+		var difference := pixel_difference(frames[i], frames[next])
+		min_iou = minf(min_iou, iou)
+		if iou < 0.55: failures.append("%s: frame %d IoU %.3f" % [label, i, iou])
+		if difference < 4 or difference > int(frames[i].get_width() * frames[i].get_height() * 0.45):
+			failures.append("%s: frame %d difference %d" % [label, i, difference])
+	if foot_max - foot_min > 2: failures.append("%s: foot anchor drift %d" % [label, foot_max - foot_min])
+	if head_max - head_min > 2: failures.append("%s: head anchor drift %d" % [label, head_max - head_min])
+	return {"ok": failures.is_empty(), "failures": failures, "anchor_drift": maxi(foot_max - foot_min, head_max - head_min), "min_iou": min_iou}
+
 static func validate_sprite(img: Image) -> Dictionary:
 	var opaque := opaque_pixels(img)
 	var colors := palette_size(img)
@@ -90,5 +140,30 @@ static func suite(pixel_gen: GDScript, samples: Array) -> Dictionary:
 	if silhouette_diff < 100: failures.append("hero silhouette difference too small: %d" % silhouette_diff)
 	if walk_diff < 8: failures.append("walk frame difference too small: %d" % walk_diff)
 	if seed_diff < 8: failures.append("seed variation too small: %d" % seed_diff)
+	var animation_checked := 0
+	var max_anchor_drift := 0
+	var min_animation_iou := 1.0
+	var hero_defs := [["barbarian", Color(0.7, 0.2, 0.15), 10], ["sorceress", Color(0.3, 0.3, 0.75), 11], ["rogue", Color(0.5, 0.15, 0.2), 7]]
+	for hero in hero_defs:
+		for direction in 4:
+			var hero_frames: Array = []
+			for frame in 3: hero_frames.append(pixel_gen.hero(hero[0], hero[1], hero[2], direction, frame).get_image())
+			var report := validate_animation("hero/%s/%d" % [hero[0], direction], hero_frames)
+			failures.append_array(report["failures"])
+			max_anchor_drift = maxi(max_anchor_drift, int(report["anchor_drift"]))
+			min_animation_iou = minf(min_animation_iou, float(report["min_iou"]))
+			animation_checked += 1
+	for sample in samples:
+		var recipe: Dictionary = sample[3]
+		if String(recipe.get("type", "")) != "monster": continue
+		var monster_frames: Array = []
+		var color := Color.from_string(String(recipe.get("color", "#808080")), Color.GRAY)
+		for frame in 3: monster_frames.append(pixel_gen.monster_named(String(recipe.get("kind", recipe["id"])), color, int(recipe.get("seed", 0)), frame).get_image())
+		var report := validate_animation("monster/" + String(recipe["id"]), monster_frames)
+		failures.append_array(report["failures"])
+		max_anchor_drift = maxi(max_anchor_drift, int(report["anchor_drift"]))
+		min_animation_iou = minf(min_animation_iou, float(report["min_iou"]))
+		animation_checked += 1
 	return {"ok": failures.is_empty(), "checked": checked, "failures": failures,
-		"silhouette_diff": silhouette_diff, "walk_diff": walk_diff, "seed_diff": seed_diff}
+		"silhouette_diff": silhouette_diff, "walk_diff": walk_diff, "seed_diff": seed_diff,
+		"animation_checked": animation_checked, "max_anchor_drift": max_anchor_drift, "min_animation_iou": min_animation_iou}

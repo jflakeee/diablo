@@ -531,6 +531,7 @@ func _ready() -> void:
 		_difficulty = 1
 	if _auto_quit:
 		print("[AUTO] selftest verdict=", "PASS" if _automation.selftest() else "FAIL")
+		print("[ANIM] selftest verdict=", "PASS" if ActorScript.animation_selftest() else "FAIL")
 		print("[ASSET] atlas=%s entries=%d selftest=%s" % [str(_assets.available()), _assets.entry_count(), "PASS" if _assets.selftest() else "FAIL"])
 		_automation = Automation.new() # 셀프테스트 상태를 실제 플레이와 분리
 		var uq := Item.generate(_rng, Item.WEAPON_BASES[1], 20, "unique")
@@ -1049,7 +1050,7 @@ func _merc_ai(delta: float) -> void:
 		_nav_toward(_merc, _player.gx, _player.gy, delta)
 
 func _merc_fire(tgt: ActorScript) -> void:
-	_merc.pop()
+	_merc.play_attack(Vector2(tgt.gx - _merc.gx, tgt.gy - _merc.gy))
 	if CombatLib.roll_hit(_rng, _merc.attack_rating, tgt.defense, _merc.level, tgt.level):
 		var phys := CombatLib.physical_damage(_rng, _merc.dmg_min, _merc.dmg_max, 0.0)
 		var fire := _rng.randi_range(3, 8) + _merc.level
@@ -1287,7 +1288,9 @@ func _process(delta: float) -> void:
 		print("[CHAR] str=%d dex=%d vit=%d energy=%d mastery=%d unspent(stat=%d skill=%d)" % [
 			_player.stat_str, _player.stat_dex, _player.stat_vit, _player.stat_energy,
 			_player.skill_level("mastery" if _class != "sorceress" else "fireball"), _stat_points, _player.skill_points])
-		print("[ANIM] player_directions=%d merc_directions=%d" % [_player.facing_count(), _merc.facing_count() if _merc != null else 0])
+		print("[ANIM] player_directions=%d merc_directions=%d player_states=%d merc_states=%d" % [
+			_player.facing_count(), _merc.facing_count() if _merc != null else 0,
+			_player.state_count(), _merc.state_count() if _merc != null else 0])
 		var asset_report := _assets.validate_runtime()
 		print("[ASSET] monsters compiled=%d fallback=%d runtime=%s" % [_compiled_monsters, _generated_monsters, str(asset_report)])
 		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"])
@@ -1358,7 +1361,7 @@ func _cast_bolt(target: ActorScript, element: String, color: Color, base_min: in
 		_combat_log = "no mana"
 		return
 	_player.attack_cd = CombatLib.frames_to_sec(CombatLib.sorc_fcr_frames(_player_fcr))  # FCR
-	_player.pop()
+	_player.play_cast(Vector2(target.gx - _player.gx, target.gy - _player.gy))
 	_play_sfx("spell")
 	_spells_cast += 1
 	var lvl := _player.skill_level("fireball")
@@ -1373,7 +1376,7 @@ func _cast_lightning(target: ActorScript) -> void:
 	if not _player.spend_mana(4):
 		return
 	_player.attack_cd = CombatLib.frames_to_sec(CombatLib.sorc_fcr_frames(_player_fcr))
-	_player.pop()
+	_player.play_cast(Vector2(target.gx - _player.gx, target.gy - _player.gy))
 	_play_sfx("spell")
 	_spells_cast += 1
 	var raw := _rng.randi_range(6, 30) + _player.skill_level("fireball") * 3
@@ -1482,7 +1485,7 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 			ignore_def = true
 
 	_player.attack_cd = PLAYER_ATTACK_CD
-	_player.pop()
+	_player.play_attack(Vector2(target.gx - _player.gx, target.gy - _player.gy))
 	_play_sfx("attack")
 	var eff_dex := _player.stat_dex + int(_eq["dex"])
 	var ar := CombatLib.character_ar(eff_dex, ar_bonus) + int(_eq["ar"])
@@ -1537,7 +1540,7 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 
 func _monster_attack(m: ActorScript) -> void:
 	_attacks += 1
-	m.pop()
+	m.play_attack(Vector2(_player.gx - m.gx, _player.gy - m.gy))
 	if CombatLib.roll_hit(_rng, m.attack_rating, _player.defense, m.level, _player.level):
 		# 플레이어 블록 판정 (Part 5 §3)
 		if _player.block_val > 0 and CombatLib.roll_block(_rng, _player.block_val, _player.stat_dex, _player.level):

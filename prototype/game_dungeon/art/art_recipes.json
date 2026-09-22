@@ -13,6 +13,8 @@
     {"id":"coin",       "type":"icon",    "kind":"coin", "seed":0, "scale":2.6},
     {"id":"ruby",       "type":"icon",    "kind":"gem", "seed":0, "scale":2.6},
     {"id":"sapphire",   "type":"icon",    "kind":"gem", "seed":1, "scale":2.6},
+    {"id":"topaz",      "type":"icon",    "kind":"gem", "seed":2, "scale":2.6},
+    {"id":"emerald",    "type":"icon",    "kind":"gem", "seed":3, "scale":2.6},
     {"id":"rune",       "type":"icon",    "kind":"rune", "seed":2, "scale":2.6},
     {"id":"Rogue",      "type":"hero",    "kind":"rogue", "color":"#802633", "seed":7, "scale":2.6}
   ]

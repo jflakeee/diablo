@@ -1070,7 +1070,7 @@
     }
   },
   "atlas": "animation_atlas.png",
-  "atlas_md5": "79b19206426a7934a8bf9ad50f1b322b",
+  "atlas_md5": "f1f19dc5f003ceb02f34f927d1b5b50c",
   "atlas_size": [
     512,
     576
@@ -1081,6 +1081,6 @@
     "archetypes": "eb8f895bce4a81b3c3cbb6a0e72b1540",
     "monsters": "1d52eeddab9a82f4e8825a137de3553d",
     "palettes": "aed771d5383bc3117f1f41385168a53d",
-    "recipes": "2cc6c8085c9ae326a77e350968a9790e"
+    "recipes": "e0d1efe55084a729b317c4f4c5e7cabb"
   }
 }
