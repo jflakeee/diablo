@@ -21,6 +21,7 @@ const MobileUI := preload("res://mobile_ui.gd")
 const Accessibility := preload("res://accessibility.gd")
 const Identity := preload("res://identity.gd")
 const SystemTests := preload("res://system_tests.gd")
+const SaveStore := preload("res://save_store.gd")
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -137,6 +138,8 @@ var _auto_quit := false
 var _ui_selftest_ok := true
 var _identity_selftest_ok := true
 var _system_selftest_ok := true
+var _save_selftest_ok := true
+var _quitting := false
 
 func _iso(gx: float, gy: float) -> Vector2:
 	return Vector2((gx - gy) * TILE_W * 0.5, (gx + gy) * TILE_H * 0.5)
@@ -554,6 +557,9 @@ func _ready() -> void:
 		var system_report := SystemTests.run()
 		_system_selftest_ok = bool(system_report["ok"])
 		print("[SYSTEM] checks=%d failures=%s verdict=%s" % [int(system_report["checks"]), str(system_report["failures"]), "PASS" if _system_selftest_ok else "FAIL"])
+		var save_report := SaveStore.selftest()
+		_save_selftest_ok = bool(save_report["ok"])
+		print("[SAVE] checks=%d failures=%s verdict=%s" % [int(save_report["checks"]), str(save_report["failures"]), "PASS" if _save_selftest_ok else "FAIL"])
 		print("[ASSET] atlas=%s entries=%d selftest=%s" % [str(_assets.available()), _assets.entry_count(), "PASS" if _assets.selftest() else "FAIL"])
 		_automation = Automation.new() # 셀프테스트 상태를 실제 플레이와 분리
 		var uq := Item.generate(_rng, Item.WEAPON_BASES[1], 20, "unique")
@@ -796,7 +802,7 @@ func _start_game() -> void:
 
 	_settings_panel = Panel.new()
 	_settings_panel.position = mobile_layout["settings_panel"]
-	_settings_panel.size = Vector2(360, 250)
+	_settings_panel.size = Vector2(360, 370)
 	_settings_panel.visible = false
 	ui.add_child(_settings_panel)
 	_build_settings_panel()
@@ -916,6 +922,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_quaff_health()
 		elif event.keycode == KEY_2:
 			_quaff_mana()
+		elif event.keycode == KEY_F5:
+			_save_game()
+		elif event.keycode == KEY_F9:
+			_load_game()
 
 func _make_potion_button(glyph: String, col: Color, pos: Vector2, cb: Callable) -> Button:
 	var b := Button.new()
@@ -934,7 +944,7 @@ func _make_potion_button(glyph: String, col: Color, pos: Vector2, cb: Callable) 
 func _build_settings_panel() -> void:
 	var box := VBoxContainer.new()
 	box.position = Vector2(12, 12)
-	box.custom_minimum_size = Vector2(336, 226)
+	box.custom_minimum_size = Vector2(336, 346)
 	_settings_panel.add_child(box)
 	var title := Label.new()
 	title.text = "접근성 / UI 설정"
@@ -948,6 +958,16 @@ func _build_settings_panel() -> void:
 	_settings_text_button.custom_minimum_size = Vector2(336, 52)
 	_settings_text_button.pressed.connect(_cycle_text_scale)
 	box.add_child(_settings_text_button)
+	var save_button := Button.new()
+	save_button.text = "게임 저장"
+	save_button.custom_minimum_size = Vector2(336, 52)
+	save_button.pressed.connect(_save_game)
+	box.add_child(save_button)
+	var load_button := Button.new()
+	load_button.text = "불러오기"
+	load_button.custom_minimum_size = Vector2(336, 52)
+	load_button.pressed.connect(_load_game)
+	box.add_child(load_button)
 	var note := Label.new()
 	note.text = "변경 사항은 다음 전투 HUD 생성부터 적용됩니다."
 	note.add_theme_font_size_override("font_size", _accessibility.font_size(14))
@@ -970,6 +990,57 @@ func _cycle_text_scale() -> void:
 
 func _toggle_settings() -> void:
 	_settings_panel.visible = not _settings_panel.visible
+
+func _gather_save_state() -> Dictionary:
+	return {
+		"class": _class, "level": _player.level, "xp": _player.xp,
+		"stat_points": _stat_points, "skill_points": _player.skill_points,
+		"stat_str": _player.stat_str, "stat_dex": _player.stat_dex,
+		"stat_vit": _player.stat_vit, "stat_energy": _player.stat_energy,
+		"skills": _player.skills.duplicate(true), "inventory": _inventory.duplicate(true),
+		"equipped": {"weapon": (_equipped["weapon"] as Dictionary).duplicate(true), "armor": (_equipped["armor"] as Dictionary).duplicate(true)},
+		"kills": _kills, "gold": _gold, "belt_hp": _belt_hp, "belt_mp": _belt_mp,
+		"difficulty": _difficulty, "act": _act, "acts_cleared": _acts_cleared,
+		"dungeon_level": _dlevel, "levels_cleared": _levels_cleared,
+	}
+
+func _save_game() -> void:
+	_combat_log = "저장 완료" if SaveStore.save_state(_gather_save_state()) else "저장 실패"
+
+func _load_game() -> void:
+	var state := SaveStore.load_state()
+	if state.is_empty():
+		_combat_log = "유효한 저장 없음"
+		return
+	if String(state["class"]) != _class:
+		_combat_log = "현재 클래스와 저장 클래스가 다름"
+		return
+	_player.level = int(state.get("level", 1))
+	_player.xp = int(state.get("xp", 0))
+	_stat_points = int(state.get("stat_points", 0))
+	_player.skill_points = int(state.get("skill_points", 0))
+	_player.stat_str = int(state.get("stat_str", _player.stat_str))
+	_player.stat_dex = int(state.get("stat_dex", _player.stat_dex))
+	_player.stat_vit = int(state.get("stat_vit", _player.stat_vit))
+	_player.stat_energy = int(state.get("stat_energy", _player.stat_energy))
+	_player.skills = (state.get("skills", {}) as Dictionary).duplicate(true)
+	_inventory = (state.get("inventory", []) as Array).duplicate(true)
+	var equipped: Dictionary = state.get("equipped", {})
+	_equipped = {"weapon": (equipped.get("weapon", {}) as Dictionary).duplicate(true), "armor": (equipped.get("armor", {}) as Dictionary).duplicate(true)}
+	_kills = int(state.get("kills", 0))
+	_gold = int(state.get("gold", 0))
+	_belt_hp = clampi(int(state.get("belt_hp", 2)), 0, BELT_MAX)
+	_belt_mp = clampi(int(state.get("belt_mp", 2)), 0, BELT_MAX)
+	_difficulty = clampi(int(state.get("difficulty", 0)), 0, 2)
+	_act = maxi(int(state.get("act", 1)), 1)
+	_acts_cleared = maxi(int(state.get("acts_cleared", 0)), 0)
+	_dlevel = maxi(int(state.get("dungeon_level", 1)), 1)
+	_levels_cleared = maxi(int(state.get("levels_cleared", 0)), 0)
+	_recompute_player()
+	_rebuild_inv()
+	_rebuild_char_panel()
+	_refresh_vendor()
+	_combat_log = "불러오기 완료 (Lv %d)" % _player.level
 
 # 생명 포션 소비: 최대 생명의 45% 회복(즉시). 벨트 1개 소모.
 func _quaff_health() -> void:
@@ -1358,7 +1429,8 @@ func _process(delta: float) -> void:
 	var quest := "🔒 보스 처치 필요" if _exit_locked else ("⚔ 보스 층" if _is_boss_level() else "탐험 중")
 	_hud.text += "\nACT %d · 층 %d/%d · %s (클리어 %d)" % [_act, _level_in_act(), ACT_LEN, quest, _acts_cleared]
 
-	if _auto_quit and elapsed >= 50.0:
+	if _auto_quit and elapsed >= 50.0 and not _quitting:
+		_quitting = true
 		var dex := Vector2(_player.gx, _player.gy).distance_to(Vector2(_exit_cell.x, _exit_cell.y))
 		var dn: String = ["Normal", "NM", "Hell"][_difficulty]
 		print("[GD][RESULT] class=%s diff=%s dungeon_level=%d cleared=%d kills=%d life=%d/%d res_fire=%d champs=%d uniques=%d" % [
@@ -1378,9 +1450,11 @@ func _process(delta: float) -> void:
 			_player.state_count(), _merc.state_count() if _merc != null else 0])
 		var asset_report := _assets.validate_runtime()
 		print("[ASSET] monsters compiled=%d fallback=%d runtime=%s" % [_compiled_monsters, _generated_monsters, str(asset_report)])
-		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok
+		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		_release_runtime_resources()
+		await get_tree().process_frame
+		await get_tree().process_frame
 		get_tree().quit()
 
 func _nearest_monster() -> ActorScript:
