@@ -29,10 +29,17 @@ godot --headless --path . --quit                     # 12종 생성 + PNG 저장
 - `icon(kind,seed)` — sword/potion/shield/coin/gem/rune/material (도형 조합 + 외곽선)
 - 공통: `_fill_ellipse`/`_fill_rect`/`_outline`/`_shade_right`, 해시 노이즈
 
+### 자산 컴파일 출력
+- `atlas.png` — 64px 셀에 정렬된 단일 텍스처 아틀라스
+- `manifest.json` — 각 자산의 실제 region/cell, 생성기 버전, 아틀라스 MD5
+- `heroes.tres` — 영웅 3종 × 4방향, 총 12개 `SpriteFrames` 걷기 애니메이션
+- 독립 `asset_gen`과 정본 `game_dungeon` 생성기 소스 MD5 동기화 검증
+
 ### 실측 (2026-09-21, HD 4000)
 ```
 [AG] generated 18 assets, saved 18 PNG → user://assetgen
 [AG] cache entries=18 reuse=true
+[AG] atlas=true spriteframes=true source_sync=true
 [AG][RESULT] verdict=PASS
 ```
 샘플(`samples/`): 돌 타일=노이즈+음영, 포션=병+액체+반사광, 바바리안=후드 휴머노이드
