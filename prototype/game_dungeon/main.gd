@@ -975,15 +975,18 @@ func _spawn_merc() -> void:
 	_merc.position = _iso(_merc.gx, _merc.gy)
 
 func _set_hero_art(actor: ActorScript, kind: String, color: Color, seed: int, scale_v: float) -> void:
-	var compiled := _assets.hero_frames(kind)
+	var compiled := _assets.hero_directions(kind)
 	if not compiled.is_empty():
-		actor.set_sprite_frames(compiled["idle"], compiled["walk"], scale_v)
+		actor.set_directional_frames(compiled, scale_v)
 		return
-	actor.set_sprite_frames(PixelGen.hero(kind, color, seed, 0, 0), [
-		PixelGen.hero(kind, color, seed, 0, 1),
-		PixelGen.hero(kind, color, seed, 0, 0),
-		PixelGen.hero(kind, color, seed, 0, 2),
-	], scale_v)
+	var generated := {}
+	for direction in 4:
+		generated[direction] = {"idle": PixelGen.hero(kind, color, seed, direction, 0), "walk": [
+			PixelGen.hero(kind, color, seed, direction, 1),
+			PixelGen.hero(kind, color, seed, direction, 0),
+			PixelGen.hero(kind, color, seed, direction, 2),
+		]}
+	actor.set_directional_frames(generated, scale_v)
 
 func _merc_scale_stats() -> void:
 	var lv := _player.level
@@ -1258,6 +1261,7 @@ func _process(delta: float) -> void:
 		print("[CHAR] str=%d dex=%d vit=%d energy=%d mastery=%d unspent(stat=%d skill=%d)" % [
 			_player.stat_str, _player.stat_dex, _player.stat_vit, _player.stat_energy,
 			_player.skill_level("mastery" if _class != "sorceress" else "fireball"), _stat_points, _player.skill_points])
+		print("[ANIM] player_directions=%d merc_directions=%d" % [_player.facing_count(), _merc.facing_count() if _merc != null else 0])
 		var ok: bool = _kills > 0 or _spells_cast > 0
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		_assets.clear()

@@ -48,6 +48,9 @@ var _sprite: Sprite2D
 var _idle_texture: Texture2D
 var _walk_frames: Array = []
 var _shown_frame := -1
+var _direction_sets := {}
+var _facing := 0 # 0=남, 1=동, 2=북, 3=서
+var _facings_seen := {0: true}
 
 func setup(tex: Texture2D) -> void:
 	_sprite = Sprite2D.new()
@@ -66,15 +69,50 @@ func set_sprite_texture(tex: Texture2D, scale_v: float = 1.0) -> void:
 		_sprite.scale = Vector2(scale_v, scale_v)
 		_idle_texture = tex
 		_walk_frames.clear()
+		_direction_sets.clear()
 
 func set_sprite_frames(idle: Texture2D, walk: Array, scale_v: float = 1.0) -> void:
 	_idle_texture = idle
 	_walk_frames = walk
+	_direction_sets.clear()
 	_shown_frame = -1
 	if _sprite:
 		_sprite.texture = idle
 		_base_scale = scale_v
 		_sprite.scale = Vector2(scale_v, scale_v)
+
+func set_directional_frames(sets: Dictionary, scale_v: float = 1.0) -> void:
+	_direction_sets = sets
+	_facing = 0
+	_shown_frame = -1
+	var south: Dictionary = sets.get(0, {})
+	if south.is_empty():
+		return
+	_idle_texture = south["idle"]
+	_walk_frames = south["walk"]
+	if _sprite:
+		_sprite.texture = _idle_texture
+		_base_scale = scale_v
+		_sprite.scale = Vector2(scale_v, scale_v)
+
+func _set_facing_from_motion(dx: float, dy: float) -> void:
+	var next_facing := 0
+	if absf(dx) > absf(dy):
+		next_facing = 1 if dx > 0.0 else 3
+	else:
+		next_facing = 0 if dy > 0.0 else 2
+	if next_facing == _facing:
+		return
+	_facing = next_facing
+	_facings_seen[_facing] = true
+	var selected: Dictionary = _direction_sets.get(_facing, {})
+	if not selected.is_empty():
+		_idle_texture = selected["idle"]
+		_walk_frames = selected["walk"]
+		_shown_frame = -1
+
+func facing_count() -> int:
+	return _facings_seen.size()
 
 func pop() -> void:   # 공격 시 살짝 팽창
 	_pop_t = 0.16
@@ -87,8 +125,15 @@ func animate(delta: float) -> void:
 		return
 	var moving := position.distance_to(_prev_pos) > 0.6
 	var dx := position.x - _prev_pos.x
+	var dy := position.y - _prev_pos.y
 	_prev_pos = position
-	if absf(dx) > 0.2:
+	if not _direction_sets.is_empty() and Vector2(dx, dy).length() > 0.2:
+		var old_facing := _facing
+		_set_facing_from_motion(dx, dy)
+		if old_facing != _facing:
+			_sprite.texture = _idle_texture
+		_sprite.flip_h = false
+	elif absf(dx) > 0.2:
 		_sprite.flip_h = dx < 0.0
 	if moving:
 		_anim_t += delta * 12.0

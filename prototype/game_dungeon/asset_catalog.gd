@@ -58,14 +58,24 @@ func hero_frames(kind: String, direction: String = "s") -> Dictionary:
 		_heroes.get_frame_texture(anim, 2),
 	]}
 
+func hero_directions(kind: String) -> Dictionary:
+	var result := {}
+	var names := ["s", "e", "n", "w"]
+	for direction in 4:
+		var frames := hero_frames(kind, names[direction])
+		if frames.is_empty():
+			return {}
+		result[direction] = frames
+	return result
+
 func selftest() -> bool:
 	if not available() or entry_count() != 18:
 		return false
 	var sword := texture("sword")
 	var potion := texture("potion")
 	var ruby := texture("ruby")
-	var hero := hero_frames("barbarian")
-	return sword != null and potion != null and ruby != null and sword != potion and texture("missing") == null and not hero.is_empty() and (hero["walk"] as Array).size() == 3
+	var hero := hero_directions("barbarian")
+	return sword != null and potion != null and ruby != null and sword != potion and texture("missing") == null and hero.size() == 4 and ((hero[0] as Dictionary)["walk"] as Array).size() == 3
 
 func clear() -> void:
 	_regions.clear()
