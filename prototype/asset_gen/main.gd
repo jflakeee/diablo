@@ -4,6 +4,7 @@ extends Node2D
 # 검증: -- autoquit  (생성 + PNG 저장 + 결과 출력 후 종료)
 
 const PixelGen := preload("res://pixel_gen.gd")
+const Quality := preload("res://quality.gd")
 const OUTPUT := "user://assetgen"
 const ATLAS_CELL := 64
 const ATLAS_COLS := 4
@@ -125,9 +126,11 @@ func _ready() -> void:
 	var atlas_ok := _build_atlas(samples)
 	var frames_ok := _build_sprite_frames()
 	var sync_ok := _source_sync_ok()
+	var quality: Dictionary = Quality.suite(PixelGen, samples)
 	print("[AG] cache entries=%d reuse=%s" % [cache_before, str(cache_ok)])
 	print("[AG] atlas=%s spriteframes=%s source_sync=%s" % [str(atlas_ok), str(frames_ok), str(sync_ok)])
-	print("[AG][RESULT] verdict=", ("PASS" if saved == samples.size() and cache_ok and atlas_ok and frames_ok and sync_ok else "FAIL"))
+	print("[AG] quality checked=%d silhouette_diff=%d walk_diff=%d seed_diff=%d failures=%s" % [int(quality["checked"]), int(quality["silhouette_diff"]), int(quality["walk_diff"]), int(quality["seed_diff"]), str(quality["failures"])])
+	print("[AG][RESULT] verdict=", ("PASS" if saved == samples.size() and cache_ok and atlas_ok and frames_ok and sync_ok and bool(quality["ok"]) else "FAIL"))
 
 func _process(_delta: float) -> void:
 	if _auto_quit:

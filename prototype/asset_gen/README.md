@@ -35,6 +35,11 @@ godot --headless --path . --quit                     # 12종 생성 + PNG 저장
 - `heroes.tres` — 영웅 3종 × 4방향, 총 12개 `SpriteFrames` 걷기 애니메이션
 - 독립 `asset_gen`과 정본 `game_dungeon` 생성기 소스 MD5 동기화 검증
 
+### 자동 품질 게이트 (`quality.gd`)
+- 불투명 픽셀 밀도, 팔레트 크기, 연결 요소 수, 이미지 경계 잘림 검사
+- 클래스 실루엣·걷기 프레임·시드 변형 간 최소 픽셀 차이 검사
+- 현재 14개 스프라이트 검사 및 세 변형 지표를 통과해야 최종 PASS
+
 ### 실측 (2026-09-21, HD 4000)
 ```
 [AG] generated 18 assets, saved 18 PNG → user://assetgen

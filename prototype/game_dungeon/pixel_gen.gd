@@ -155,9 +155,9 @@ static func hero(kind: String, robe: Color, seed: int, direction: int = 0, frame
 	elif kind == "sorceress":
 		_fill_ellipse(img, 16, 25, 8, 12, robe)                      # 좁고 긴 로브
 		_fill_ellipse(img, 16, 9, 5, 6, skin)
-		_fill_ellipse(img, 16, 5, 7, 4, robe.darkened(0.22))         # 후드
-		_fill_rect(img, 27, 7, 2, 28, Color(0.38, 0.25, 0.12))      # 지팡이
-		_fill_ellipse(img, 28, 6, 3, 3, Color(0.3, 0.75, 1.0))
+		_fill_ellipse(img, 16, 6, 7, 4, robe.darkened(0.22))         # 후드
+		_fill_rect(img, 26, 7, 2, 28, Color(0.38, 0.25, 0.12))      # 지팡이
+		_fill_ellipse(img, 27, 6, 2, 3, Color(0.3, 0.75, 1.0))
 		_fill_rect(img, 11 + step, 34, 3, 4, robe.darkened(0.35))
 		_fill_rect(img, 19 - step, 34, 3, 4, robe.darkened(0.35))
 	else: # rogue mercenary
@@ -225,8 +225,8 @@ static func monster_named(name: String, body: Color, seed: int, frame: int = 0) 
 		_px(img, 14, 8, Color(0.05, 0.02, 0.02)); _px(img, 20, 8, Color(0.05, 0.02, 0.02))
 	elif "hawk" in family:
 		_fill_ellipse(img, 17, 20, 6, 8, body)
-		_fill_ellipse(img, 7, 17 + step, 10, 4, body.darkened(0.1))
-		_fill_ellipse(img, 27, 17 - step, 10, 4, body.darkened(0.18))
+		_fill_ellipse(img, 9, 17 + step, 6, 4, body.darkened(0.1))
+		_fill_ellipse(img, 25, 17 - step, 6, 4, body.darkened(0.18))
 		_fill_rect(img, 15, 6, 4, 8, body.lightened(0.1))
 	elif "goat" in family:
 		_fill_ellipse(img, 17, 21, 10, 12, body)
@@ -234,11 +234,11 @@ static func monster_named(name: String, body: Color, seed: int, frame: int = 0) 
 		_fill_rect(img, 9, 2, 3, 8, body.darkened(0.25)); _fill_rect(img, 23, 2, 3, 8, body.darkened(0.25))
 		_fill_rect(img, 10 + step, 31, 4, 9, body.darkened(0.25)); _fill_rect(img, 21 - step, 31, 4, 9, body.darkened(0.25))
 	elif "andariel" in family:
-		_fill_ellipse(img, 17, 23, 12, 15, body)
-		_fill_ellipse(img, 17, 8, 6, 7, body.lightened(0.15))
-		for x in [5, 9, 25, 29]:
+		_fill_ellipse(img, 17, 23, 12, 14, body)
+		_fill_ellipse(img, 17, 9, 6, 6, body.lightened(0.15))
+		for x in [6, 10, 22, 26]:
 			_fill_rect(img, x, 3, 2, 22, body.darkened(0.3))
-		_fill_rect(img, 8, 33, 5, 8, body.darkened(0.28)); _fill_rect(img, 22, 33, 5, 8, body.darkened(0.28))
+		_fill_rect(img, 8, 31, 5, 7, body.darkened(0.28)); _fill_rect(img, 22, 31, 5, 7, body.darkened(0.28))
 	elif "fallen" in family:
 		_fill_ellipse(img, 17, 22, 9, 11, body)
 		_fill_ellipse(img, 17, 9, 7, 7, body.lightened(0.08))
