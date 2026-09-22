@@ -3,6 +3,19 @@ extends RefCounted
 # 장점: 라이선스 청정(자체 제작) · 무한 변형(시드) · 초경량(코드만) · 저사양 친화.
 # preload로 사용: const PixelGen := preload("res://pixel_gen.gd")
 
+# 같은 레시피를 여러 개체가 공유하도록 GPU 텍스처 생성을 캐시한다.
+static var _cache := {}
+
+static func _cached(key: String) -> Texture2D:
+	return _cache.get(key) as Texture2D
+
+static func _remember(key: String, texture: Texture2D) -> Texture2D:
+	_cache[key] = texture
+	return texture
+
+static func cache_size() -> int:
+	return _cache.size()
+
 static func _hash01(x: int, y: int, seed: int) -> float:
 	var h := (x * 374761393 + y * 668265263 + seed * 362437) & 0x7fffffff
 	h = (h ^ (h >> 13)) * 1274126177
@@ -60,6 +73,10 @@ static func _shade_right(img: Image, amount: float) -> void:
 
 # ── 아이소 타일 (노이즈 텍스처 + 림/하이라이트) ──
 static func iso_tile(w: int, h: int, base: Color, seed: int, speckle: bool) -> Texture2D:
+	var key := "tile:%d:%d:%s:%d:%s" % [w, h, base.to_html(), seed, str(speckle)]
+	var hit := _cached(key)
+	if hit != null:
+		return hit
 	var img := _img(w, h)
 	var cx := w / 2.0
 	var cy := h / 2.0
@@ -76,10 +93,15 @@ static func iso_tile(w: int, h: int, base: Color, seed: int, speckle: bool) -> T
 				if speckle and _hash01(x * 3, y * 3, seed + 7) > 0.86:
 					col = col.darkened(0.28)   # 돌 얼룩
 				img.set_pixel(x, y, col)
-	return ImageTexture.create_from_image(img)
+	return _remember(key, ImageTexture.create_from_image(img))
 
 # ── 캐릭터 (후드/로브 형태 휴머노이드 + 음영 + 외곽선) ──
 static func character(robe: Color, seed: int) -> Texture2D:
+	var variant := posmod(seed, 8)
+	var key := "character:%s:%d" % [robe.to_html(), variant]
+	var hit := _cached(key)
+	if hit != null:
+		return hit
 	var w := 26
 	var h := 34
 	var img := _img(w, h)
@@ -98,12 +120,23 @@ static func character(robe: Color, seed: int) -> Texture2D:
 	# 약간의 시드 색 변주(장식)
 	if _hash01(0, 0, seed) > 0.5:
 		_fill_rect(img, 12, 18, 2, 8, robe.lightened(0.18))  # 로브 중앙 띠
+	if variant in [2, 3, 6]:
+		_fill_rect(img, 5, 16, 2, 7, robe.darkened(0.22))
+		_fill_rect(img, 19, 16, 2, 7, robe.darkened(0.22))
+	if variant in [4, 5, 6, 7]:
+		_fill_rect(img, 9, 3, 2, 4, robe.darkened(0.3))
+		_fill_rect(img, 16, 3, 2, 4, robe.darkened(0.3))
 	_shade_right(img, 0.12)
 	_outline(img, Color(0.08, 0.06, 0.08))
-	return ImageTexture.create_from_image(img)
+	return _remember(key, ImageTexture.create_from_image(img))
 
 # ── 몬스터 (둥근 블롭 + 눈) ──
 static func monster(body: Color, seed: int) -> Texture2D:
+	var variant := posmod(seed, 8)
+	var key := "monster:%s:%d" % [body.to_html(), variant]
+	var hit := _cached(key)
+	if hit != null:
+		return hit
 	var w := 26
 	var h := 26
 	var img := _img(w, h)
@@ -112,6 +145,11 @@ static func monster(body: Color, seed: int) -> Texture2D:
 	if _hash01(1, 1, seed) > 0.4:
 		_fill_rect(img, 6, 5, 2, 5, body.darkened(0.2))
 		_fill_rect(img, 18, 5, 2, 5, body.darkened(0.2))
+	if variant in [1, 4, 7]:
+		_fill_rect(img, 3, 15, 4, 3, body.darkened(0.15))
+		_fill_rect(img, 20, 15, 4, 3, body.darkened(0.15))
+	if variant in [3, 6]:
+		_fill_rect(img, 11, 3, 4, 6, body.lightened(0.08))
 	# 눈
 	_fill_ellipse(img, 9, 13, 2, 2, Color(1, 0.9, 0.2))
 	_fill_ellipse(img, 17, 13, 2, 2, Color(1, 0.9, 0.2))
@@ -119,10 +157,15 @@ static func monster(body: Color, seed: int) -> Texture2D:
 	_px(img, 17, 13, Color(0.1, 0, 0))
 	_shade_right(img, 0.12)
 	_outline(img, Color(0.06, 0.05, 0.06))
-	return ImageTexture.create_from_image(img)
+	return _remember(key, ImageTexture.create_from_image(img))
 
 # ── 아이템 아이콘 (sword/potion/shield/coin) ──
 static func icon(kind: String, seed: int) -> Texture2D:
+	var variant := posmod(seed, 4)
+	var key := "icon:%s:%d" % [kind, variant]
+	var hit := _cached(key)
+	if hit != null:
+		return hit
 	var s := 32
 	var img := _img(s, s)
 	match kind:
@@ -149,7 +192,23 @@ static func icon(kind: String, seed: int) -> Texture2D:
 			_fill_ellipse(img, 16, 16, 10, 10, Color(0.9, 0.75, 0.2))
 			_fill_ellipse(img, 16, 16, 7, 7, Color(1, 0.87, 0.35))
 			_fill_rect(img, 14, 11, 4, 10, Color(0.8, 0.6, 0.1))
+		"gem":
+			var gem_cols := [Color(0.9, 0.15, 0.2), Color(0.2, 0.5, 1.0), Color(1.0, 0.8, 0.12), Color(0.15, 0.85, 0.4)]
+			var gc: Color = gem_cols[variant]
+			for y in range(7, 26):
+				var half := mini(mini(y - 6, 26 - y), 9)
+				_fill_rect(img, 16 - half, y, half * 2 + 1, 1, gc.darkened(float(y - 7) / 70.0))
+			_fill_rect(img, 12, 10, 3, 6, gc.lightened(0.45))
+		"rune":
+			_fill_rect(img, 8, 5, 16, 23, Color(0.48, 0.43, 0.34))
+			_fill_rect(img, 10, 7, 12, 19, Color(0.65, 0.58, 0.45))
+			for i in range(5):
+				_px(img, 12 + posmod(i * 3 + variant, 9), 10 + i * 3, Color(0.2, 0.85, 0.9))
+		"material":
+			_fill_ellipse(img, 16, 19, 9, 7, Color(0.55, 0.42, 0.3))
+			_fill_ellipse(img, 12, 15, 4, 4, Color(0.78, 0.62, 0.4))
+			_fill_ellipse(img, 20, 17, 3, 3, Color(0.7, 0.52, 0.34))
 		_:
 			_fill_ellipse(img, 16, 16, 8, 8, Color(0.6, 0.6, 0.6))
 	_outline(img, Color(0.08, 0.06, 0.08))
-	return ImageTexture.create_from_image(img)
+	return _remember(key, ImageTexture.create_from_image(img))

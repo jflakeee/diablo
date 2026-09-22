@@ -27,6 +27,9 @@ func _ready() -> void:
 	samples.append([PixelGen.icon("potion", 0), "potion", 2.6])
 	samples.append([PixelGen.icon("shield", 0), "shield", 2.6])
 	samples.append([PixelGen.icon("coin", 0), "coin", 2.6])
+	samples.append([PixelGen.icon("gem", 0), "ruby", 2.6])
+	samples.append([PixelGen.icon("gem", 1), "sapphire", 2.6])
+	samples.append([PixelGen.icon("rune", 2), "rune", 2.6])
 
 	var cols := 4
 	var cell := 165
@@ -52,7 +55,12 @@ func _ready() -> void:
 		if img.save_png("user://assetgen/%02d_%s.png" % [i, String(samples[i][1])]) == OK:
 			saved += 1
 	print("[AG] generated %d assets, saved %d PNG → user://assetgen" % [samples.size(), saved])
-	print("[AG][RESULT] verdict=", ("PASS" if saved == samples.size() else "FAIL"))
+	var cache_before := PixelGen.cache_size()
+	var cached_a := PixelGen.icon("gem", 0)
+	var cached_b := PixelGen.icon("gem", 0)
+	var cache_ok := cached_a == cached_b and PixelGen.cache_size() == cache_before
+	print("[AG] cache entries=%d reuse=%s" % [cache_before, str(cache_ok)])
+	print("[AG][RESULT] verdict=", ("PASS" if saved == samples.size() and cache_ok else "FAIL"))
 
 func _process(_delta: float) -> void:
 	if _auto_quit:

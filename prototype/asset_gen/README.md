@@ -16,7 +16,7 @@
 
 ## 2. 제작기 PoC (`pixel_gen.gd`) — 실증
 
-코드만으로 PNG 자산 생성. 실행:
+코드만으로 PNG 자산 생성. 동일 레시피는 텍스처 캐시에서 재사용한다. 실행:
 ```
 godot --path . --rendering-driver opengl3            # 생성물 갤러리
 godot --headless --path . --quit                     # 12종 생성 + PNG 저장 검증
@@ -26,12 +26,13 @@ godot --headless --path . --quit                     # 12종 생성 + PNG 저장
 - `iso_tile(base,seed,speckle)` — 아이소 다이아 + **밝기 노이즈 지터 + 가장자리 림/상단 하이라이트 + 돌 얼룩** (grass/stone/dirt/hell)
 - `character(robe,seed)` — 후드 로브 휴머노이드(몸통/어깨/머리/벨트) + **우측 음영 + 외곽선**
 - `monster(body,seed)` — 블롭 + 뿔(시드) + 눈
-- `icon(kind,seed)` — sword/potion/shield/coin (도형 조합 + 외곽선)
+- `icon(kind,seed)` — sword/potion/shield/coin/gem/rune/material (도형 조합 + 외곽선)
 - 공통: `_fill_ellipse`/`_fill_rect`/`_outline`/`_shade_right`, 해시 노이즈
 
 ### 실측 (2026-09-21, HD 4000)
 ```
-[AG] generated 12 assets, saved 12 PNG → user://assetgen
+[AG] generated 15 assets, saved 15 PNG → user://assetgen
+[AG] cache entries=15 reuse=true
 [AG][RESULT] verdict=PASS
 ```
 샘플(`samples/`): 돌 타일=노이즈+음영, 포션=병+액체+반사광, 바바리안=후드 휴머노이드

@@ -1666,7 +1666,18 @@ func _spawn_ground(it: Dictionary, gx: float, gy: float) -> void:
 	elif is_gold:
 		col = Color(1.0, 0.85, 0.25)
 	var spr := Sprite2D.new()
-	spr.texture = PixelGen.icon("sword" if slot == "weapon" else "shield", 0)  # 제작기 아이콘
+	var icon_kind := "shield"
+	var icon_seed := 0
+	match slot:
+		"weapon": icon_kind = "sword"
+		"potion": icon_kind = "potion"
+		"gold": icon_kind = "coin"
+		"material":
+			var material_id := String(it.get("id", "material"))
+			icon_kind = "rune" if material_id.begins_with("rune_") else "gem"
+			var gem_ids := ["ruby", "sapphire", "topaz", "emerald"]
+			icon_seed = maxi(0, gem_ids.find(material_id))
+	spr.texture = PixelGen.icon(icon_kind, icon_seed)
 	spr.scale = Vector2(0.4, 0.4) if is_gold else (Vector2(0.55, 0.55) if is_pot else Vector2(0.8, 0.8))
 	spr.modulate = col
 	n.add_child(spr)
