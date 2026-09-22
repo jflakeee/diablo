@@ -11,6 +11,17 @@ const ATLAS_COLS := 4
 const RECIPE_PATH := "res://recipes.json"
 var _auto_quit := false
 
+func _publish_to_game() -> bool:
+	var project_dir := ProjectSettings.globalize_path("res://").get_base_dir()
+	var target := project_dir.get_base_dir().path_join("game_dungeon/generated")
+	if DirAccess.make_dir_recursive_absolute(target) != OK:
+		return false
+	for filename in ["atlas.png", "manifest.json", "heroes.tres"]:
+		var source := ProjectSettings.globalize_path(OUTPUT + "/" + filename)
+		if DirAccess.copy_absolute(source, target.path_join(filename)) != OK:
+			return false
+	return true
+
 func _load_samples() -> Array:
 	var file := FileAccess.open(RECIPE_PATH, FileAccess.READ)
 	if file == null:
@@ -153,10 +164,15 @@ func _ready() -> void:
 	var frames_ok := _build_sprite_frames()
 	var sync_ok := _source_sync_ok()
 	var quality: Dictionary = Quality.suite(PixelGen, samples)
+	var publish_ok := true
+	if OS.get_cmdline_user_args().has("publish"):
+		publish_ok = _publish_to_game()
 	print("[AG] cache entries=%d reuse=%s" % [cache_before, str(cache_ok)])
 	print("[AG] atlas=%s spriteframes=%s source_sync=%s" % [str(atlas_ok), str(frames_ok), str(sync_ok)])
 	print("[AG] quality checked=%d silhouette_diff=%d walk_diff=%d seed_diff=%d failures=%s" % [int(quality["checked"]), int(quality["silhouette_diff"]), int(quality["walk_diff"]), int(quality["seed_diff"]), str(quality["failures"])])
-	print("[AG][RESULT] verdict=", ("PASS" if saved == samples.size() and cache_ok and atlas_ok and frames_ok and sync_ok and bool(quality["ok"]) else "FAIL"))
+	if OS.get_cmdline_user_args().has("publish"):
+		print("[AG] publish_to_game=", publish_ok)
+	print("[AG][RESULT] verdict=", ("PASS" if saved == samples.size() and cache_ok and atlas_ok and frames_ok and sync_ok and bool(quality["ok"]) and publish_ok else "FAIL"))
 
 func _process(_delta: float) -> void:
 	if _auto_quit:

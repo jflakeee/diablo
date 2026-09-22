@@ -19,7 +19,8 @@
 코드만으로 PNG 자산 생성. 동일 레시피는 텍스처 캐시에서 재사용한다. 실행:
 ```
 godot --path . --rendering-driver opengl3            # 생성물 갤러리
-godot --headless --path . --quit                     # 12종 생성 + PNG 저장 검증
+godot --headless --path . -- autoquit                # 18종 생성 + 전체 품질 검증
+godot --headless --path . -- autoquit publish        # 검증 후 game_dungeon/generated에 게시
 ```
 
 ### 생성기 구성
@@ -40,6 +41,9 @@ godot --headless --path . --quit                     # 12종 생성 + PNG 저장
 - 빈 ID, 중복 ID, 미지원 유형은 즉시 빌드 실패
 - GDScript 수정 없이 레시피 한 줄로 갤러리·PNG·아틀라스 항목 추가
 - manifest에 `recipe_md5`를 기록해 코드 버전뿐 아니라 입력 데이터도 추적
+
+게시된 `atlas.png`는 정본 게임의 `asset_catalog.gd`가 로드한다. 드롭 아이콘은
+아틀라스 region을 우선 사용하고, 항목 또는 산출물이 없으면 런타임 `PixelGen.icon()`으로 폴백한다.
 
 ### 자동 품질 게이트 (`quality.gd`)
 - 불투명 픽셀 밀도, 팔레트 크기, 연결 요소 수, 이미지 경계 잘림 검사

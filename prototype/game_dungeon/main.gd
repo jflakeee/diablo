@@ -16,6 +16,7 @@ const PixelGen := preload("res://pixel_gen.gd")
 const SfxGen := preload("res://sfx_gen.gd")
 const MinimapScript := preload("res://minimap.gd")
 const Automation := preload("res://automation.gd")
+const AssetCatalog := preload("res://asset_catalog.gd")
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -107,6 +108,7 @@ var _eq := {"str": 0, "dex": 0, "ar": 0, "ed": 0, "life": 0, "mana": 0, "def": 0
 var _player_mf := 50
 var _automation := Automation.new()
 var _automation_last_expire := 0
+var _assets := AssetCatalog.new()
 
 var _logic_ticks := 0
 var _attacks := 0
@@ -506,6 +508,7 @@ func _ready() -> void:
 		_difficulty = 1
 	if _auto_quit:
 		print("[AUTO] selftest verdict=", "PASS" if _automation.selftest() else "FAIL")
+		print("[ASSET] atlas=%s entries=%d selftest=%s" % [str(_assets.available()), _assets.entry_count(), "PASS" if _assets.selftest() else "FAIL"])
 		_automation = Automation.new() # 셀프테스트 상태를 실제 플레이와 분리
 		var uq := Item.generate(_rng, Item.WEAPON_BASES[1], 20, "unique")
 		print("[UNIQ] ", Item.display_name(uq), " affixes=", uq["affixes"], " color=", Item.quality_color("unique"))
@@ -1254,6 +1257,7 @@ func _process(delta: float) -> void:
 			_player.skill_level("mastery" if _class != "sorceress" else "fireball"), _stat_points, _player.skill_points])
 		var ok: bool = _kills > 0 or _spells_cast > 0
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
+		_assets.clear()
 		get_tree().quit()
 
 func _nearest_monster() -> ActorScript:
@@ -1692,7 +1696,11 @@ func _spawn_ground(it: Dictionary, gx: float, gy: float) -> void:
 			icon_kind = "rune" if material_id.begins_with("rune_") else "gem"
 			var gem_ids := ["ruby", "sapphire", "topaz", "emerald"]
 			icon_seed = maxi(0, gem_ids.find(material_id))
-	spr.texture = PixelGen.icon(icon_kind, icon_seed)
+	var atlas_id := icon_kind
+	if icon_kind == "gem":
+		atlas_id = String(it.get("id", "ruby"))
+	var compiled := _assets.texture(atlas_id)
+	spr.texture = compiled if compiled != null else PixelGen.icon(icon_kind, icon_seed)
 	spr.scale = Vector2(0.4, 0.4) if is_gold else (Vector2(0.55, 0.55) if is_pot else Vector2(0.8, 0.8))
 	spr.modulate = col
 	n.add_child(spr)
