@@ -20,6 +20,7 @@ const AssetCatalog := preload("res://asset_catalog.gd")
 const MobileUI := preload("res://mobile_ui.gd")
 const Accessibility := preload("res://accessibility.gd")
 const Identity := preload("res://identity.gd")
+const SystemTests := preload("res://system_tests.gd")
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -55,7 +56,7 @@ const NOVA_RADIUS := 3.5
 const SPELL_RANGE := 7.0
 const FIREBALL_CD := 0.6
 
-var _class := "barbarian"
+var _class := "warden"
 var _projectiles: Array = []
 var _spells_cast := 0
 var _spell_hits := 0
@@ -80,7 +81,7 @@ var _belt_mp := 2            # 시작 마나 포션
 var _potions_quaffed := 0
 var _pot_hp_btn: Button
 var _pot_mp_btn: Button
-# ── 용병(Rogue Scout, Act 1) — 원거리 화염 화살 아군 ──
+# ── 동료(Ember Scout) — 원거리 화염 화살 아군 ──
 var _merc: ActorScript
 var _merc_cd := 0.0
 var _merc_kills := 0
@@ -135,6 +136,7 @@ var _run_start := 0
 var _auto_quit := false
 var _ui_selftest_ok := true
 var _identity_selftest_ok := true
+var _system_selftest_ok := true
 
 func _iso(gx: float, gy: float) -> Vector2:
 	return Vector2((gx - gy) * TILE_W * 0.5, (gx + gy) * TILE_H * 0.5)
@@ -549,6 +551,9 @@ func _ready() -> void:
 		var identity_report := Identity.selftest(Data)
 		_identity_selftest_ok = bool(identity_report["ok"])
 		print("[IDENTITY] project=Ashen Depths monsters=%d failures=%s verdict=%s" % [int(identity_report["monster_ids"]), str(identity_report["failures"]), "PASS" if bool(identity_report["ok"]) else "FAIL"])
+		var system_report := SystemTests.run()
+		_system_selftest_ok = bool(system_report["ok"])
+		print("[SYSTEM] checks=%d failures=%s verdict=%s" % [int(system_report["checks"]), str(system_report["failures"]), "PASS" if _system_selftest_ok else "FAIL"])
 		print("[ASSET] atlas=%s entries=%d selftest=%s" % [str(_assets.available()), _assets.entry_count(), "PASS" if _assets.selftest() else "FAIL"])
 		_automation = Automation.new() # 셀프테스트 상태를 실제 플레이와 분리
 		var uq := Item.generate(_rng, Item.WEAPON_BASES[1], 20, "unique")
@@ -560,10 +565,10 @@ func _ready() -> void:
 				sok += 1
 		print("[SFX] generator=%d generated=%d/%d players=%d bytes(attack)=%d" % [SfxGen.VERSION, sok, _sfx.size(), _sfx_pool.size(), int((_sfx["attack"] as AudioStreamWAV).data.size())])
 	if OS.get_cmdline_user_args().has("sorc"):
-		_class = "sorceress"
+		_class = "arcanist"
 		_start_game()
 	elif OS.get_cmdline_user_args().has("barb"):
-		_class = "barbarian"
+		_class = "warden"
 		_start_game()
 	elif _auto_quit:
 		_start_game()
@@ -588,8 +593,8 @@ func _show_class_select() -> void:
 	sub.add_theme_font_size_override("font_size", _accessibility.font_size(22))
 	sub.position = Vector2(vp.x * 0.5 - 160, vp.y * 0.2 + 60)
 	_menu_layer.add_child(sub)
-	_add_class_button("⚔  Barbarian  — 근접 · 탱커", Color(0.9, 0.75, 0.2), Vector2(vp.x * 0.5 - 220, vp.y * 0.42), "barbarian")
-	_add_class_button("✦  Sorceress  — 원거리 · 스펠", Color(0.6, 0.5, 0.95), Vector2(vp.x * 0.5 - 220, vp.y * 0.42 + 90), "sorceress")
+	_add_class_button("⚔  Iron Warden  — 근접 · 방어", Color(0.9, 0.75, 0.2), Vector2(vp.x * 0.5 - 220, vp.y * 0.42), "warden")
+	_add_class_button("✦  Arcanist  — 원거리 · 비전", Color(0.6, 0.5, 0.95), Vector2(vp.x * 0.5 - 220, vp.y * 0.42 + 90), "arcanist")
 	# 난이도 선택
 	_diff_label = Label.new()
 	_diff_label.add_theme_font_size_override("font_size", _accessibility.font_size(20))
@@ -648,8 +653,8 @@ func _start_game() -> void:
 	add_child(_world)
 	_generate_dungeon()
 
-	if _class == "sorceress":
-		_player = _make_actor("Sorceress", Color(0.5, 0.35, 0.85), 20, 32)
+	if _class == "arcanist":
+		_player = _make_actor("Arcanist", Color(0.5, 0.35, 0.85), 20, 32)
 		_player.stat_str = 10
 		_player.stat_dex = 15
 		_player.stat_vit = 20
@@ -657,19 +662,19 @@ func _start_game() -> void:
 		_player.max_life = 40 + 2 * _player.stat_vit + 1  # Part 1 §2
 		_player.max_mana = 35 + 2 * _player.stat_energy + 2
 		_player.speed = 5.5
-		_player.skills = {"fireball": 3, "icebolt": 3, "lightning": 3, "teleport": 1}
+		_player.skills = {"ember_bolt": 3, "frost_shard": 3, "storm_lance": 3, "phase_step": 1}
 		_base_res_fire = 30      # 소서리스 화염 기본 저항
 		_player.leech_pct = 8    # 스펠 생명 흡혈 8%
 	else:
-		_player = _make_actor("Barbarian", Color(0.9, 0.75, 0.2), 22, 34)
+		_player = _make_actor("Iron Warden", Color(0.9, 0.75, 0.2), 22, 34)
 		_player.stat_str = 30
 		_player.stat_dex = 25
 		_player.stat_vit = 25
 		_player.stat_energy = 15
-		_player.max_life = CombatLib.barbarian_max_life(25, 1)
-		_player.max_mana = CombatLib.barbarian_max_mana(15, 1)
+		_player.max_life = CombatLib.warden_max_life(25, 1)
+		_player.max_mana = CombatLib.warden_max_mana(15, 1)
 		_player.speed = 6.0
-		_player.skills = {"bash": 1, "berserk": 1, "battle_orders": 1, "mastery": 1}
+		_player.skills = {"sundering_strike": 1, "void_fury": 1, "iron_chant": 1, "weapon_discipline": 1}
 		_player.block_val = 30   # 방패 블록
 		_player.leech_pct = 6    # 물리 생명 흡혈 6%
 	_player.is_player = true
@@ -682,10 +687,10 @@ func _start_game() -> void:
 	_player.gy = _ent_cell.y
 	_player.position = _iso(_player.gx, _player.gy)
 	# 제작기 캐릭터 스프라이트
-	var robe := Color(0.3, 0.3, 0.75) if _class == "sorceress" else Color(0.7, 0.2, 0.15)
+	var robe := Color(0.3, 0.3, 0.75) if _class == "arcanist" else Color(0.7, 0.2, 0.15)
 	_set_hero_art(_player, _class, robe, 10, 1.1)
 	# 초기 장비/저항 계산: 바바리안 시작 무기, 소서리스 스탯 재계산
-	if _class == "barbarian":
+	if _class == "warden":
 		var w := Item.generate(_rng, Item.WEAPON_BASES[1], 1, "magic")  # Fiery Hand Axe
 		w["affixes"]["fdmg"] = 6
 		w["prefix"] = "Fiery"
@@ -720,14 +725,14 @@ func _start_game() -> void:
 	_joy.position = mobile_layout["joystick"]
 	ui.add_child(_joy)
 	# 스킬 버튼(확대): 우하단 2개 + 위 1개
-	if _class == "sorceress":
-		_add_skill_button(ui, "fireball", "Fire", Color.ORANGE_RED, mobile_layout["skill_primary"])
-		_add_skill_button(ui, "icebolt", "Ice", Color.SKY_BLUE, mobile_layout["skill_secondary"])
-		_add_skill_button(ui, "lightning", "Ltng", Color.YELLOW, mobile_layout["skill_utility"])
+	if _class == "arcanist":
+		_add_skill_button(ui, "ember_bolt", "Ember", Color.ORANGE_RED, mobile_layout["skill_primary"])
+		_add_skill_button(ui, "frost_shard", "Frost", Color.SKY_BLUE, mobile_layout["skill_secondary"])
+		_add_skill_button(ui, "storm_lance", "Storm", Color.YELLOW, mobile_layout["skill_utility"])
 	else:
-		_add_skill_button(ui, "bash", "Bash", Color.ORANGE_RED, mobile_layout["skill_primary"])
-		_add_skill_button(ui, "berserk", "Bsrk", Color.CRIMSON, mobile_layout["skill_secondary"])
-		_add_skill_button(ui, "battle_orders", "BO", Color.GOLD, mobile_layout["skill_utility"])
+		_add_skill_button(ui, "sundering_strike", "Sunder", Color.ORANGE_RED, mobile_layout["skill_primary"])
+		_add_skill_button(ui, "void_fury", "Fury", Color.CRIMSON, mobile_layout["skill_secondary"])
+		_add_skill_button(ui, "iron_chant", "Chant", Color.GOLD, mobile_layout["skill_utility"])
 
 	var bag := Button.new()
 	bag.text = "Bag"
@@ -814,7 +819,7 @@ func _start_game() -> void:
 	ui.add_child(_pot_hp_btn)
 	ui.add_child(_pot_mp_btn)
 
-	if _class == "barbarian":
+	if _class == "warden":
 		_equip(Item.generate(_rng, Item.WEAPON_BASES[1], 1, "normal"))  # Hand Axe 3-10
 	else:
 		_recompute_player()
@@ -1067,11 +1072,11 @@ func _physics_process(delta: float) -> void:
 
 # 용병 스폰(플레이어 옆). 스탯은 플레이어 레벨에 스케일.
 func _spawn_merc() -> void:
-	_merc = _make_actor("Rogue Scout", Color(0.55, 0.25, 0.35), 20, 32)
+	_merc = _make_actor("Ember Scout", Color(0.55, 0.25, 0.35), 20, 32)
 	_merc.is_ally = true
 	_merc.died.connect(_on_merc_died)
 	var merc_col := Color(0.5, 0.15, 0.2)
-	_set_hero_art(_merc, "rogue", merc_col, 7, 1.0)
+	_set_hero_art(_merc, "scout", merc_col, 7, 1.0)
 	_merc.level = _player.level
 	_merc_scale_stats()
 	_merc.gx = _player.gx + 1
@@ -1263,30 +1268,30 @@ func _auto_play(delta: float) -> void:
 	# 골드 여유 시 도박(검증)
 	if _gold > _gamble_cost() + 400:
 		_gamble()
-	if _class == "barbarian" and not _bo_done:
-		_cast_battle_orders()
+	if _class == "warden" and not _bo_done:
+		_cast_iron_chant()
 		_bo_done = true
 	var tgt := _nearest_monster()
 	# 소서리스: 적이 너무 가까우면 Teleport로 카이팅(생존)
-	if _class == "sorceress" and tgt != null:
+	if _class == "arcanist" and tgt != null:
 		if Vector2(_player.gx, _player.gy).distance_to(Vector2(tgt.gx, tgt.gy)) < 3.2 and _player.mana >= 8:
 			_blink_away(tgt)
 			return
 	if tgt != null:
 		var dd := Vector2(_player.gx, _player.gy).distance_to(Vector2(tgt.gx, tgt.gy))
-		var rng_use := SPELL_RANGE if _class == "sorceress" else ATTACK_RANGE
+		var rng_use := SPELL_RANGE if _class == "arcanist" else ATTACK_RANGE
 		if dd <= rng_use:
 			if _player.attack_cd <= 0.0:
-				if _class == "sorceress":
+				if _class == "arcanist":
 					var el := _spells_cast % 3   # 3속성 번갈아
 					if el == 0:
 						_cast_bolt(tgt, "fire", Color(1, 0.5, 0.15), 14, 26)
 					elif el == 1:
 						_cast_bolt(tgt, "cold", Color(0.4, 0.7, 1.0), 10, 20)
 					else:
-						_cast_lightning(tgt)
+						_cast_storm_lance(tgt)
 				else:
-					_player_attack(tgt, "bash")
+					_player_attack(tgt, "sundering_strike")
 		else:
 			_nav_toward(_player, tgt.gx, tgt.gy, delta)
 		return
@@ -1347,7 +1352,7 @@ func _process(delta: float) -> void:
 		_pot_mp_btn.text = "✦\n%d" % _belt_mp
 	if _merc != null:
 		var ms := ("♥%d/%d" % [_merc.life, _merc.max_life]) if _merc.alive else "쓰러짐"
-		_hud.text += "\n용병 Rogue Scout %s  킬 %d" % [ms, _merc_kills]
+		_hud.text += "\n동료 Ember Scout %s  킬 %d" % [ms, _merc_kills]
 	if _stat_points > 0 or _player.skill_points > 0:
 		_hud.text += "  ▲포인트: 스탯%d 스킬%d (Char)" % [_stat_points, _player.skill_points]
 	var quest := "🔒 보스 처치 필요" if _exit_locked else ("⚔ 보스 층" if _is_boss_level() else "탐험 중")
@@ -1365,15 +1370,15 @@ func _process(delta: float) -> void:
 		print("[MAP] tex=%s grid=%dx%d monster_dots=%d" % [str(_minimap != null and _minimap.tex != null), _minimap.gw if _minimap else 0, _minimap.gh if _minimap else 0, _minimap.monster_cells.size() if _minimap else 0])
 		print("[ACT] act=%d level_in_act=%d/%d boss_level=%s exit_locked=%s acts_cleared=%d" % [
 			_act, _level_in_act(), ACT_LEN, str(_is_boss_level()), str(_exit_locked), _acts_cleared])
-		print("[CHAR] str=%d dex=%d vit=%d energy=%d mastery=%d unspent(stat=%d skill=%d)" % [
+		print("[CHAR] str=%d dex=%d vit=%d energy=%d discipline=%d unspent(stat=%d skill=%d)" % [
 			_player.stat_str, _player.stat_dex, _player.stat_vit, _player.stat_energy,
-			_player.skill_level("mastery" if _class != "sorceress" else "fireball"), _stat_points, _player.skill_points])
+			_player.skill_level("weapon_discipline" if _class != "arcanist" else "ember_bolt"), _stat_points, _player.skill_points])
 		print("[ANIM] player_directions=%d merc_directions=%d player_states=%d merc_states=%d" % [
 			_player.facing_count(), _merc.facing_count() if _merc != null else 0,
 			_player.state_count(), _merc.state_count() if _merc != null else 0])
 		var asset_report := _assets.validate_runtime()
 		print("[ASSET] monsters compiled=%d fallback=%d runtime=%s" % [_compiled_monsters, _generated_monsters, str(asset_report)])
-		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok
+		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		_release_runtime_resources()
 		get_tree().quit()
@@ -1403,22 +1408,22 @@ func _nearest_ground() -> Node:
 	return best
 
 func _on_skill_used(id: String) -> void:
-	if id == "battle_orders":
-		_cast_battle_orders()
+	if id == "iron_chant":
+		_cast_iron_chant()
 		return
 	var tgt := _nearest_monster()
-	if id == "teleport":
-		_cast_teleport(tgt)
+	if id == "phase_step":
+		_cast_phase_step(tgt)
 		return
 	if tgt == null:
 		_combat_log = "no target"
 		return
-	if id == "fireball":
+	if id == "ember_bolt":
 		_cast_bolt(tgt, "fire", Color(1, 0.5, 0.15), 14, 26)
-	elif id == "icebolt":
+	elif id == "frost_shard":
 		_cast_bolt(tgt, "cold", Color(0.4, 0.7, 1.0), 10, 20)
-	elif id == "lightning":
-		_cast_lightning(tgt)
+	elif id == "storm_lance":
+		_cast_storm_lance(tgt)
 	else:
 		if Vector2(_player.gx, _player.gy).distance_to(Vector2(tgt.gx, tgt.gy)) > ATTACK_RANGE + 0.6:
 			_combat_log = "out of range"
@@ -1437,29 +1442,30 @@ func _target_resist(t: ActorScript, element: String) -> int:
 func _cast_bolt(target: ActorScript, element: String, color: Color, base_min: int, base_max: int) -> void:
 	if target == null or not _player.alive or _player.attack_cd > 0.0:
 		return
-	if not _player.spend_mana(3):
+	var skill_id := "frost_shard" if element == "cold" else "ember_bolt"
+	if not _player.spend_mana(Skills.mana_cost(skill_id)):
 		_combat_log = "no mana"
 		return
 	_player.attack_cd = CombatLib.frames_to_sec(CombatLib.sorc_fcr_frames(_player_fcr))  # FCR
 	_player.play_cast(Vector2(target.gx - _player.gx, target.gy - _player.gy))
 	_play_sfx("spell")
 	_spells_cast += 1
-	var lvl := _player.skill_level("fireball")
+	var lvl := _player.skill_level(skill_id)
 	var dmg := _rng.randi_range(base_min, base_max) + lvl * 4
 	_spawn_projectile(_player.position, target, dmg, element, color)
 	_combat_log = "%s bolt (dmg~%d)" % [element, dmg]
 
 # 번개 스펠 — 즉시 명중(hit-scan), 넓은 데미지 범위
-func _cast_lightning(target: ActorScript) -> void:
+func _cast_storm_lance(target: ActorScript) -> void:
 	if target == null or not target.alive or not _player.alive or _player.attack_cd > 0.0:
 		return
-	if not _player.spend_mana(4):
+	if not _player.spend_mana(Skills.mana_cost("storm_lance")):
 		return
 	_player.attack_cd = CombatLib.frames_to_sec(CombatLib.sorc_fcr_frames(_player_fcr))
 	_player.play_cast(Vector2(target.gx - _player.gx, target.gy - _player.gy))
 	_play_sfx("spell")
 	_spells_cast += 1
-	var raw := _rng.randi_range(6, 30) + _player.skill_level("fireball") * 3
+	var raw := _rng.randi_range(6, 30) + _player.skill_level("storm_lance") * 3
 	var dmg := CombatLib.apply_resistance(raw, target.res_light)
 	target.take_damage(dmg)
 	_spell_hits += 1
@@ -1468,8 +1474,8 @@ func _cast_lightning(target: ActorScript) -> void:
 	if not target.alive:
 		_grant_xp(target.level * 40)
 
-func _cast_teleport(target: ActorScript) -> void:
-	if not _player.spend_mana(6):
+func _cast_phase_step(target: ActorScript) -> void:
+	if not _player.spend_mana(Skills.mana_cost("phase_step")):
 		return
 	_spells_cast += 1
 	var tx := _player.gx
@@ -1482,10 +1488,10 @@ func _cast_teleport(target: ActorScript) -> void:
 		_player.gx = tx
 		_player.gy = ty
 		_player.position = _iso(tx, ty)
-	_combat_log = "Teleport"
+	_combat_log = "Phase Step"
 
 func _blink_away(target: ActorScript) -> void:
-	if not _player.spend_mana(6):
+	if not _player.spend_mana(Skills.mana_cost("phase_step")):
 		return
 	_spells_cast += 1
 	var dir := (Vector2(_player.gx, _player.gy) - Vector2(target.gx, target.gy)).normalized()
@@ -1495,7 +1501,7 @@ func _blink_away(target: ActorScript) -> void:
 		_player.gx = tx
 		_player.gy = ty
 		_player.position = _iso(tx, ty)
-	_combat_log = "Teleport (kite)"
+	_combat_log = "Phase Step (kite)"
 
 func _spawn_projectile(from_pos: Vector2, target: ActorScript, dmg: int, element: String = "fire", color: Color = Color(1, 0.5, 0.15)) -> void:
 	var n := Sprite2D.new()
@@ -1546,22 +1552,22 @@ func _update_projectiles(delta: float) -> void:
 func _player_attack(target: ActorScript, skill_id: String) -> void:
 	if target == null or not target.alive or not _player.alive or _player.attack_cd > 0.0:
 		return
-	var m_lvl := _player.skill_level("mastery")
+	var m_lvl := _player.skill_level("weapon_discipline")
 	var s_lvl := _player.skill_level(skill_id)
 	var use_skill := s_lvl > 0 and _player.spend_mana(Skills.mana_cost(skill_id))
-	var ar_bonus := Skills.mastery_ar_pct(m_lvl)
+	var ar_bonus := Skills.discipline_ar_pct(m_lvl)
 	# 힘 → 근접 %ED (D2: str가 무기 물리 데미지 증가). 10 초과분 * 1%
 	var str_ed := float(maxi(0, _player.stat_str + int(_eq["str"]) - 10)) * 1.0
-	var dmg_bonus := Skills.mastery_damage_pct(m_lvl) + float(_eq["ed"]) + str_ed
+	var dmg_bonus := Skills.discipline_damage_pct(m_lvl) + float(_eq["ed"]) + str_ed
 	var ignore_def := false
 	var label := "Attack"
 	if use_skill:
 		label = Skills.def_name(skill_id)
-		if skill_id == "bash":
-			ar_bonus += Skills.bash_ar_pct(s_lvl)
-			dmg_bonus += Skills.bash_damage_pct(s_lvl)
-		elif skill_id == "berserk":
-			dmg_bonus += Skills.berserk_damage_pct(s_lvl)
+		if skill_id == "sundering_strike":
+			ar_bonus += Skills.sundering_ar_pct(s_lvl)
+			dmg_bonus += Skills.sundering_damage_pct(s_lvl)
+		elif skill_id == "void_fury":
+			dmg_bonus += Skills.void_fury_damage_pct(s_lvl)
 			ignore_def = true
 
 	_player.attack_cd = PLAYER_ATTACK_CD
@@ -1576,14 +1582,14 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 		_hits += 1
 		_play_sfx("hit")
 		var dmg := CombatLib.physical_damage(_rng, _player.dmg_min, _player.dmg_max, dmg_bonus)
-		var crit := CombatLib.roll_deadly_strike(_rng, Skills.mastery_deadly_strike(m_lvl))
+		var crit := CombatLib.roll_deadly_strike(_rng, Skills.discipline_deadly_strike(m_lvl))
 		if crit:
 			dmg *= 2
 		# Hell 물리 50% 바닥 (Part 2 §3)
 		dmg = CombatLib.apply_resistance(dmg, CombatLib.diff_hell_physical_floor(_difficulty))
 		# 크러싱 블로우(바바리안 20%): 현재 생명 비율 감소 (Part 5 §4)
 		var cb := 0
-		if _class == "barbarian" and _rng.randf() < 0.20:
+		if _class == "warden" and _rng.randf() < 0.20:
 			cb = CombatLib.crushing_blow(target.life, false, String(target.get_meta("kind", "melee")) == "boss")
 		target.take_damage(dmg + cb)
 		# 무기 속성 데미지 (Fiery/Frozen/Shocking) — 대상 속성 저항 적용
@@ -1650,15 +1656,15 @@ func _apply_enchant(m: ActorScript) -> void:
 		var c := Color(1, 0.5, 0.2) if el == "fire" else (Color(0.5, 0.8, 1) if el == "cold" else Color(1, 1, 0.4))
 		_spawn_text(_player.position + Vector2(0, -12), "+%d %s" % [d, el], c)
 
-func _cast_battle_orders() -> void:
-	var lvl := _player.skill_level("battle_orders")
-	if lvl <= 0 or not _player.spend_mana(Skills.mana_cost("battle_orders")):
+func _cast_iron_chant() -> void:
+	var lvl := _player.skill_level("iron_chant")
+	if lvl <= 0 or not _player.spend_mana(Skills.mana_cost("iron_chant")):
 		return
-	_player.bo_pct = Skills.bo_bonus_pct(lvl)
-	_player.bo_timer = Skills.bo_duration(lvl)
+	_player.bo_pct = Skills.iron_chant_bonus_pct(lvl)
+	_player.bo_timer = Skills.iron_chant_duration(lvl)
 	_recompute_vitals(_player)
 	_bo_casts += 1
-	_combat_log = "Battle Orders! +%.0f%%" % _player.bo_pct
+	_combat_log = "Iron Chant! +%.0f%%" % _player.bo_pct
 
 func _recompute_vitals(a: ActorScript) -> void:
 	var old_ml := a.max_life
@@ -1688,12 +1694,12 @@ func _recompute_player() -> void:
 	else:
 		_player.dmg_min = 1
 		_player.dmg_max = 2
-	if _class == "sorceress":
+	if _class == "arcanist":
 		_player.base_max_life = 40 + 2 * _player.stat_vit + _player.level + int(eq["life"])
 		_player.base_max_mana = 35 + 2 * _player.stat_energy + 2 * _player.level + int(eq["mana"])
 	else:
-		_player.base_max_life = CombatLib.barbarian_max_life(_player.stat_vit, _player.level) + int(eq["life"])
-		_player.base_max_mana = CombatLib.barbarian_max_mana(_player.stat_energy, _player.level) + int(eq["mana"])
+		_player.base_max_life = CombatLib.warden_max_life(_player.stat_vit, _player.level) + int(eq["life"])
+		_player.base_max_mana = CombatLib.warden_max_mana(_player.stat_energy, _player.level) + int(eq["mana"])
 	# 속성 저항 = 기본 + 장비(res_all + 개별) + 난이도 페널티 (Part 2 §3, Part 5 §2)
 	var pen := CombatLib.diff_player_resist_penalty(_difficulty)
 	var rall := int(eq.get("res_all", 0))
@@ -1952,11 +1958,11 @@ func _build_char_panel() -> void:
 	_rebuild_char_panel()
 
 func _class_skill_ids() -> Array:
-	return ["fireball", "icebolt", "lightning", "teleport"] if _class == "sorceress" else ["bash", "berserk", "battle_orders", "mastery"]
+	return ["ember_bolt", "frost_shard", "storm_lance", "phase_step"] if _class == "arcanist" else ["sundering_strike", "void_fury", "iron_chant", "weapon_discipline"]
 
 func _skill_label(id: String) -> String:
-	var names := {"fireball": "화염구", "icebolt": "냉기화살", "lightning": "번개", "teleport": "순간이동",
-		"bash": "강타", "berserk": "광폭화", "battle_orders": "전투명령", "mastery": "무기숙련"}
+	var names := {"ember_bolt": "잿불 화살", "frost_shard": "서리 파편", "storm_lance": "폭풍 창", "phase_step": "위상 도약",
+		"sundering_strike": "파쇄 일격", "void_fury": "공허 격노", "iron_chant": "철의 성가", "weapon_discipline": "무기 수련"}
 	return String(names.get(id, id))
 
 func _rebuild_char_panel() -> void:
@@ -2017,12 +2023,12 @@ func _spend_skill(id: String) -> void:
 # 오토플레이 자동 분배(검증): 클래스별 우선순위
 func _auto_spend_points() -> void:
 	while _stat_points > 0:
-		if _class == "sorceress":
+		if _class == "arcanist":
 			_spend_stat("energy" if _player.stat_energy < _player.stat_vit + 20 else "vit")
 		else:
 			_spend_stat("vit" if _player.stat_vit <= _player.stat_str else "str")
 	while _player.skill_points > 0:
-		_spend_skill("fireball" if _class == "sorceress" else "mastery")
+		_spend_skill("ember_bolt" if _class == "arcanist" else "weapon_discipline")
 
 func _refresh_vendor() -> void:
 	if _vendor_gold_lbl:

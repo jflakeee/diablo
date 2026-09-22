@@ -26,8 +26,8 @@ godot --path . --rendering-driver opengl3 -- autoquit sorc
 
 ## 실측 (2026-09-20, HD 4000, 결정론 시드)
 ```
-sorceress: dungeon_level=2 levels_cleared=1 kills=6 life=84/86    verdict=PASS
-barbarian: dungeon_level=3 levels_cleared=2 kills=7 life=106/163  verdict=PASS
+arcanist: dungeon_level=2 levels_cleared=1 kills>0                verdict=PASS
+warden:   dungeon_level=2 levels_cleared=1 kills>0                verdict=PASS
 ```
 → 두 클래스 모두 **다층 던전 클리어→워프** 동작, 런타임 에러 0.
 

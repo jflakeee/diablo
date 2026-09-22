@@ -86,8 +86,8 @@ static func diff_hell_physical_floor(diff: int) -> int:
 	return 50 if diff >= 2 else 0
 
 # 바바리안 파생 스탯 (Part 1 §2)
-static func barbarian_max_life(vit: int, level: int) -> int:
+static func warden_max_life(vit: int, level: int) -> int:
 	return int(55 + 4 * vit + 2 * level)
 
-static func barbarian_max_mana(energy: int, level: int) -> int:
+static func warden_max_mana(energy: int, level: int) -> int:
 	return int(10 + energy + level)

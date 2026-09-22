@@ -145,7 +145,7 @@ func selftest() -> bool:
 	var sword := texture("sword")
 	var potion := texture("potion")
 	var ruby := texture("ruby")
-	var hero := hero_directions("barbarian")
+	var hero := hero_directions("warden")
 	var monster_ids := ["ash_imp", "ash_caller", "thorn_beast", "rotwalker", "bone_guard",
 		"bone_marksman", "horned_marauder", "crimson_raptor", "blighted_ranger", "grave_stalker", "venom_husk", "brood_matron"]
 	for monster_id in monster_ids:

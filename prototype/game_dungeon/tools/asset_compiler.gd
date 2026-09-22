@@ -146,7 +146,7 @@ func _load_samples() -> Array:
 				texture = PixelGen.iso_tile(64, 32, color, seed, bool(recipe.get("speckle", false)))
 			"hero":
 				var color := Color.from_string(String(recipe.get("color", "#808080")), Color.GRAY)
-				texture = PixelGen.hero(String(recipe.get("kind", "rogue")), color, seed)
+				texture = PixelGen.hero(String(recipe.get("kind", "scout")), color, seed)
 			"monster":
 				var color := Color.from_string(String(recipe.get("color", "#808080")), Color.GRAY)
 				texture = PixelGen.monster_named(String(recipe.get("kind", id)), color, seed)

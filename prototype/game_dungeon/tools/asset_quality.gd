@@ -129,13 +129,13 @@ static func suite(pixel_gen: GDScript, samples: Array) -> Dictionary:
 		checked += 1
 		if not bool(report["ok"]):
 			failures.append("%s:%s" % [String(samples[i][1]), str(report)])
-	var barb0: Image = pixel_gen.hero("barbarian", Color(0.7, 0.2, 0.15), 10, 0, 0).get_image()
-	var barb1: Image = pixel_gen.hero("barbarian", Color(0.7, 0.2, 0.15), 10, 0, 1).get_image()
-	var sorc: Image = pixel_gen.hero("sorceress", Color(0.3, 0.3, 0.75), 11, 0, 0).get_image()
+	var warden0: Image = pixel_gen.hero("warden", Color(0.7, 0.2, 0.15), 10, 0, 0).get_image()
+	var warden1: Image = pixel_gen.hero("warden", Color(0.7, 0.2, 0.15), 10, 0, 1).get_image()
+	var arcanist: Image = pixel_gen.hero("arcanist", Color(0.3, 0.3, 0.75), 11, 0, 0).get_image()
 	var variant_a: Image = pixel_gen.monster(Color(0.5, 0.4, 0.3), 1).get_image()
 	var variant_b: Image = pixel_gen.monster(Color(0.5, 0.4, 0.3), 2).get_image()
-	var silhouette_diff := pixel_difference(barb0, sorc)
-	var walk_diff := pixel_difference(barb0, barb1)
+	var silhouette_diff := pixel_difference(warden0, arcanist)
+	var walk_diff := pixel_difference(warden0, warden1)
 	var seed_diff := pixel_difference(variant_a, variant_b)
 	if silhouette_diff < 100: failures.append("hero silhouette difference too small: %d" % silhouette_diff)
 	if walk_diff < 8: failures.append("walk frame difference too small: %d" % walk_diff)
@@ -143,7 +143,7 @@ static func suite(pixel_gen: GDScript, samples: Array) -> Dictionary:
 	var animation_checked := 0
 	var max_anchor_drift := 0
 	var min_animation_iou := 1.0
-	var hero_defs := [["barbarian", Color(0.7, 0.2, 0.15), 10], ["sorceress", Color(0.3, 0.3, 0.75), 11], ["rogue", Color(0.5, 0.15, 0.2), 7]]
+	var hero_defs := [["warden", Color(0.7, 0.2, 0.15), 10], ["arcanist", Color(0.3, 0.3, 0.75), 11], ["scout", Color(0.5, 0.15, 0.2), 7]]
 	for hero in hero_defs:
 		for direction in 4:
 			var hero_frames: Array = []

@@ -7,6 +7,20 @@
   ],
   "cell_size": 64,
   "entries": {
+    "arcanist": {
+      "cell": [
+        1,
+        1
+      ],
+      "recipe_id": "Arcanist",
+      "recipe_type": "hero",
+      "region": [
+        80,
+        76,
+        32,
+        40
+      ]
+    },
     "ash_caller": {
       "cell": [
         1,
@@ -33,20 +47,6 @@
         267,
         34,
         42
-      ]
-    },
-    "barbarian": {
-      "cell": [
-        0,
-        1
-      ],
-      "recipe_id": "Barbarian",
-      "recipe_type": "hero",
-      "region": [
-        16,
-        76,
-        32,
-        40
       ]
     },
     "blighted_ranger": {
@@ -147,6 +147,20 @@
         32
       ]
     },
+    "ember_scout": {
+      "cell": [
+        3,
+        3
+      ],
+      "recipe_id": "Ember Scout",
+      "recipe_type": "hero",
+      "region": [
+        208,
+        204,
+        32,
+        40
+      ]
+    },
     "emerald": {
       "cell": [
         1,
@@ -217,6 +231,20 @@
         42
       ]
     },
+    "iron_warden": {
+      "cell": [
+        0,
+        1
+      ],
+      "recipe_id": "Iron Warden",
+      "recipe_type": "hero",
+      "region": [
+        16,
+        76,
+        32,
+        40
+      ]
+    },
     "potion": {
       "cell": [
         3,
@@ -229,20 +257,6 @@
         80,
         32,
         32
-      ]
-    },
-    "rogue": {
-      "cell": [
-        3,
-        3
-      ],
-      "recipe_id": "Rogue",
-      "recipe_type": "hero",
-      "region": [
-        208,
-        204,
-        32,
-        40
       ]
     },
     "rotwalker": {
@@ -313,20 +327,6 @@
         144,
         32,
         32
-      ]
-    },
-    "sorceress": {
-      "cell": [
-        1,
-        1
-      ],
-      "recipe_id": "Sorceress",
-      "recipe_type": "hero",
-      "region": [
-        80,
-        76,
-        32,
-        40
       ]
     },
     "stone": {
@@ -406,7 +406,7 @@
     "archetypes": "681e5d8777dfe7902b9dafd229670231",
     "monsters": "3ed46ac1a21dabe970632e736fa5760e",
     "palettes": "9577067a933515b7fef5d56f6ebd3254",
-    "recipes": "e0d1efe55084a729b317c4f4c5e7cabb"
+    "recipes": "0dbb46b33ea29b58ac4340f7a2844e74"
   },
   "provenance": {
     "direct_edit": false,

@@ -5,8 +5,8 @@
     {"id":"stone",      "type":"tile",    "color":"#66615c", "seed":2,  "speckle":true,  "scale":2.2},
     {"id":"dirt",       "type":"tile",    "color":"#735433", "seed":3,  "speckle":true,  "scale":2.2},
     {"id":"hell",       "type":"tile",    "color":"#801f80", "seed":4,  "speckle":true,  "scale":2.2},
-    {"id":"Barbarian",  "type":"hero",    "kind":"barbarian", "color":"#b33326", "seed":10, "scale":2.6},
-    {"id":"Sorceress",  "type":"hero",    "kind":"sorceress", "color":"#4d4dbf", "seed":11, "scale":2.6},
+    {"id":"Iron Warden", "type":"hero",   "kind":"warden", "color":"#b33326", "seed":10, "scale":2.6},
+    {"id":"Arcanist",    "type":"hero",   "kind":"arcanist", "color":"#4d4dbf", "seed":11, "scale":2.6},
     {"id":"sword",      "type":"icon",    "kind":"sword", "seed":0, "scale":2.6},
     {"id":"potion",     "type":"icon",    "kind":"potion", "seed":0, "scale":2.6},
     {"id":"shield",     "type":"icon",    "kind":"shield", "seed":0, "scale":2.6},
@@ -16,6 +16,6 @@
     {"id":"topaz",      "type":"icon",    "kind":"gem", "seed":2, "scale":2.6},
     {"id":"emerald",    "type":"icon",    "kind":"gem", "seed":3, "scale":2.6},
     {"id":"rune",       "type":"icon",    "kind":"rune", "seed":2, "scale":2.6},
-    {"id":"Rogue",      "type":"hero",    "kind":"rogue", "color":"#802633", "seed":7, "scale":2.6}
+    {"id":"Ember Scout", "type":"hero",   "kind":"scout", "color":"#802633", "seed":7, "scale":2.6}
   ]
 }

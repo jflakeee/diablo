@@ -152,7 +152,7 @@ static func hero(kind: String, robe: Color, seed: int, direction: int = 0, frame
 	var img := _img(32, 40)
 	var skin := Color(0.85, 0.66, 0.47)
 	var step := -1 if walk == 1 else (1 if walk == 2 else 0)
-	if kind == "barbarian":
+	if kind == "warden":
 		_fill_rect(img, 8, 15, 16, 13, robe)                         # 넓은 흉곽
 		_fill_ellipse(img, 7, 18, 4, 8, skin.darkened(0.08))         # 맨팔
 		_fill_ellipse(img, 25, 18, 4, 8, skin.darkened(0.16))
@@ -161,7 +161,7 @@ static func hero(kind: String, robe: Color, seed: int, direction: int = 0, frame
 		_fill_rect(img, 18, 27, 5, 9 - step, robe.darkened(0.35))
 		_fill_rect(img, 24, 7, 2, 21, Color(0.35, 0.22, 0.1))       # 도끼 자루
 		_fill_rect(img, 21, 5, 7, 5, Color(0.72, 0.76, 0.8))
-	elif kind == "sorceress":
+	elif kind == "arcanist":
 		_fill_ellipse(img, 16, 25, 8, 12, robe)                      # 좁고 긴 로브
 		_fill_ellipse(img, 16, 9, 5, 6, skin)
 		_fill_ellipse(img, 16, 6, 7, 4, robe.darkened(0.22))         # 후드
@@ -169,7 +169,7 @@ static func hero(kind: String, robe: Color, seed: int, direction: int = 0, frame
 		_fill_ellipse(img, 27, 6, 2, 3, Color(0.3, 0.75, 1.0))
 		_fill_rect(img, 11 + step, 34, 3, 4, robe.darkened(0.35))
 		_fill_rect(img, 19 - step, 34, 3, 4, robe.darkened(0.35))
-	else: # rogue mercenary
+	else: # scout companion
 		_fill_rect(img, 10, 15, 12, 15, robe)
 		_fill_ellipse(img, 16, 9, 5, 6, skin)
 		_fill_rect(img, 11 + step, 29, 4, 8, robe.darkened(0.4))
