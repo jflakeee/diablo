@@ -642,11 +642,7 @@ func _start_game() -> void:
 	_player.position = _iso(_player.gx, _player.gy)
 	# 제작기 캐릭터 스프라이트
 	var robe := Color(0.3, 0.3, 0.75) if _class == "sorceress" else Color(0.7, 0.2, 0.15)
-	_player.set_sprite_frames(PixelGen.hero(_class, robe, 10, 0, 0), [
-		PixelGen.hero(_class, robe, 10, 0, 1),
-		PixelGen.hero(_class, robe, 10, 0, 0),
-		PixelGen.hero(_class, robe, 10, 0, 2),
-	], 1.1)
+	_set_hero_art(_player, _class, robe, 10, 1.1)
 	# 초기 장비/저항 계산: 바바리안 시작 무기, 소서리스 스탯 재계산
 	if _class == "barbarian":
 		var w := Item.generate(_rng, Item.WEAPON_BASES[1], 1, "magic")  # Fiery Hand Axe
@@ -971,16 +967,23 @@ func _spawn_merc() -> void:
 	_merc.is_ally = true
 	_merc.died.connect(_on_merc_died)
 	var merc_col := Color(0.5, 0.15, 0.2)
-	_merc.set_sprite_frames(PixelGen.hero("rogue", merc_col, 7, 0, 0), [
-		PixelGen.hero("rogue", merc_col, 7, 0, 1),
-		PixelGen.hero("rogue", merc_col, 7, 0, 0),
-		PixelGen.hero("rogue", merc_col, 7, 0, 2),
-	], 1.0)
+	_set_hero_art(_merc, "rogue", merc_col, 7, 1.0)
 	_merc.level = _player.level
 	_merc_scale_stats()
 	_merc.gx = _player.gx + 1
 	_merc.gy = _player.gy
 	_merc.position = _iso(_merc.gx, _merc.gy)
+
+func _set_hero_art(actor: ActorScript, kind: String, color: Color, seed: int, scale_v: float) -> void:
+	var compiled := _assets.hero_frames(kind)
+	if not compiled.is_empty():
+		actor.set_sprite_frames(compiled["idle"], compiled["walk"], scale_v)
+		return
+	actor.set_sprite_frames(PixelGen.hero(kind, color, seed, 0, 0), [
+		PixelGen.hero(kind, color, seed, 0, 1),
+		PixelGen.hero(kind, color, seed, 0, 0),
+		PixelGen.hero(kind, color, seed, 0, 2),
+	], scale_v)
 
 func _merc_scale_stats() -> void:
 	var lv := _player.level

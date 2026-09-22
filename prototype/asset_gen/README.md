@@ -44,6 +44,8 @@ godot --headless --path . -- autoquit publish        # 검증 후 game_dungeon/g
 
 게시된 `atlas.png`는 정본 게임의 `asset_catalog.gd`가 로드한다. 드롭 아이콘은
 아틀라스 region을 우선 사용하고, 항목 또는 산출물이 없으면 런타임 `PixelGen.icon()`으로 폴백한다.
+플레이어와 용병 역시 게시된 `heroes.tres`의 `SpriteFrames`를 우선 사용하며,
+리소스 또는 애니메이션이 누락되면 동일 레시피의 런타임 영웅 생성으로 폴백한다.
 
 ### 자동 품질 게이트 (`quality.gd`)
 - 불투명 픽셀 밀도, 팔레트 크기, 연결 요소 수, 이미지 경계 잘림 검사

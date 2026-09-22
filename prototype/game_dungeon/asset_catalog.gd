@@ -3,10 +3,12 @@ extends RefCounted
 
 const MANIFEST_PATH := "res://generated/manifest.json"
 const ATLAS_PATH := "res://generated/atlas.png"
+const HEROES_PATH := "res://generated/heroes.tres"
 
 var _atlas: Texture2D
 var _entries := {}
 var _regions := {}
+var _heroes: SpriteFrames
 
 func _init() -> void:
 	if not FileAccess.file_exists(MANIFEST_PATH) or not ResourceLoader.exists(ATLAS_PATH):
@@ -19,6 +21,8 @@ func _init() -> void:
 		return
 	_entries = parsed["entries"]
 	_atlas = load(ATLAS_PATH) as Texture2D
+	if ResourceLoader.exists(HEROES_PATH):
+		_heroes = load(HEROES_PATH) as SpriteFrames
 
 func available() -> bool:
 	return _atlas != null and not _entries.is_empty()
@@ -42,15 +46,29 @@ func texture(id: String) -> Texture2D:
 func entry_count() -> int:
 	return _entries.size()
 
+func hero_frames(kind: String, direction: String = "s") -> Dictionary:
+	if _heroes == null:
+		return {}
+	var anim := "%s_walk_%s" % [kind, direction]
+	if not _heroes.has_animation(anim) or _heroes.get_frame_count(anim) < 3:
+		return {}
+	return {"idle": _heroes.get_frame_texture(anim, 1), "walk": [
+		_heroes.get_frame_texture(anim, 0),
+		_heroes.get_frame_texture(anim, 1),
+		_heroes.get_frame_texture(anim, 2),
+	]}
+
 func selftest() -> bool:
 	if not available() or entry_count() != 18:
 		return false
 	var sword := texture("sword")
 	var potion := texture("potion")
 	var ruby := texture("ruby")
-	return sword != null and potion != null and ruby != null and sword != potion and texture("missing") == null
+	var hero := hero_frames("barbarian")
+	return sword != null and potion != null and ruby != null and sword != potion and texture("missing") == null and not hero.is_empty() and (hero["walk"] as Array).size() == 3
 
 func clear() -> void:
 	_regions.clear()
 	_entries.clear()
 	_atlas = null
+	_heroes = null
