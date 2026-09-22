@@ -225,30 +225,30 @@ static func monster_named(name: String, body: Color, seed: int, frame: int = 0) 
 		return hit
 	var img := _img(34, 42)
 	var step := -1 if walk == 1 else (1 if walk == 2 else 0)
-	if "skeleton" in family:
+	if "bone" in family:
 		var bone := Color(0.86, 0.84, 0.72)
 		_fill_ellipse(img, 17, 8, 6, 6, bone)
 		_fill_rect(img, 15, 14, 4, 15, bone)
 		_fill_rect(img, 9, 16, 6, 3, bone); _fill_rect(img, 19, 16, 7, 3, bone)
 		_fill_rect(img, 12 + step, 27, 3, 11, bone); _fill_rect(img, 20 - step, 27, 3, 11, bone)
 		_px(img, 14, 8, Color(0.05, 0.02, 0.02)); _px(img, 20, 8, Color(0.05, 0.02, 0.02))
-	elif "hawk" in family:
+	elif "raptor" in family:
 		_fill_ellipse(img, 17, 20, 6, 8, body)
 		_fill_ellipse(img, 9, 17 + step, 6, 4, body.darkened(0.1))
 		_fill_ellipse(img, 25, 17 - step, 6, 4, body.darkened(0.18))
 		_fill_rect(img, 15, 6, 4, 8, body.lightened(0.1))
-	elif "goat" in family:
+	elif "horned" in family:
 		_fill_ellipse(img, 17, 21, 10, 12, body)
 		_fill_ellipse(img, 17, 8, 6, 6, body.lightened(0.08))
 		_fill_rect(img, 9, 2, 3, 8, body.darkened(0.25)); _fill_rect(img, 23, 2, 3, 8, body.darkened(0.25))
 		_fill_rect(img, 10 + step, 31, 4, 9, body.darkened(0.25)); _fill_rect(img, 21 - step, 31, 4, 9, body.darkened(0.25))
-	elif "andariel" in family:
+	elif "brood" in family:
 		_fill_ellipse(img, 17, 23, 12, 14, body)
 		_fill_ellipse(img, 17, 9, 6, 6, body.lightened(0.15))
 		for x in [6, 10, 22, 26]:
 			_fill_rect(img, x, 3, 2, 22, body.darkened(0.3))
 		_fill_rect(img, 8 + step, 31, 5, 7, body.darkened(0.28)); _fill_rect(img, 22 - step, 31, 5, 7, body.darkened(0.28))
-	elif "fallen" in family:
+	elif "ash" in family:
 		_fill_ellipse(img, 17, 22, 9, 11, body)
 		_fill_ellipse(img, 17, 9, 7, 7, body.lightened(0.08))
 		_fill_rect(img, 8, 2, 3, 8, body.darkened(0.3)); _fill_rect(img, 24, 2, 3, 8, body.darkened(0.3))

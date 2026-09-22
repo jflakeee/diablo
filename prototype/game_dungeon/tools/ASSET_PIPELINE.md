@@ -27,7 +27,7 @@ godot --headless --path prototype/game_dungeon res://tools/asset_compiler.tscn -
 ### 생성기 구성
 - `iso_tile(base,seed,speckle)` — 아이소 다이아 + **밝기 노이즈 지터 + 가장자리 림/상단 하이라이트 + 돌 얼룩** (grass/stone/dirt/hell)
 - `hero(kind,robe,seed,direction,frame)` — 바바리안/소서리스/용병 전용 실루엣 + 4방향·걷기 프레임
-- `monster_named(name,body,seed,frame)` — Fallen/해골/염소인간/매/안다리엘 계열별 실루엣 + 걷기 프레임
+- `monster_named(name,body,seed,frame)` — Ash Imp/Bone Guard/Horned Marauder/Crimson Raptor/Brood Matron 계열별 실루엣 + 걷기 프레임
 - `icon(kind,seed)` — sword/potion/shield/coin/gem/rune/material (도형 조합 + 외곽선)
 - 공통: `_fill_ellipse`/`_fill_rect`/`_outline`/`_shade_right`, 해시 노이즈
 

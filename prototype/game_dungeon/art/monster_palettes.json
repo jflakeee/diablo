@@ -1,8 +1,8 @@
 {
   "palettes": {
-    "fallen_red":"#bf5940", "shaman_gold":"#d98c33", "spike_amber":"#cc8033",
-    "zombie_olive":"#738c40", "bone":"#d9d9cc", "aged_bone":"#ccccb3",
-    "goat_brown":"#8c6640", "blood_red":"#cc4040", "rogue_violet":"#994d8c",
-    "ghoul_pale":"#809973", "tainted_green":"#598c59", "demon_magenta":"#b32680"
+    "ash_red":"#bf5940", "caller_gold":"#d98c33", "thorn_amber":"#cc8033",
+    "rot_olive":"#738c40", "bone":"#d9d9cc", "aged_bone":"#ccccb3",
+    "horn_brown":"#8c6640", "blood_red":"#cc4040", "ranger_violet":"#994d8c",
+    "grave_pale":"#809973", "venom_green":"#598c59", "brood_magenta":"#b32680"
   }
 }

@@ -19,6 +19,7 @@ const Automation := preload("res://automation.gd")
 const AssetCatalog := preload("res://asset_catalog.gd")
 const MobileUI := preload("res://mobile_ui.gd")
 const Accessibility := preload("res://accessibility.gd")
+const Identity := preload("res://identity.gd")
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -133,6 +134,7 @@ var _generated_monsters := 0
 var _run_start := 0
 var _auto_quit := false
 var _ui_selftest_ok := true
+var _identity_selftest_ok := true
 
 func _iso(gx: float, gy: float) -> Vector2:
 	return Vector2((gx - gy) * TILE_W * 0.5, (gx + gy) * TILE_H * 0.5)
@@ -523,6 +525,7 @@ func _release_runtime_resources() -> void:
 		if player != null:
 			player.stop()
 			player.stream = null
+			player.free()
 	_sfx_pool.clear()
 	_sfx.clear()
 	_sfx_ready = false
@@ -543,6 +546,9 @@ func _ready() -> void:
 		_ui_selftest_ok = MobileUI.selftest()
 		print("[MOBILE_UI] ratios=4 targets>=48 primary>=72 safe_margin=16 verdict=", "PASS" if _ui_selftest_ok else "FAIL")
 		print("[ACCESS] scales=80/100/120/140 text=normal/large persist=true verdict=", "PASS" if Accessibility.selftest() else "FAIL")
+		var identity_report := Identity.selftest(Data)
+		_identity_selftest_ok = bool(identity_report["ok"])
+		print("[IDENTITY] project=Ashen Depths monsters=%d failures=%s verdict=%s" % [int(identity_report["monster_ids"]), str(identity_report["failures"]), "PASS" if bool(identity_report["ok"]) else "FAIL"])
 		print("[ASSET] atlas=%s entries=%d selftest=%s" % [str(_assets.available()), _assets.entry_count(), "PASS" if _assets.selftest() else "FAIL"])
 		_automation = Automation.new() # 셀프테스트 상태를 실제 플레이와 분리
 		var uq := Item.generate(_rng, Item.WEAPON_BASES[1], 20, "unique")
@@ -573,7 +579,7 @@ func _show_class_select() -> void:
 	bg.size = vp
 	_menu_layer.add_child(bg)
 	var title := Label.new()
-	title.text = "DIABLO CLONE — Dungeon"
+	title.text = "ASHEN DEPTHS"
 	title.add_theme_font_size_override("font_size", _accessibility.font_size(44))
 	title.position = Vector2(vp.x * 0.5 - 240, vp.y * 0.2)
 	_menu_layer.add_child(title)
@@ -815,6 +821,7 @@ func _start_game() -> void:
 
 	_data_selftest()
 	if _auto_quit:
+		_craft_selftest()
 		_act_reward_selftest()
 	print("[GD] ready — class=%s life=%d dungeon=%dx%d entrance=(%d,%d) exit=(%d,%d)" % [
 		_class, _player.max_life, _gw, _gh, _ent_cell.x, _ent_cell.y, _exit_cell.x, _exit_cell.y])
@@ -864,26 +871,26 @@ func _craft_selftest() -> void:
 	var t1: bool = int(e1.get("life", 0)) >= 38
 	print("[P4] gem  : Ruby→armor +life=%d (>=38) : %s" % [int(e1.get("life", 0)), str(t1)])
 
-	# 2) 룬워드 Steel = Tir + El (weapon 2소켓)
+	# 2) 독자 각인 조합 Vey + Ahn (weapon 2소켓)
 	var wpn := Item.make_socketed(Item.WEAPON_BASES[0], 2)
-	Item.socket_insert(wpn, {"kind": "rune", "id": "Tir"})
-	Item.socket_insert(wpn, {"kind": "rune", "id": "El"})
+	Item.socket_insert(wpn, {"kind": "rune", "id": "Vey"})
+	Item.socket_insert(wpn, {"kind": "rune", "id": "Ahn"})
 	var e2 := Item.effective_affixes(wpn)
-	var t2: bool = String(wpn.get("runeword", "")) == "Steel" and int(e2.get("ed", 0)) == 20
-	print("[P4] rword: Tir+El → %s (ed=%d ar=%d) : %s" % [String(wpn.get("runeword", "")), int(e2.get("ed", 0)), int(e2.get("ar", 0)), str(t2)])
+	var t2: bool = String(wpn.get("runeword", "")) == "Tempered Edge" and int(e2.get("ed", 0)) == 20
+	print("[P4] sigil: Vey+Ahn → %s (ed=%d ar=%d) : %s" % [String(wpn.get("runeword", "")), int(e2.get("ed", 0)), int(e2.get("ar", 0)), str(t2)])
 
-	# 3) 룬워드 순서 오류(El+Tir) → 미형성
+	# 3) 각인 순서 오류(Ahn+Vey) → 미형성
 	var wpn2 := Item.make_socketed(Item.WEAPON_BASES[0], 2)
-	Item.socket_insert(wpn2, {"kind": "rune", "id": "El"})
-	Item.socket_insert(wpn2, {"kind": "rune", "id": "Tir"})
+	Item.socket_insert(wpn2, {"kind": "rune", "id": "Ahn"})
+	Item.socket_insert(wpn2, {"kind": "rune", "id": "Vey"})
 	Item.effective_affixes(wpn2)
 	var t3: bool = String(wpn2.get("runeword", "")) == ""
-	print("[P4] order: El+Tir → runeword='%s' (없어야 함) : %s" % [String(wpn2.get("runeword", "")), str(t3)])
+	print("[P4] order: Ahn+Vey → sigilword='%s' (없어야 함) : %s" % [String(wpn2.get("runeword", "")), str(t3)])
 
-	# 4) 큐브: El×3 → Eld
-	var up := Craft.upgrade_rune("El")
-	var t4: bool = up == "Eld"
-	print("[P4] cube : El×3 → %s (Eld) : %s" % [up, str(t4)])
+	# 4) 변환: Ahn×3 → Ahnor
+	var up := Craft.upgrade_rune("Ahn")
+	var t4: bool = up == "Ahnor"
+	print("[P4] forge: Ahn×3 → %s (Ahnor) : %s" % [up, str(t4)])
 
 	print("[P4][RESULT] craft_selftest verdict=", ("PASS" if (t1 and t2 and t3 and t4) else "FAIL"))
 
@@ -1366,7 +1373,7 @@ func _process(delta: float) -> void:
 			_player.state_count(), _merc.state_count() if _merc != null else 0])
 		var asset_report := _assets.validate_runtime()
 		print("[ASSET] monsters compiled=%d fallback=%d runtime=%s" % [_compiled_monsters, _generated_monsters, str(asset_report)])
-		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and _ui_selftest_ok
+		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		_release_runtime_resources()
 		get_tree().quit()

@@ -1,10 +1,10 @@
 {
   "archetypes": {
-    "fallen":{"generator":"Fallen"}, "fallen_shaman":{"generator":"Fallen Shaman"},
-    "spike_fiend":{"generator":"Spike Fiend"}, "zombie":{"generator":"Zombie"},
-    "skeleton":{"generator":"Skeleton"}, "skeleton_archer":{"generator":"Skeleton Archer"},
-    "goat_man":{"generator":"Goat Man"}, "blood_hawk":{"generator":"Blood Hawk"},
-    "corrupt_rogue":{"generator":"Corrupt Rogue"}, "ghoul":{"generator":"Ghoul"},
-    "tainted":{"generator":"Tainted"}, "andariel":{"generator":"Andariel"}
+    "ash_imp":{"generator":"Ash Imp"}, "ash_caller":{"generator":"Ash Caller"},
+    "thorn_beast":{"generator":"Thorn Beast"}, "rotwalker":{"generator":"Rotwalker"},
+    "bone_guard":{"generator":"Bone Guard"}, "bone_marksman":{"generator":"Bone Marksman"},
+    "horned_marauder":{"generator":"Horned Marauder"}, "crimson_raptor":{"generator":"Crimson Raptor"},
+    "blighted_ranger":{"generator":"Blighted Ranger"}, "grave_stalker":{"generator":"Grave Stalker"},
+    "venom_husk":{"generator":"Venom Husk"}, "brood_matron":{"generator":"Brood Matron"}
   }
 }

@@ -51,6 +51,7 @@
 | 자산제작기 | `game_dungeon/art`,`tools` | 28자산·24애니 품질, 원자/결정론 verify, strict 폴백 0, AnimatedSprite 상태머신 양 클래스 PASS | ✅ PASS |
 | 모바일 HUD | `mobile_ui.gd`,`accessibility.gd` | safe-area·4:3~20:9, 터치 48+/주 스킬 72+, UI 80~140%·큰 글자 저장 및 실게임 PASS | ✅ PASS |
 | 자산 출처 | manifests + `ASSET_PROVENANCE.md` | 모든 atlas 항목 recipe/type·생성기 버전·입력 해시·자체 생성 선언 verify PASS | ✅ PASS |
+| 독자 정체성 | `identity.gd` | Ashen Depths 명칭, 몬스터 12종·고유 장비·33각인·조합 독자화, 금지명 회귀검사 PASS | ✅ PASS |
 | 미적용연구 | `research_applied` | FCR/FHR 브레이크포인트 + 난이도(NM/Hell) 스케일링, Normal 클리어/Hell 사망 | ✅ PASS |
 
 > **⚙️ 미적용 연구 적용:** 브레이크포인트(FCR 프레임→시전속도)·난이도 스케일링(몹 HP/저항·플레이어 저항페널티·Hell 물리바닥). 비교분석의 `❌미적용` → `적용`.

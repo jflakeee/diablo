@@ -1,16 +1,16 @@
 {
   "monsters": [
-    {"id":"fallen", "name":"Fallen", "art":{"archetype":"fallen","palette":"fallen_red","seed":20}, "w":20,"h":26,"level":2,"hp":14,"ar":55,"def":8,"dmin":1,"dmax":3,"speed":3.8,"kind":"melee","res_fire":0},
-    {"id":"fallen_shaman", "name":"Fallen Shaman", "art":{"archetype":"fallen_shaman","palette":"shaman_gold","seed":21}, "w":20,"h":28,"level":3,"hp":20,"ar":50,"def":8,"dmin":2,"dmax":5,"speed":3.2,"kind":"ranged","res_fire":50},
-    {"id":"spike_fiend", "name":"Spike Fiend", "art":{"archetype":"spike_fiend","palette":"spike_amber","seed":22}, "w":18,"h":20,"level":3,"hp":18,"ar":60,"def":10,"dmin":1,"dmax":4,"speed":3.0,"kind":"ranged"},
-    {"id":"zombie", "name":"Zombie", "art":{"archetype":"zombie","palette":"zombie_olive","seed":23}, "w":24,"h":32,"level":4,"hp":40,"ar":80,"def":12,"dmin":2,"dmax":5,"speed":2.0,"kind":"melee","res_poison":100},
-    {"id":"skeleton", "name":"Skeleton", "art":{"archetype":"skeleton","palette":"bone","seed":24}, "w":20,"h":30,"level":5,"hp":28,"ar":90,"def":20,"dmin":3,"dmax":6,"speed":3.4,"kind":"melee","res_cold":50,"res_poison":100},
-    {"id":"skeleton_archer", "name":"Skeleton Archer", "art":{"archetype":"skeleton_archer","palette":"aged_bone","seed":25}, "w":20,"h":30,"level":5,"hp":24,"ar":95,"def":18,"dmin":2,"dmax":6,"speed":3.0,"kind":"ranged","res_cold":50,"res_poison":100},
-    {"id":"goat_man", "name":"Goat Man", "art":{"archetype":"goat_man","palette":"goat_brown","seed":26}, "w":24,"h":34,"level":6,"hp":55,"ar":110,"def":22,"dmin":4,"dmax":9,"speed":3.8,"kind":"melee","res_light":40},
-    {"id":"blood_hawk", "name":"Blood Hawk", "art":{"archetype":"blood_hawk","palette":"blood_red","seed":27}, "w":18,"h":18,"level":5,"hp":22,"ar":100,"def":25,"dmin":2,"dmax":5,"speed":4.6,"kind":"melee"},
-    {"id":"corrupt_rogue", "name":"Corrupt Rogue", "art":{"archetype":"corrupt_rogue","palette":"rogue_violet","seed":28}, "w":20,"h":32,"level":6,"hp":45,"ar":115,"def":24,"dmin":3,"dmax":8,"speed":4.0,"kind":"ranged"},
-    {"id":"ghoul", "name":"Ghoul", "art":{"archetype":"ghoul","palette":"ghoul_pale","seed":29}, "w":22,"h":30,"level":7,"hp":60,"ar":120,"def":26,"dmin":5,"dmax":10,"speed":4.2,"kind":"melee","res_poison":50},
-    {"id":"tainted", "name":"Tainted", "art":{"archetype":"tainted","palette":"tainted_green","seed":30}, "w":24,"h":30,"level":7,"hp":70,"ar":118,"def":22,"dmin":4,"dmax":9,"speed":3.0,"kind":"melee","res_fire":40,"res_poison":100},
-    {"id":"andariel", "name":"Andariel", "art":{"archetype":"andariel","palette":"demon_magenta","seed":31}, "w":30,"h":44,"level":12,"hp":500,"ar":120,"def":60,"dmin":3,"dmax":8,"speed":2.0,"kind":"boss","nova_cd":3.0,"spray_cd":1.5,"res_fire":-50,"res_poison":75}
+    {"id":"ash_imp", "name":"Ash Imp", "art":{"archetype":"ash_imp","palette":"ash_red","seed":20}, "w":20,"h":26,"level":2,"hp":14,"ar":55,"def":8,"dmin":1,"dmax":3,"speed":3.8,"kind":"melee","res_fire":0},
+    {"id":"ash_caller", "name":"Ash Caller", "art":{"archetype":"ash_caller","palette":"caller_gold","seed":21}, "w":20,"h":28,"level":3,"hp":20,"ar":50,"def":8,"dmin":2,"dmax":5,"speed":3.2,"kind":"ranged","res_fire":50},
+    {"id":"thorn_beast", "name":"Thorn Beast", "art":{"archetype":"thorn_beast","palette":"thorn_amber","seed":22}, "w":18,"h":20,"level":3,"hp":18,"ar":60,"def":10,"dmin":1,"dmax":4,"speed":3.0,"kind":"ranged"},
+    {"id":"rotwalker", "name":"Rotwalker", "art":{"archetype":"rotwalker","palette":"rot_olive","seed":23}, "w":24,"h":32,"level":4,"hp":40,"ar":80,"def":12,"dmin":2,"dmax":5,"speed":2.0,"kind":"melee","res_poison":100},
+    {"id":"bone_guard", "name":"Bone Guard", "art":{"archetype":"bone_guard","palette":"bone","seed":24}, "w":20,"h":30,"level":5,"hp":28,"ar":90,"def":20,"dmin":3,"dmax":6,"speed":3.4,"kind":"melee","res_cold":50,"res_poison":100},
+    {"id":"bone_marksman", "name":"Bone Marksman", "art":{"archetype":"bone_marksman","palette":"aged_bone","seed":25}, "w":20,"h":30,"level":5,"hp":24,"ar":95,"def":18,"dmin":2,"dmax":6,"speed":3.0,"kind":"ranged","res_cold":50,"res_poison":100},
+    {"id":"horned_marauder", "name":"Horned Marauder", "art":{"archetype":"horned_marauder","palette":"horn_brown","seed":26}, "w":24,"h":34,"level":6,"hp":55,"ar":110,"def":22,"dmin":4,"dmax":9,"speed":3.8,"kind":"melee","res_light":40},
+    {"id":"crimson_raptor", "name":"Crimson Raptor", "art":{"archetype":"crimson_raptor","palette":"blood_red","seed":27}, "w":18,"h":18,"level":5,"hp":22,"ar":100,"def":25,"dmin":2,"dmax":5,"speed":4.6,"kind":"melee"},
+    {"id":"blighted_ranger", "name":"Blighted Ranger", "art":{"archetype":"blighted_ranger","palette":"ranger_violet","seed":28}, "w":20,"h":32,"level":6,"hp":45,"ar":115,"def":24,"dmin":3,"dmax":8,"speed":4.0,"kind":"ranged"},
+    {"id":"grave_stalker", "name":"Grave Stalker", "art":{"archetype":"grave_stalker","palette":"grave_pale","seed":29}, "w":22,"h":30,"level":7,"hp":60,"ar":120,"def":26,"dmin":5,"dmax":10,"speed":4.2,"kind":"melee","res_poison":50},
+    {"id":"venom_husk", "name":"Venom Husk", "art":{"archetype":"venom_husk","palette":"venom_green","seed":30}, "w":24,"h":30,"level":7,"hp":70,"ar":118,"def":22,"dmin":4,"dmax":9,"speed":3.0,"kind":"melee","res_fire":40,"res_poison":100},
+    {"id":"brood_matron", "name":"Brood Matron", "art":{"archetype":"brood_matron","palette":"brood_magenta","seed":31}, "w":30,"h":44,"level":12,"hp":500,"ar":120,"def":60,"dmin":3,"dmax":8,"speed":2.0,"kind":"boss","nova_cd":3.0,"spray_cd":1.5,"res_fire":-50,"res_poison":75}
   ]
 }

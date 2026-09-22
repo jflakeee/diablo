@@ -1,6 +1,6 @@
 {
   "actors": {
-    "andariel": {
+    "ash_caller": {
       "animations": {
         "walk": {
           "fps": 8.0,
@@ -45,7 +45,55 @@
           "loop": true
         }
       },
-      "recipe_id": "andariel",
+      "recipe_id": "ash_caller",
+      "recipe_type": "monster"
+    },
+    "ash_imp": {
+      "animations": {
+        "walk": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                15,
+                331,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                463,
+                267,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                79,
+                331,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                463,
+                267,
+                34,
+                42
+              ]
+            }
+          ],
+          "loop": true
+        }
+      },
+      "recipe_id": "ash_imp",
       "recipe_type": "monster"
     },
     "barbarian": {
@@ -222,55 +270,7 @@
       "recipe_id": "Barbarian",
       "recipe_type": "hero"
     },
-    "blood_hawk": {
-      "animations": {
-        "walk": {
-          "fps": 8.0,
-          "frames": [
-            {
-              "duration": 1.0,
-              "region": [
-                15,
-                331,
-                34,
-                42
-              ]
-            },
-            {
-              "duration": 1.0,
-              "region": [
-                463,
-                267,
-                34,
-                42
-              ]
-            },
-            {
-              "duration": 1.0,
-              "region": [
-                79,
-                331,
-                34,
-                42
-              ]
-            },
-            {
-              "duration": 1.0,
-              "region": [
-                463,
-                267,
-                34,
-                42
-              ]
-            }
-          ],
-          "loop": true
-        }
-      },
-      "recipe_id": "blood_hawk",
-      "recipe_type": "monster"
-    },
-    "corrupt_rogue": {
+    "blighted_ranger": {
       "animations": {
         "walk": {
           "fps": 8.0,
@@ -315,10 +315,10 @@
           "loop": true
         }
       },
-      "recipe_id": "corrupt_rogue",
+      "recipe_id": "blighted_ranger",
       "recipe_type": "monster"
     },
-    "fallen": {
+    "bone_guard": {
       "animations": {
         "walk": {
           "fps": 8.0,
@@ -363,10 +363,10 @@
           "loop": true
         }
       },
-      "recipe_id": "fallen",
+      "recipe_id": "bone_guard",
       "recipe_type": "monster"
     },
-    "fallen_shaman": {
+    "bone_marksman": {
       "animations": {
         "walk": {
           "fps": 8.0,
@@ -411,10 +411,10 @@
           "loop": true
         }
       },
-      "recipe_id": "fallen_shaman",
+      "recipe_id": "bone_marksman",
       "recipe_type": "monster"
     },
-    "ghoul": {
+    "brood_matron": {
       "animations": {
         "walk": {
           "fps": 8.0,
@@ -459,10 +459,10 @@
           "loop": true
         }
       },
-      "recipe_id": "ghoul",
+      "recipe_id": "brood_matron",
       "recipe_type": "monster"
     },
-    "goat_man": {
+    "crimson_raptor": {
       "animations": {
         "walk": {
           "fps": 8.0,
@@ -507,7 +507,103 @@
           "loop": true
         }
       },
-      "recipe_id": "goat_man",
+      "recipe_id": "crimson_raptor",
+      "recipe_type": "monster"
+    },
+    "grave_stalker": {
+      "animations": {
+        "walk": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                143,
+                459,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                79,
+                459,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                207,
+                459,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                79,
+                459,
+                34,
+                42
+              ]
+            }
+          ],
+          "loop": true
+        }
+      },
+      "recipe_id": "grave_stalker",
+      "recipe_type": "monster"
+    },
+    "horned_marauder": {
+      "animations": {
+        "walk": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                335,
+                459,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                271,
+                459,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                399,
+                459,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                271,
+                459,
+                34,
+                42
+              ]
+            }
+          ],
+          "loop": true
+        }
+      },
+      "recipe_id": "horned_marauder",
       "recipe_type": "monster"
     },
     "rogue": {
@@ -684,7 +780,7 @@
       "recipe_id": "Rogue",
       "recipe_type": "hero"
     },
-    "skeleton": {
+    "rotwalker": {
       "animations": {
         "walk": {
           "fps": 8.0,
@@ -692,7 +788,16 @@
             {
               "duration": 1.0,
               "region": [
-                143,
+                15,
+                523,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                463,
                 459,
                 34,
                 42
@@ -702,7 +807,7 @@
               "duration": 1.0,
               "region": [
                 79,
-                459,
+                523,
                 34,
                 42
               ]
@@ -710,16 +815,7 @@
             {
               "duration": 1.0,
               "region": [
-                207,
-                459,
-                34,
-                42
-              ]
-            },
-            {
-              "duration": 1.0,
-              "region": [
-                79,
+                463,
                 459,
                 34,
                 42
@@ -729,55 +825,7 @@
           "loop": true
         }
       },
-      "recipe_id": "skeleton",
-      "recipe_type": "monster"
-    },
-    "skeleton_archer": {
-      "animations": {
-        "walk": {
-          "fps": 8.0,
-          "frames": [
-            {
-              "duration": 1.0,
-              "region": [
-                335,
-                459,
-                34,
-                42
-              ]
-            },
-            {
-              "duration": 1.0,
-              "region": [
-                271,
-                459,
-                34,
-                42
-              ]
-            },
-            {
-              "duration": 1.0,
-              "region": [
-                399,
-                459,
-                34,
-                42
-              ]
-            },
-            {
-              "duration": 1.0,
-              "region": [
-                271,
-                459,
-                34,
-                42
-              ]
-            }
-          ],
-          "loop": true
-        }
-      },
-      "recipe_id": "skeleton_archer",
+      "recipe_id": "rotwalker",
       "recipe_type": "monster"
     },
     "sorceress": {
@@ -954,55 +1002,7 @@
       "recipe_id": "Sorceress",
       "recipe_type": "hero"
     },
-    "spike_fiend": {
-      "animations": {
-        "walk": {
-          "fps": 8.0,
-          "frames": [
-            {
-              "duration": 1.0,
-              "region": [
-                15,
-                523,
-                34,
-                42
-              ]
-            },
-            {
-              "duration": 1.0,
-              "region": [
-                463,
-                459,
-                34,
-                42
-              ]
-            },
-            {
-              "duration": 1.0,
-              "region": [
-                79,
-                523,
-                34,
-                42
-              ]
-            },
-            {
-              "duration": 1.0,
-              "region": [
-                463,
-                459,
-                34,
-                42
-              ]
-            }
-          ],
-          "loop": true
-        }
-      },
-      "recipe_id": "spike_fiend",
-      "recipe_type": "monster"
-    },
-    "tainted": {
+    "thorn_beast": {
       "animations": {
         "walk": {
           "fps": 8.0,
@@ -1047,10 +1047,10 @@
           "loop": true
         }
       },
-      "recipe_id": "tainted",
+      "recipe_id": "thorn_beast",
       "recipe_type": "monster"
     },
-    "zombie": {
+    "venom_husk": {
       "animations": {
         "walk": {
           "fps": 8.0,
@@ -1095,12 +1095,12 @@
           "loop": true
         }
       },
-      "recipe_id": "zombie",
+      "recipe_id": "venom_husk",
       "recipe_type": "monster"
     }
   },
   "atlas": "animation_atlas.png",
-  "atlas_md5": "1b5cc620c31d15137a036c7dfb1a2d32",
+  "atlas_md5": "6549b4047c3cd3cda6cf1cee31c38b76",
   "atlas_size": [
     512,
     576
@@ -1108,9 +1108,9 @@
   "format_version": 2,
   "generator_version": 3,
   "inputs": {
-    "archetypes": "eb8f895bce4a81b3c3cbb6a0e72b1540",
-    "monsters": "1d52eeddab9a82f4e8825a137de3553d",
-    "palettes": "aed771d5383bc3117f1f41385168a53d",
+    "archetypes": "681e5d8777dfe7902b9dafd229670231",
+    "monsters": "3ed46ac1a21dabe970632e736fa5760e",
+    "palettes": "9577067a933515b7fef5d56f6ebd3254",
     "recipes": "e0d1efe55084a729b317c4f4c5e7cabb"
   },
   "provenance": {

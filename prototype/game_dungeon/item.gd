@@ -18,37 +18,37 @@ const ARMOR_BASES := [
 
 # 유니크 아이템(고정 스탯) — 베이스명 → 유니크
 const UNIQUES := {
-	"Short Sword": {"name": "Rixot's Keen", "affixes": {"ed": 50, "fdmg": 10, "ar": 40}},
-	"Hand Axe": {"name": "The Gnasher", "affixes": {"ed": 70, "ar": 40, "cdmg": 8}},
-	"Mace": {"name": "Crushflange", "affixes": {"ed": 60, "str": 10, "ldmg": 12}},
-	"Quilted Armor": {"name": "Greyform", "affixes": {"def": 30, "res_all": 12, "dex": 8, "life": 15}},
-	"Leather Armor": {"name": "Iceblink", "affixes": {"def": 45, "res_cold": 35, "res_all": 10, "life": 25}},
-	"Ring Mail": {"name": "Silks of the Victor", "affixes": {"def": 55, "res_all": 15, "mana": 30, "str": 8}},
+	"Short Sword": {"name": "Emberneedle", "affixes": {"ed": 50, "fdmg": 10, "ar": 40}},
+	"Hand Axe": {"name": "Rift Cleaver", "affixes": {"ed": 70, "ar": 40, "cdmg": 8}},
+	"Mace": {"name": "Storm Knell", "affixes": {"ed": 60, "str": 10, "ldmg": 12}},
+	"Quilted Armor": {"name": "Ashweave", "affixes": {"def": 30, "res_all": 12, "dex": 8, "life": 15}},
+	"Leather Armor": {"name": "Frostveil", "affixes": {"def": 45, "res_cold": 35, "res_all": 10, "life": 25}},
+	"Ring Mail": {"name": "Crownless Mantle", "affixes": {"def": 55, "res_all": 15, "mana": 30, "str": 8}},
 }
 
 # stat 코드: ed(%ED) ar(+AR) def(+방어) life(+생명) mana(+마나) str dex res_all(+전저항)
 const PREFIXES := [
-	{"name": "Jagged", "stat": "ed", "min": 10, "max": 20, "alvl": 1, "slot": "weapon"},
-	{"name": "Deadly", "stat": "ed", "min": 21, "max": 30, "alvl": 5, "slot": "weapon"},
-	{"name": "Vicious", "stat": "ed", "min": 31, "max": 40, "alvl": 8, "slot": "weapon"},
-	{"name": "Bronze", "stat": "ar", "min": 10, "max": 20, "alvl": 1, "slot": "any"},
-	{"name": "Gold", "stat": "ar", "min": 40, "max": 60, "alvl": 8, "slot": "any"},
-	{"name": "Sturdy", "stat": "def", "min": 5, "max": 14, "alvl": 1, "slot": "armor"},
-	{"name": "Fiery", "stat": "fdmg", "min": 3, "max": 9, "alvl": 1, "slot": "weapon"},
-	{"name": "Frozen", "stat": "cdmg", "min": 2, "max": 7, "alvl": 3, "slot": "weapon"},
-	{"name": "Shocking", "stat": "ldmg", "min": 1, "max": 12, "alvl": 3, "slot": "weapon"},
+	{"name": "Serrated", "stat": "ed", "min": 10, "max": 20, "alvl": 1, "slot": "weapon"},
+	{"name": "Ruinous", "stat": "ed", "min": 21, "max": 30, "alvl": 5, "slot": "weapon"},
+	{"name": "Savage", "stat": "ed", "min": 31, "max": 40, "alvl": 8, "slot": "weapon"},
+	{"name": "Coppermarked", "stat": "ar", "min": 10, "max": 20, "alvl": 1, "slot": "any"},
+	{"name": "Sunmarked", "stat": "ar", "min": 40, "max": 60, "alvl": 8, "slot": "any"},
+	{"name": "Reinforced", "stat": "def", "min": 5, "max": 14, "alvl": 1, "slot": "armor"},
+	{"name": "Emberbound", "stat": "fdmg", "min": 3, "max": 9, "alvl": 1, "slot": "weapon"},
+	{"name": "Rimebound", "stat": "cdmg", "min": 2, "max": 7, "alvl": 3, "slot": "weapon"},
+	{"name": "Stormbound", "stat": "ldmg", "min": 1, "max": 12, "alvl": 3, "slot": "weapon"},
 ]
 const SUFFIXES := [
-	{"name": "of the Jackal", "stat": "life", "min": 1, "max": 5, "alvl": 1, "slot": "any"},
-	{"name": "of the Wolf", "stat": "life", "min": 11, "max": 20, "alvl": 15, "slot": "any"},
-	{"name": "of Energy", "stat": "mana", "min": 1, "max": 6, "alvl": 1, "slot": "any"},
-	{"name": "of Strength", "stat": "str", "min": 1, "max": 4, "alvl": 1, "slot": "any"},
-	{"name": "of Dexterity", "stat": "dex", "min": 1, "max": 4, "alvl": 1, "slot": "any"},
-	{"name": "of the Fox", "stat": "res_all", "min": 3, "max": 8, "alvl": 5, "slot": "any"},
-	{"name": "of Warmth", "stat": "res_fire", "min": 10, "max": 30, "alvl": 5, "slot": "any"},
-	{"name": "of the Glacier", "stat": "res_cold", "min": 10, "max": 30, "alvl": 5, "slot": "any"},
-	{"name": "of the Dynamo", "stat": "res_light", "min": 10, "max": 30, "alvl": 5, "slot": "any"},
-	{"name": "of the Lamprey", "stat": "res_poison", "min": 10, "max": 30, "alvl": 5, "slot": "any"},
+	{"name": "of Vital Sparks", "stat": "life", "min": 1, "max": 5, "alvl": 1, "slot": "any"},
+	{"name": "of the Dire Hound", "stat": "life", "min": 11, "max": 20, "alvl": 15, "slot": "any"},
+	{"name": "of Focus", "stat": "mana", "min": 1, "max": 6, "alvl": 1, "slot": "any"},
+	{"name": "of Might", "stat": "str", "min": 1, "max": 4, "alvl": 1, "slot": "any"},
+	{"name": "of Grace", "stat": "dex", "min": 1, "max": 4, "alvl": 1, "slot": "any"},
+	{"name": "of Warding", "stat": "res_all", "min": 3, "max": 8, "alvl": 5, "slot": "any"},
+	{"name": "of Cinders", "stat": "res_fire", "min": 10, "max": 30, "alvl": 5, "slot": "any"},
+	{"name": "of Hoarfrost", "stat": "res_cold", "min": 10, "max": 30, "alvl": 5, "slot": "any"},
+	{"name": "of Stormglass", "stat": "res_light", "min": 10, "max": 30, "alvl": 5, "slot": "any"},
+	{"name": "of Mireblood", "stat": "res_poison", "min": 10, "max": 30, "alvl": 5, "slot": "any"},
 ]
 
 static func _eligible(table: Array, ilvl: int, slot: String) -> Array:

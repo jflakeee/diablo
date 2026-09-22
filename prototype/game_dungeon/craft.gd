@@ -3,20 +3,20 @@ extends RefCounted
 # 값은 부분집합 근사 — 정식은 gems.txt/runes.txt/runewords.txt/cubemain.txt. preload로 사용.
 
 const RUNE_ORDER := [
-	"El", "Eld", "Tir", "Nef", "Eth", "Ith", "Tal", "Ral", "Ort", "Thul",
-	"Amn", "Sol", "Shael", "Dol", "Hel", "Io", "Lum", "Ko", "Fal", "Lem",
-	"Pul", "Um", "Mal", "Ist", "Gul", "Vex", "Ohm", "Lo", "Sur", "Ber",
-	"Jah", "Cham", "Zod",
+	"Ahn", "Ahnor", "Vey", "Korr", "Saal", "Myr", "Dren", "Pyre", "Volt", "Rime",
+	"Nara", "Solun", "Shae", "Doln", "Helm", "Iora", "Luma", "Kovan", "Fara", "Lemn",
+	"Pura", "Umon", "Mala", "Istra", "Gulan", "Vexa", "Ohra", "Lorn", "Sura", "Beryn",
+	"Jahar", "Chama", "Zorin",
 ]
 
 # 룬 소켓 스탯(슬롯별) — 룬워드에 쓰이는 룬 위주 부분집합
 const RUNE_STATS := {
-	"El": {"weapon": {"ar": 50}, "armor": {"def": 15}},
-	"Tir": {"weapon": {"mana": 2}, "armor": {"mana": 2}},
-	"Nef": {"weapon": {}, "armor": {"def": 30}},
-	"Eth": {"weapon": {}, "armor": {"mana": 3}},
-	"Tal": {"weapon": {}, "armor": {"res_all": 5}},
-	"Ral": {"weapon": {"res_all": 5}, "armor": {"res_all": 5}},
+	"Ahn": {"weapon": {"ar": 50}, "armor": {"def": 15}},
+	"Vey": {"weapon": {"mana": 2}, "armor": {"mana": 2}},
+	"Korr": {"weapon": {}, "armor": {"def": 30}},
+	"Saal": {"weapon": {}, "armor": {"mana": 3}},
+	"Dren": {"weapon": {}, "armor": {"res_all": 5}},
+	"Pyre": {"weapon": {"res_all": 5}, "armor": {"res_all": 5}},
 }
 
 # Perfect 보석 스탯(슬롯별) — Part 6 §2 (매핑 가능한 stat만)
@@ -32,9 +32,9 @@ const GEM_STATS := {
 
 # 룬워드(부분집합) — stats는 매핑 근사
 const RUNEWORDS := [
-	{"name": "Steel", "runes": ["Tir", "El"], "slot": "weapon", "sockets": 2, "stats": {"ed": 20, "ar": 50}},
-	{"name": "Stealth", "runes": ["Tal", "Eth"], "slot": "armor", "sockets": 2, "stats": {"dex": 6, "mana": 15}},
-	{"name": "Nadir", "runes": ["Nef", "Tir"], "slot": "helm", "sockets": 2, "stats": {"def": 50}},
+	{"name": "Tempered Edge", "runes": ["Vey", "Ahn"], "slot": "weapon", "sockets": 2, "stats": {"ed": 20, "ar": 50}},
+	{"name": "Veiled Step", "runes": ["Dren", "Saal"], "slot": "armor", "sockets": 2, "stats": {"dex": 6, "mana": 15}},
+	{"name": "Gloom Crown", "runes": ["Korr", "Vey"], "slot": "helm", "sockets": 2, "stats": {"def": 50}},
 ]
 
 static func gem_stat(gem: String, slot: String) -> Dictionary:

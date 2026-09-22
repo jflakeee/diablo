@@ -146,8 +146,8 @@ func selftest() -> bool:
 	var potion := texture("potion")
 	var ruby := texture("ruby")
 	var hero := hero_directions("barbarian")
-	var monster_ids := ["fallen", "fallen_shaman", "spike_fiend", "zombie", "skeleton",
-		"skeleton_archer", "goat_man", "blood_hawk", "corrupt_rogue", "ghoul", "tainted", "andariel"]
+	var monster_ids := ["ash_imp", "ash_caller", "thorn_beast", "rotwalker", "bone_guard",
+		"bone_marksman", "horned_marauder", "crimson_raptor", "blighted_ranger", "grave_stalker", "venom_husk", "brood_matron"]
 	for monster_id in monster_ids:
 		if monster_frames(monster_id).is_empty():
 			return false
