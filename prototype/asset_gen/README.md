@@ -35,6 +35,12 @@ godot --headless --path . --quit                     # 12종 생성 + PNG 저장
 - `heroes.tres` — 영웅 3종 × 4방향, 총 12개 `SpriteFrames` 걷기 애니메이션
 - 독립 `asset_gen`과 정본 `game_dungeon` 생성기 소스 MD5 동기화 검증
 
+### 데이터 기반 레시피 (`recipes.json`)
+- `tile`/`hero`/`monster`/`icon` 유형과 색상·시드·배율을 JSON으로 정의
+- 빈 ID, 중복 ID, 미지원 유형은 즉시 빌드 실패
+- GDScript 수정 없이 레시피 한 줄로 갤러리·PNG·아틀라스 항목 추가
+- manifest에 `recipe_md5`를 기록해 코드 버전뿐 아니라 입력 데이터도 추적
+
 ### 자동 품질 게이트 (`quality.gd`)
 - 불투명 픽셀 밀도, 팔레트 크기, 연결 요소 수, 이미지 경계 잘림 검사
 - 클래스 실루엣·걷기 프레임·시드 변형 간 최소 픽셀 차이 검사

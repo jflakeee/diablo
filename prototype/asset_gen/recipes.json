@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "assets": [
+    {"id":"grass",      "type":"tile",    "color":"#47804c", "seed":1,  "speckle":false, "scale":2.2},
+    {"id":"stone",      "type":"tile",    "color":"#66615c", "seed":2,  "speckle":true,  "scale":2.2},
+    {"id":"dirt",       "type":"tile",    "color":"#735433", "seed":3,  "speckle":true,  "scale":2.2},
+    {"id":"hell",       "type":"tile",    "color":"#801f80", "seed":4,  "speckle":true,  "scale":2.2},
+    {"id":"Barbarian",  "type":"hero",    "kind":"barbarian", "color":"#b33326", "seed":10, "scale":2.6},
+    {"id":"Sorceress",  "type":"hero",    "kind":"sorceress", "color":"#4d4dbf", "seed":11, "scale":2.6},
+    {"id":"Fallen",     "type":"monster", "kind":"Fallen", "color":"#bf5940", "seed":20, "scale":2.6},
+    {"id":"Andariel",   "type":"monster", "kind":"Andariel", "color":"#b32680", "seed":21, "scale":2.6},
+    {"id":"sword",      "type":"icon",    "kind":"sword", "seed":0, "scale":2.6},
+    {"id":"potion",     "type":"icon",    "kind":"potion", "seed":0, "scale":2.6},
+    {"id":"shield",     "type":"icon",    "kind":"shield", "seed":0, "scale":2.6},
+    {"id":"coin",       "type":"icon",    "kind":"coin", "seed":0, "scale":2.6},
+    {"id":"ruby",       "type":"icon",    "kind":"gem", "seed":0, "scale":2.6},
+    {"id":"sapphire",   "type":"icon",    "kind":"gem", "seed":1, "scale":2.6},
+    {"id":"rune",       "type":"icon",    "kind":"rune", "seed":2, "scale":2.6},
+    {"id":"Rogue",      "type":"hero",    "kind":"rogue", "color":"#802633", "seed":7, "scale":2.6},
+    {"id":"Skeleton",   "type":"monster", "kind":"Skeleton", "color":"#d9d9cc", "seed":4, "scale":2.6},
+    {"id":"Blood Hawk", "type":"monster", "kind":"Blood Hawk", "color":"#cc4040", "seed":5, "scale":2.6}
+  ]
+}
