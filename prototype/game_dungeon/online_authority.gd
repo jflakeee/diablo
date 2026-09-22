@@ -65,6 +65,15 @@ func trade(token: String, transaction_id: String, buyer_id: String, item_id: Str
 func account_snapshot(account_id: String) -> Dictionary:
 	return (_accounts.get(account_id, {}) as Dictionary).duplicate(true)
 
+func account_id_for_token(token: String) -> String:
+	return String(_sessions.get(token, ""))
+
+func world_snapshot() -> Dictionary:
+	var snapshot := {}
+	for account_id in _accounts:
+		snapshot[account_id] = (_accounts[account_id] as Dictionary).get("position", Vector2.ZERO)
+	return snapshot
+
 static func selftest() -> Dictionary:
 	var failures: Array = []
 	var authority = load("res://online_authority.gd").new()
@@ -81,4 +90,23 @@ static func selftest() -> Dictionary:
 	var hero: Dictionary = authority.account_snapshot("hero")
 	var merchant: Dictionary = authority.account_snapshot("merchant")
 	if int(hero.get("gold", 0)) != 125 or not (merchant.get("inventory", []) as Array).has("rift_cleaver"): failures.append("atomic ownership")
-	return {"ok": failures.is_empty(), "checks": 6, "failures": failures}
+
+	var load_authority = load("res://online_authority.gd").new()
+	load_authority.create_account("market", [], 20000)
+	var monotonic := true
+	for index in 100:
+		var account_id := "load_%03d" % index
+		var item_id := "item_%03d" % index
+		load_authority.create_account(account_id, [item_id], 0)
+		var load_token: String = load_authority.login(account_id)
+		for sequence in [1, 2, 4, 5]: # sequence 3 is intentionally lost
+			load_authority.update_position(load_token, sequence, Vector2(sequence, 0))
+		var replay: Dictionary = load_authority.update_position(load_token, 2, Vector2(2, 0))
+		monotonic = monotonic and not bool(replay.get("ok", false))
+		var tx_id := "load-tx-%03d" % index
+		load_authority.trade(load_token, tx_id, "market", item_id, 125)
+		load_authority.trade(load_token, tx_id, "market", item_id, 125) # duplicated packet
+	if not monotonic: failures.append("loss replay monotonicity")
+	var market: Dictionary = load_authority.account_snapshot("market")
+	if int(market.get("gold", -1)) != 7500 or (market.get("inventory", []) as Array).size() != 100: failures.append("100 account conservation")
+	return {"ok": failures.is_empty(), "checks": 8, "failures": failures}

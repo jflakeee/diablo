@@ -32,13 +32,14 @@ warden:   dungeon_level=2 levels_cleared=1 kills>0                verdict=PASS
 
 저장은 모바일 설정 패널의 `게임 저장`/`불러오기` 또는 키보드 F5/F9로 사용한다. `save_store.gd`가 `user://ashen_depths_save.json`을 임시 파일 검증 후 원자 교체하며, 스키마 마이그레이션과 손상 파일 거부를 담당한다.
 
-온라인 권위 계층은 `online_authority.gd`에 분리되어 세션 재접속, 위치 시퀀스와 이동 한도, 소유권·잔액 기반 멱등 에스크로를 검증한다. 실제 ENet 왕복 검사는 서버와 클라이언트를 별도 프로세스로 실행한다.
+온라인 권위 계층은 `online_authority.gd`에 분리되어 세션 재접속, 위치 시퀀스와 이동 한도, 소유권·잔액 기반 멱등 에스크로를 검증한다. 자동 검사는 유실된 시퀀스·중복 패킷과 100계정 거래 보존성을 포함한다. 실제 ENet 검사는 서버와 두 클라이언트를 별도 프로세스로 실행하여 서로의 월드 스냅샷 수신까지 확인한다.
 
 `data/coverage.json`은 클래스·스킬·몬스터·아이템·제작·진행의 최소 역할 구성을 선언한다. `coverage.gd`가 시작 시 실제 데이터와 대조하므로 콘텐츠 제거 또는 역할 누락은 최종 PASS를 차단한다.
 
 ```powershell
-godot_console --headless --path . res://tools/network_harness.tscn -- net_server
-godot_console --headless --path . res://tools/network_harness.tscn -- net_client
+godot_console --headless --path . res://tools/network_harness.tscn -- net_server net_multi
+godot_console --headless --path . res://tools/network_harness.tscn -- net_client net_multi
+godot_console --headless --path . res://tools/network_harness.tscn -- net_client2 net_multi
 ```
 → 두 클래스 모두 **다층 던전 클리어→워프** 동작, 런타임 에러 0.
 
