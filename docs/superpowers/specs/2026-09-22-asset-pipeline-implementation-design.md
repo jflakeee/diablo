@@ -831,11 +831,11 @@ if manifest.format_version > SUPPORTED_FORMAT_VERSION:
 - [x] 런타임 애니메이션 프레임이 외부 atlas region만 참조
 - [x] `heroes.tres`, `monsters.tres` 제거
 - [x] 애니메이션 산출물 크기 50% 이상 감소(954,430 → 23,047바이트, 97.6%)
-- [ ] 게임 데이터의 몬스터 12종 모두 art 참조 보유
+- [x] 게임 데이터의 몬스터 12종 모두 검증된 art 참조 보유
 - [ ] 릴리스 빌드의 폴백 수 0
 - [ ] 실패한 컴파일은 기존 generated를 보존
 - [ ] 반복 빌드 MD5 동일
-- [x] 14종 이상 기존 품질 검사 PASS(신규 anchor/연속성 검사는 후속 단계)
+- [x] 22종 품질 검사 PASS(신규 anchor/연속성 검사는 후속 단계)
 - [x] 바바리안·소서리스 50초 자동 실행 PASS
 - [x] 플레이어·용병 4방향 관측
 - [x] 런타임 리소스 누수 경고 없음

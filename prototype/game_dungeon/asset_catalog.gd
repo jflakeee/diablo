@@ -94,14 +94,18 @@ func _actor_frames(actor_id: String, anim_id: String) -> Dictionary:
 	return {"idle": textures[1], "walk": [textures[0], textures[1], textures[2]]}
 
 func selftest() -> bool:
-	if not available() or entry_count() != 18:
+	if not available() or entry_count() != 26:
 		return false
 	var sword := texture("sword")
 	var potion := texture("potion")
 	var ruby := texture("ruby")
 	var hero := hero_directions("barbarian")
-	var monster := monster_frames("Fallen")
-	return sword != null and potion != null and ruby != null and sword != potion and texture("missing") == null and hero.size() == 4 and ((hero[0] as Dictionary)["walk"] as Array).size() == 3 and not monster.is_empty()
+	var monster_ids := ["fallen", "fallen_shaman", "spike_fiend", "zombie", "skeleton",
+		"skeleton_archer", "goat_man", "blood_hawk", "corrupt_rogue", "ghoul", "tainted", "andariel"]
+	for monster_id in monster_ids:
+		if monster_frames(monster_id).is_empty():
+			return false
+	return sword != null and potion != null and ruby != null and sword != potion and texture("missing") == null and hero.size() == 4 and ((hero[0] as Dictionary)["walk"] as Array).size() == 3
 
 func clear() -> void:
 	_regions.clear()

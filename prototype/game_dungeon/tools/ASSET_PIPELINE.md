@@ -38,7 +38,8 @@ godot --headless --path prototype/game_dungeon res://tools/asset_compiler.tscn -
 - 게임과 컴파일러가 `res://art/pixel_gen.gd` 단일 정본을 직접 사용
 
 ### 데이터 기반 레시피 (`art/art_recipes.json`)
-- `tile`/`hero`/`monster`/`icon` 유형과 색상·시드·배율을 JSON으로 정의
+- 정적 `tile`/`hero`/`icon`은 `art_recipes.json`, 몬스터 12종은 전투 데이터의 `id`/`art`가 정본
+- 몬스터 palette/archetype 참조를 분리하고 컴파일 전에 전부 무결성 검사
 - 빈 ID, 중복 ID, 미지원 유형은 즉시 빌드 실패
 - GDScript 수정 없이 레시피 한 줄로 갤러리·PNG·아틀라스 항목 추가
 - manifest에 `recipe_md5`를 기록해 코드 버전뿐 아니라 입력 데이터도 추적
@@ -49,8 +50,8 @@ godot --headless --path prototype/game_dungeon res://tools/asset_compiler.tscn -
 지연 생성하며, 리소스 또는 애니메이션이 누락되면 동일 레시피의 런타임 영웅 생성으로 폴백한다.
 게임의 `Actor`는 화면 이동 벡터를 남·동·북·서로 분류해 해당 방향 프레임으로
 전환하며, 자동 실행 결과에서 플레이어와 용병 모두 4방향 사용을 계측한다.
-몬스터도 이름이 일치하는 컴파일 애니메이션을 우선 사용하고, 아직 레시피가 없는
-종족은 런타임 `monster_named()` 생성으로 폴백한다.
+몬스터 12종은 데이터 ID가 일치하는 컴파일 애니메이션을 사용한다. 개발 중 누락에는
+런타임 폴백이 남아 있지만 현재 전체 자동 실행 계측은 `fallback=0`이다.
 
 ### 자동 품질 게이트 (`quality.gd`)
 - 불투명 픽셀 밀도, 팔레트 크기, 연결 요소 수, 이미지 경계 잘림 검사
@@ -59,15 +60,17 @@ godot --headless --path prototype/game_dungeon res://tools/asset_compiler.tscn -
 
 ### 실측 (2026-09-21, HD 4000)
 ```
-[AG] generated 18 assets, saved 18 PNG → user://assetgen
-[AG] cache entries=18 reuse=true
+[AG] generated 26 assets, saved 26 PNG → user://assetgen
+[AG] cache entries=26 reuse=true
 [AG] atlas=true animation_atlas=true canonical_source=true
-[AG] quality checked=14 silhouette_diff=747 walk_diff=163 seed_diff=62 failures=[]
+[AG] quality checked=22 silhouette_diff=747 walk_diff=163 seed_diff=62 failures=[]
 [AG][RESULT] verdict=PASS
 ```
 애니메이션 게시물은 기존 내장 텍스처 `.tres` 954,430바이트에서 PNG+JSON
 23,047바이트로 97.6% 감소했다. 소서리스·바바리안 50초 자동 실행에서 4방향 및
 컴파일 몬스터 사용과 최종 PASS를 확인했다.
+12종 데이터/아트 참조 통합 후 런타임은 `compiled=11 fallback=0`(해당 실행에서 실제
+스폰된 개체 기준), 카탈로그 자가검사는 12종 전부 조회 PASS를 확인했다.
 샘플(`samples/`): 돌 타일=노이즈+음영, 포션=병+액체+반사광, 바바리안=후드 휴머노이드
 → **플랫 도형 대비 확연한 개선**, 라이선스 청정, 시드로 무한 변형.
 

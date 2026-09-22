@@ -72,6 +72,15 @@ static func _shade_right(img: Image, amount: float) -> void:
 			if c.a > 0.5:
 				img.set_pixel(x, y, c.darkened(amount))
 
+static func _clear_border(img: Image) -> void:
+	var transparent := Color(0, 0, 0, 0)
+	for x in img.get_width():
+		img.set_pixel(x, 0, transparent)
+		img.set_pixel(x, img.get_height() - 1, transparent)
+	for y in img.get_height():
+		img.set_pixel(0, y, transparent)
+		img.set_pixel(img.get_width() - 1, y, transparent)
+
 # ── 아이소 타일 (노이즈 텍스처 + 림/하이라이트) ──
 static func iso_tile(w: int, h: int, base: Color, seed: int, speckle: bool) -> Texture2D:
 	var key := "tile:%d:%d:%s:%d:%s" % [w, h, base.to_html(), seed, str(speckle)]
@@ -251,6 +260,7 @@ static func monster_named(name: String, body: Color, seed: int, frame: int = 0) 
 	_fill_ellipse(img, 14, 10, 1, 1, Color(1, 0.72, 0.15)); _fill_ellipse(img, 20, 10, 1, 1, Color(1, 0.72, 0.15))
 	_shade_right(img, 0.14)
 	_outline(img, Color(0.05, 0.035, 0.045))
+	_clear_border(img)
 	return _remember(key, ImageTexture.create_from_image(img))
 
 # ── 아이템 아이콘 (sword/potion/shield/coin) ──

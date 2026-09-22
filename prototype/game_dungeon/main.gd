@@ -296,7 +296,7 @@ func _spawn_one(md: Dictionary, cell: Vector2i) -> void:
 	var m := _spawn_monster(String(md["name"]), col, int(md["w"]), int(md["h"]), int(md["level"]), int(md["hp"]), int(md["ar"]), int(md["def"]), int(md["dmin"]), int(md["dmax"]), float(md["speed"]), cell.x, cell.y)
 	var monster_seed := cell.x * 13 + cell.y
 	var monster_name := String(md["name"])
-	var monster_compiled := _assets.monster_frames(monster_name)
+	var monster_compiled := _assets.monster_frames(String(md.get("id", monster_name)))
 	if not monster_compiled.is_empty():
 		_compiled_monsters += 1
 		m.set_sprite_frames(monster_compiled["idle"], monster_compiled["walk"], 1.7 if kind == "boss" else 1.0)
@@ -506,6 +506,17 @@ func _play_sfx(name: String, vol_db: float = -6.0) -> void:
 	p.stream = _sfx[name]
 	p.volume_db = vol_db
 	p.play()
+
+func _release_runtime_resources() -> void:
+	for raw_player in _sfx_pool:
+		var player := raw_player as AudioStreamPlayer
+		if player != null:
+			player.stop()
+			player.stream = null
+	_sfx_pool.clear()
+	_sfx.clear()
+	_sfx_ready = false
+	_assets.clear()
 
 func _ready() -> void:
 	_setup_sfx()
@@ -1273,7 +1284,7 @@ func _process(delta: float) -> void:
 		print("[ASSET] monsters compiled=%d fallback=%d" % [_compiled_monsters, _generated_monsters])
 		var ok: bool = _kills > 0 or _spells_cast > 0
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
-		_assets.clear()
+		_release_runtime_resources()
 		get_tree().quit()
 
 func _nearest_monster() -> ActorScript:

@@ -4,6 +4,7 @@ extends Node2D
 # 검증: 위 명령 뒤에 -- autoquit publish 추가
 
 const PixelGen := preload("res://art/pixel_gen.gd")
+const Data := preload("res://data.gd")
 const Quality := preload("res://tools/asset_quality.gd")
 const Packer := preload("res://tools/atlas_packer.gd")
 const OUTPUT := "user://assetgen"
@@ -36,9 +37,20 @@ func _load_samples() -> Array:
 	if not parsed is Dictionary or not parsed.has("assets"):
 		push_error("Invalid asset recipe JSON")
 		return []
+	var art_errors := Data.monster_art_errors()
+	if not art_errors.is_empty():
+		push_error("Monster art references invalid: " + str(art_errors))
+		return []
+	var recipes: Array = parsed["assets"].duplicate(true)
+	for monster in Data.monsters():
+		var art: Dictionary = monster["art"]
+		var color: Array = monster["color"]
+		recipes.append({"id": monster["id"], "type": "monster", "kind": art["generator"],
+			"color": Color(float(color[0]), float(color[1]), float(color[2])).to_html(),
+			"seed": int(art.get("seed", 0)), "scale": 2.6})
 	var samples: Array = []
 	var ids := {}
-	for raw in parsed["assets"]:
+	for raw in recipes:
 		var recipe: Dictionary = raw
 		var id := String(recipe.get("id", ""))
 		var asset_type := String(recipe.get("type", ""))

@@ -264,7 +264,7 @@
         }
       }
     },
-    "fallen": {
+    "corrupt_rogue": {
       "animations": {
         "walk": {
           "fps": 8.0,
@@ -301,6 +301,190 @@
               "region": [
                 143,
                 331,
+                34,
+                42
+              ]
+            }
+          ],
+          "loop": true
+        }
+      }
+    },
+    "fallen": {
+      "animations": {
+        "walk": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                399,
+                331,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                335,
+                331,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                463,
+                331,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                335,
+                331,
+                34,
+                42
+              ]
+            }
+          ],
+          "loop": true
+        }
+      }
+    },
+    "fallen_shaman": {
+      "animations": {
+        "walk": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                79,
+                395,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                15,
+                395,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                143,
+                395,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                15,
+                395,
+                34,
+                42
+              ]
+            }
+          ],
+          "loop": true
+        }
+      }
+    },
+    "ghoul": {
+      "animations": {
+        "walk": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                271,
+                395,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                207,
+                395,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                335,
+                395,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                207,
+                395,
+                34,
+                42
+              ]
+            }
+          ],
+          "loop": true
+        }
+      }
+    },
+    "goat_man": {
+      "animations": {
+        "walk": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                463,
+                395,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                399,
+                395,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                15,
+                459,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                399,
+                395,
                 34,
                 42
               ]
@@ -490,8 +674,72 @@
             {
               "duration": 1.0,
               "region": [
+                143,
+                459,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                79,
+                459,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                207,
+                459,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                79,
+                459,
+                34,
+                42
+              ]
+            }
+          ],
+          "loop": true
+        }
+      }
+    },
+    "skeleton_archer": {
+      "animations": {
+        "walk": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                335,
+                459,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                271,
+                459,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
                 399,
-                331,
+                459,
                 34,
                 42
               ]
@@ -499,26 +747,8 @@
             {
               "duration": 1.0,
               "region": [
-                335,
-                331,
-                34,
-                42
-              ]
-            },
-            {
-              "duration": 1.0,
-              "region": [
-                463,
-                331,
-                34,
-                42
-              ]
-            },
-            {
-              "duration": 1.0,
-              "region": [
-                335,
-                331,
+                271,
+                459,
                 34,
                 42
               ]
@@ -699,13 +929,151 @@
           "loop": true
         }
       }
+    },
+    "spike_fiend": {
+      "animations": {
+        "walk": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                15,
+                523,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                463,
+                459,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                79,
+                523,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                463,
+                459,
+                34,
+                42
+              ]
+            }
+          ],
+          "loop": true
+        }
+      }
+    },
+    "tainted": {
+      "animations": {
+        "walk": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                207,
+                523,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                143,
+                523,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                271,
+                523,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                143,
+                523,
+                34,
+                42
+              ]
+            }
+          ],
+          "loop": true
+        }
+      }
+    },
+    "zombie": {
+      "animations": {
+        "walk": {
+          "fps": 8.0,
+          "frames": [
+            {
+              "duration": 1.0,
+              "region": [
+                399,
+                523,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                335,
+                523,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                463,
+                523,
+                34,
+                42
+              ]
+            },
+            {
+              "duration": 1.0,
+              "region": [
+                335,
+                523,
+                34,
+                42
+              ]
+            }
+          ],
+          "loop": true
+        }
+      }
     }
   },
   "atlas": "animation_atlas.png",
-  "atlas_md5": "c43008021f5f3ad8686d3421767db0fc",
+  "atlas_md5": "79b19206426a7934a8bf9ad50f1b322b",
   "atlas_size": [
     512,
-    384
+    576
   ],
   "format_version": 2,
   "generator_version": 3

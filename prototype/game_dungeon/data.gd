@@ -17,9 +17,47 @@ static func _load(path: String) -> Variant:
 
 static func monsters() -> Array:
 	var d = _load("res://data/monsters.json")
-	if d == null:
+	var p = _load("res://art/monster_palettes.json")
+	var a = _load("res://art/monster_archetypes.json")
+	if d == null or p == null or a == null:
 		return []
-	return d.get("monsters", [])
+	var palettes: Dictionary = p.get("palettes", {})
+	var archetypes: Dictionary = a.get("archetypes", {})
+	var result: Array = []
+	for raw in d.get("monsters", []):
+		var monster: Dictionary = raw.duplicate(true)
+		var art: Dictionary = monster.get("art", {})
+		var palette_id := String(art.get("palette", ""))
+		var archetype_id := String(art.get("archetype", ""))
+		if not palettes.has(palette_id) or not archetypes.has(archetype_id):
+			push_error("data: invalid monster art reference id=" + String(monster.get("id", "")))
+			continue
+		var color := Color.from_string(String(palettes[palette_id]), Color.MAGENTA)
+		monster["color"] = [color.r, color.g, color.b]
+		art["generator"] = String(archetypes[archetype_id].get("generator", archetype_id))
+		monster["art"] = art
+		result.append(monster)
+	return result
+
+static func monster_art_errors() -> Array:
+	var errors: Array = []
+	var d = _load("res://data/monsters.json")
+	var p = _load("res://art/monster_palettes.json")
+	var a = _load("res://art/monster_archetypes.json")
+	if d == null or p == null or a == null:
+		return ["monster art input missing"]
+	var palettes: Dictionary = p.get("palettes", {})
+	var archetypes: Dictionary = a.get("archetypes", {})
+	var ids := {}
+	for raw in d.get("monsters", []):
+		var monster: Dictionary = raw
+		var id := String(monster.get("id", ""))
+		var art: Dictionary = monster.get("art", {})
+		if id.is_empty() or ids.has(id): errors.append("empty or duplicate monster id: " + id)
+		ids[id] = true
+		if not palettes.has(String(art.get("palette", ""))): errors.append(id + ": unknown palette")
+		if not archetypes.has(String(art.get("archetype", ""))): errors.append(id + ": unknown archetype")
+	return errors
 
 static func item_bases() -> Dictionary:
 	var d = _load("res://data/item_bases.json")
