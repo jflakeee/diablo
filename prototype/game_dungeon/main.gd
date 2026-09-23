@@ -1001,8 +1001,9 @@ func _cycle_text_scale() -> void:
 func _toggle_settings() -> void:
 	_settings_panel.visible = not _settings_panel.visible
 
-func _gather_save_state() -> Dictionary:
+func _gather_save_state(reason: String = "manual") -> Dictionary:
 	return {
+		"saved_at_unix": int(Time.get_unix_time_from_system()), "save_reason": reason,
 		"class": _class, "level": _player.level, "xp": _player.xp,
 		"stat_points": _stat_points, "skill_points": _player.skill_points,
 		"stat_str": _player.stat_str, "stat_dex": _player.stat_dex,
@@ -1015,7 +1016,15 @@ func _gather_save_state() -> Dictionary:
 	}
 
 func _save_game() -> void:
-	_combat_log = "저장 완료" if SaveStore.save_state(_gather_save_state()) else "저장 실패"
+	_combat_log = "저장 완료" if SaveStore.save_state(_gather_save_state("manual")) else "저장 실패"
+
+func _notification(what: int) -> void:
+	if not _started or _player == null or _auto_quit:
+		return
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_CLOSE_REQUEST:
+		SaveStore.save_state(_gather_save_state("lifecycle"))
+	elif what == NOTIFICATION_APPLICATION_RESUMED:
+		_combat_log = "플레이 재개 · 진행 자동 저장됨"
 
 func _load_game() -> void:
 	var state := SaveStore.load_state()

@@ -75,8 +75,12 @@ static func _load_file(path: String) -> Dictionary:
 	return parsed if parsed is Dictionary else {}
 
 static func load_state(path: String = DEFAULT_PATH) -> Dictionary:
-	var state := _migrate(_load_file(ProjectSettings.globalize_path(path)))
-	return state if _valid(state) else {}
+	var absolute := ProjectSettings.globalize_path(path)
+	var state := _migrate(_load_file(absolute))
+	if _valid(state):
+		return state
+	var backup := _migrate(_load_file(absolute + ".bak"))
+	return backup if _valid(backup) else {}
 
 static func selftest() -> Dictionary:
 	var failures: Array = []
@@ -88,6 +92,20 @@ static func selftest() -> Dictionary:
 	if not save_state(state, path): failures.append("atomic save")
 	var loaded := load_state(path)
 	if int(loaded.get("schema_version", 0)) != CURRENT_VERSION or int(loaded.get("level", 0)) != 7: failures.append("roundtrip")
+	var newer := state.duplicate(true)
+	newer["level"] = 8
+	if not save_state(newer, path): failures.append("backup rotation")
+	var main_file := FileAccess.open(path, FileAccess.WRITE)
+	if main_file != null:
+		main_file.store_string("{interrupted")
+		main_file.close()
+	var recovered := load_state(path)
+	if int(recovered.get("level", 0)) != 7: failures.append("backup recovery")
+	var temp_file := FileAccess.open(path + ".tmp", FileAccess.WRITE)
+	if temp_file != null:
+		temp_file.store_string("partial")
+		temp_file.close()
+	if int(load_state(path).get("level", 0)) != 7: failures.append("interrupted temp isolation")
 	var legacy := state.duplicate(true)
 	legacy["schema_version"] = 1
 	var migrated := _migrate(legacy)
@@ -101,4 +119,4 @@ static func selftest() -> Dictionary:
 	for cleanup in [path, path + ".tmp", path + ".bak", corrupt_path]:
 		var absolute := ProjectSettings.globalize_path(cleanup)
 		if FileAccess.file_exists(absolute): DirAccess.remove_absolute(absolute)
-	return {"ok": failures.is_empty(), "checks": 4, "failures": failures}
+	return {"ok": failures.is_empty(), "checks": 7, "failures": failures}
