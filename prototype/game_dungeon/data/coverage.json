@@ -14,6 +14,8 @@
   "items": {
     "minimum_bases": 6,
     "minimum_uniques": 6,
+    "minimum_sets": 2,
+    "minimum_set_items": 4,
     "required_slots": ["weapon", "armor"],
     "required_affix_stats": ["ed", "ar", "def", "life", "mana", "str", "dex", "res_all"]
   },

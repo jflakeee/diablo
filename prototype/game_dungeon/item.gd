@@ -26,6 +26,18 @@ const UNIQUES := {
 	"Ring Mail": {"name": "Crownless Mantle", "affixes": {"def": 55, "res_all": 15, "mana": 30, "str": 8}},
 }
 
+# 독자 세트 장비. 동일 set_id 두 부위를 함께 장착하면 SET_BONUSES가 활성화된다.
+const SETS := {
+	"Short Sword": {"set_id": "ember_oath", "set_name": "Ember Oath", "piece_name": "Oathspark", "affixes": {"ed": 32, "fdmg": 7}},
+	"Quilted Armor": {"set_id": "ember_oath", "set_name": "Ember Oath", "piece_name": "Oathweave", "affixes": {"def": 22, "res_fire": 18}},
+	"Mace": {"set_id": "storm_vigil", "set_name": "Storm Vigil", "piece_name": "Vigil Bell", "affixes": {"ed": 28, "ldmg": 10}},
+	"Ring Mail": {"set_id": "storm_vigil", "set_name": "Storm Vigil", "piece_name": "Vigil Links", "affixes": {"def": 38, "res_light": 22}}
+}
+const SET_BONUSES := {
+	"ember_oath": {2: {"life": 30, "res_all": 12}},
+	"storm_vigil": {2: {"mana": 24, "ar": 65}}
+}
+
 # stat 코드: ed(%ED) ar(+AR) def(+방어) life(+생명) mana(+마나) str dex res_all(+전저항)
 const PREFIXES := [
 	{"name": "Serrated", "stat": "ed", "min": 10, "max": 20, "alvl": 1, "slot": "weapon"},
@@ -94,6 +106,14 @@ static func generate(rng: RandomNumberGenerator, base: Dictionary, ilvl: int, qu
 		for k in u["affixes"]:
 			it["affixes"][k] = int(u["affixes"][k])
 		return it
+	if quality == "set" and SETS.has(String(base["name"])):
+		var set_piece: Dictionary = SETS[String(base["name"])]
+		it["set_id"] = String(set_piece["set_id"])
+		it["set_name"] = String(set_piece["set_name"])
+		it["prefix"] = String(set_piece["piece_name"])
+		for k in set_piece["affixes"]:
+			it["affixes"][k] = int(set_piece["affixes"][k])
+		return it
 	var n_pre := 0
 	var n_suf := 0
 	if quality == "magic":
@@ -126,11 +146,15 @@ static func roll_drop(rng: RandomNumberGenerator, monster_level: int, magic_find
 	var rare_chance := 4.0 * (1.0 + eff_mf / 100.0)
 	var uniq_mf := (magic_find * 250.0) / (magic_find + 250.0) if magic_find > 0 else 0.0
 	var uniq_chance := 2.0 * (1.0 + uniq_mf / 100.0)
+	var set_mf := (magic_find * 400.0) / (magic_find + 400.0) if magic_find > 0 else 0.0
+	var set_chance := 2.5 * (1.0 + set_mf / 100.0)
 	var r := rng.randf() * 100.0
 	var quality := "magic"
 	if r < uniq_chance and UNIQUES.has(String(base["name"])):
 		quality = "unique"
-	elif r < uniq_chance + rare_chance:
+	elif r < uniq_chance + set_chance and SETS.has(String(base["name"])):
+		quality = "set"
+	elif r < uniq_chance + set_chance + rare_chance:
 		quality = "rare"
 	elif r >= 92.0:
 		quality = "normal"
@@ -142,6 +166,8 @@ static func display_name(it: Dictionary) -> String:
 		return String(it["name"])
 	if q == "unique":
 		return "%s (%s)" % [String(it["prefix"]), String(it["name"])]   # 유니크명 (베이스)
+	if q == "set":
+		return "%s (%s)" % [String(it["prefix"]), String(it["set_name"])]
 	var pre := (String(it["prefix"]) + " ") if it["prefix"] != "" else ""
 	var suf := (" " + String(it["suffix"])) if it["suffix"] != "" else ""
 	return pre + String(it["name"]) + suf
@@ -163,6 +189,8 @@ static func quality_color(q: String) -> Color:
 		return Color(1.0, 0.9, 0.35)
 	if q == "unique":
 		return Color(0.72, 0.55, 0.28)   # 유니크 금갈색
+	if q == "set":
+		return Color(0.2, 0.85, 0.35)
 	return Color(0.85, 0.85, 0.85)
 
 # 구형 저장에는 내구도 필드가 없다. 해당 아이템은 완전 수리 상태로 간주한다.
@@ -187,7 +215,7 @@ static func repair_cost(it: Dictionary) -> int:
 	if it.is_empty():
 		return 0
 	var missing := durability_max(it) - durability(it)
-	var quality_multiplier: int = int({"normal": 1, "magic": 2, "rare": 3, "unique": 5}.get(String(it.get("quality", "normal")), 1))
+	var quality_multiplier: int = int({"normal": 1, "magic": 2, "rare": 3, "set": 4, "unique": 5}.get(String(it.get("quality", "normal")), 1))
 	return missing * int(quality_multiplier) * maxi(1, 1 + int(it.get("ilvl", 1)) / 5)
 
 static func repair(it: Dictionary) -> int:
@@ -238,3 +266,21 @@ static func effective_affixes(it: Dictionary) -> Dictionary:
 			for k in rw["stats"]:
 				out[k] = int(out.get(k, 0)) + int(rw["stats"][k])
 	return out
+
+static func equipped_set_bonus(items: Array) -> Dictionary:
+	var counts := {}
+	for raw in items:
+		if not raw is Dictionary:
+			continue
+		var it: Dictionary = raw
+		if not it.is_empty() and not is_broken(it) and String(it.get("quality", "")) == "set":
+			var set_id := String(it.get("set_id", ""))
+			counts[set_id] = int(counts.get(set_id, 0)) + 1
+	var result := {}
+	for set_id in counts:
+		var tiers: Dictionary = SET_BONUSES.get(set_id, {})
+		for required in tiers:
+			if int(counts[set_id]) >= int(required):
+				for stat in (tiers[required] as Dictionary):
+					result[stat] = int(result.get(stat, 0)) + int(tiers[required][stat])
+	return result

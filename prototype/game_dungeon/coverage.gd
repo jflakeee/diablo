@@ -71,9 +71,14 @@ static func validate(data_script: GDScript, skills_script: GDScript, item_script
 	for affix in item_script.PREFIXES: stats.append(String(affix.get("stat", "")))
 	for affix in item_script.SUFFIXES: stats.append(String(affix.get("stat", "")))
 	var item_spec: Dictionary = spec["items"]
-	checks += 4
+	checks += 6
 	if base_count < int(item_spec["minimum_bases"]): failures.append("item bases")
 	if item_script.UNIQUES.size() < int(item_spec["minimum_uniques"]): failures.append("unique count")
+	var set_ids := {}
+	for set_piece in item_script.SETS.values():
+		set_ids[String(set_piece.get("set_id", ""))] = true
+	if set_ids.size() < int(item_spec["minimum_sets"]): failures.append("set count")
+	if item_script.SETS.size() < int(item_spec["minimum_set_items"]): failures.append("set item count")
 	if not _has_all(slots, item_spec["required_slots"]): failures.append("item slots")
 	if not _has_all(stats, item_spec["required_affix_stats"]): failures.append("affix roles")
 

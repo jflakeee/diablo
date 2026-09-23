@@ -23,7 +23,7 @@ godot_console --verbose --headless --path prototype/game_dungeon -- autoquit str
 | 난이도 | 저항 페널티, Hell 물리 저항 바닥 | `system_tests.gd`: −100, 50 검증 | PASS |
 | 캐릭터 | Iron Warden 생명/마나 공식 | `system_tests.gd`: Vit 25/Lv 1 | PASS |
 | 스킬 | 독자 스킬 ID, 비용, 레벨 스케일 | `system_tests.gd`, 양 클래스 50초 실행 | PASS |
-| 아이템 | 고유 장비명, 고정 옵션, 품질 색 | `system_tests.gd`: Rift Cleaver | PASS |
+| 아이템 | 고유·세트 장비명, 고정 옵션, 품질 색, 2부위 세트 보너스, 파손 비활성화 | `system_tests.gd`: Rift Cleaver, Ember Oath | PASS |
 | 제작 | 각인 순서, 역순 거부, 승급 | `system_tests.gd`, `[P4][RESULT]` | PASS |
 | 던전 | 27×27, 9방/8문, 결정성, 연결성 | `system_tests.gd`: BFS 및 동일 시드 | PASS |
 | 모바일 UI | safe area, 4:3~20:9, 터치 크기 | `[MOBILE_UI]` | PASS |
@@ -35,7 +35,7 @@ godot_console --verbose --headless --path prototype/game_dungeon -- autoquit str
 | 동료/경제 | Ember Scout 전투, 골드·판매·도박·장비 내구도·수리 | 양 클래스 자동 플레이, `[SYSTEM]` 파손/비활성/수리비/구형 저장 호환 검사 | PASS |
 | 저장 | 원자 교체, 왕복, v1→v2 이관, 손상 거부·백업 복구·중단 격리 | `[SAVE] checks=7` | PASS |
 | 온라인 권위 | 세션 재접속, 시퀀스/이동 검증, 멱등 에스크로, 100계정 보존성 | `[ONLINE] checks=8`, ENet 3프로세스 하네스 | PASS |
-| 콘텐츠 커버리지 | 클래스·스킬 역할/속성, 적 역할/저항, 장비·접사·제작·진행·퀘스트 최소 구성 | `[COVERAGE] checks=21` | PASS |
+| 콘텐츠 커버리지 | 클래스·스킬 역할/속성, 적 역할/저항, 고유·세트 장비·접사·제작·진행·퀘스트 최소 구성 | `[COVERAGE] checks=23` | PASS |
 | 런타임 예산 | 25Hz±5%, 활성 객체 128 이하, 50초 메모리 증가 64MiB 이하 | `[PERF]` 양 클래스 계측 | PASS |
 | Web/PWA 배포 | release export, 독자 144/180/512 아이콘, manifest/service worker, 개발 도구 제외 | Web 산출물·PCK 내용 게이트 | PASS |
 

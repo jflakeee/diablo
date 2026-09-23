@@ -1810,6 +1810,9 @@ func _recompute_player() -> void:
 		var eff := Item.effective_affixes(it)
 		for stat in eff:
 			eq[stat] = int(eq.get(stat, 0)) + int(eff[stat])
+	var set_bonus := Item.equipped_set_bonus([_equipped["weapon"], _equipped["armor"]])
+	for stat in set_bonus:
+		eq[stat] = int(eq.get(stat, 0)) + int(set_bonus[stat])
 	_eq = eq
 	var eff_dex := _player.stat_dex + int(eq["dex"])
 	var arm_def := int(_equipped["armor"]["defense"]) if not _equipped["armor"].is_empty() else 0
@@ -1927,7 +1930,7 @@ func _make_gold(amount: int) -> Dictionary:
 # 아이템 판매가(품질 + 접사 수 기반)
 func _item_value(it: Dictionary) -> int:
 	var q := String(it["quality"])
-	var table := {"normal": 8, "magic": 40, "rare": 110, "unique": 300}
+	var table := {"normal": 8, "magic": 40, "rare": 110, "set": 220, "unique": 300}
 	var base: int = int(table.get(q, 10))
 	var affix_cnt := 0
 	for _k in it.get("affixes", {}):
@@ -2075,7 +2078,7 @@ func _build_vendor() -> void:
 	_vendor_btn(vb, "자동 경매 등급 변경", func(): _cycle_automation("auction_min"))
 
 func _cycle_automation(key: String) -> void:
-	var levels := ["normal", "magic", "rare", "unique"]
+	var levels := ["normal", "magic", "rare", "set", "unique"]
 	var current := String(_automation.get(key))
 	_automation.set(key, levels[(levels.find(current) + 1) % levels.size()])
 	_combat_log = "%s → %s" % [key, String(_automation.get(key))]
@@ -2230,7 +2233,9 @@ func _gamble() -> void:
 	var q := "magic"
 	if r < 8.0 and Item.UNIQUES.has(String(base["name"])):
 		q = "unique"
-	elif r < 30.0:
+	elif r < 18.0 and Item.SETS.has(String(base["name"])):
+		q = "set"
+	elif r < 40.0:
 		q = "rare"
 	var it := Item.generate(_rng, base, ilvl, q)
 	_inventory.append(it)

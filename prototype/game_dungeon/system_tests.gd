@@ -96,4 +96,13 @@ static func run() -> Dictionary:
 	var restored := Quest.normalize_state(quest_defs, quest_state.duplicate(true))
 	_check(String(restored["broken_watchers"]["status"]) == "active" and int(restored["embers_at_the_gate"]["progress"]) == 5, "quest save normalization", failures)
 
-	return {"ok": failures.is_empty(), "checks": 34, "failures": failures}
+	var set_weapon := Item.generate(rng, Item.WEAPON_BASES[0], 12, "set")
+	var set_armor := Item.generate(rng, Item.ARMOR_BASES[0], 12, "set")
+	_check(String(set_weapon.get("set_id", "")) == "ember_oath" and Item.display_name(set_weapon) == "Oathspark (Ember Oath)", "set item identity", failures)
+	_check(Item.quality_color("set") == Color(0.2, 0.85, 0.35), "set quality color", failures)
+	var set_bonus := Item.equipped_set_bonus([set_weapon, set_armor])
+	_check(int(set_bonus.get("life", 0)) == 30 and int(set_bonus.get("res_all", 0)) == 12, "set completion bonus", failures)
+	Item.lose_durability(set_armor, Item.durability_max(set_armor))
+	_check(Item.equipped_set_bonus([set_weapon, set_armor]).is_empty(), "broken set piece disables bonus", failures)
+
+	return {"ok": failures.is_empty(), "checks": 38, "failures": failures}

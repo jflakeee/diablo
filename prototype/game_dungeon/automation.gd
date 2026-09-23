@@ -1,7 +1,7 @@
 extends RefCounted
 # 파밍 자동화 정책/저장소. UI나 월드 노드와 분리해 결정론적으로 검증한다.
 
-const QUALITY_RANK := {"normal": 0, "magic": 1, "rare": 2, "unique": 3}
+const QUALITY_RANK := {"normal": 0, "magic": 1, "rare": 2, "set": 3, "unique": 4}
 
 var pickup_min := "magic"
 var equip_min := "rare"
@@ -64,9 +64,10 @@ func expire_auctions(now: int) -> int:
 func selftest() -> bool:
 	var rare := {"name": "Rare Axe", "slot": "weapon", "quality": "rare", "dmin": 3, "dmax": 12, "affixes": {"ed": 20}}
 	var unique := {"name": "Unique Axe", "slot": "weapon", "quality": "unique", "dmin": 3, "dmax": 10, "affixes": {}}
+	var set_item := {"name": "Set Axe", "slot": "weapon", "quality": "set", "dmin": 3, "dmax": 11, "affixes": {}}
 	add_material({"id": "ruby", "amount": 999999, "slot": "material"})
 	var ok := accepts(rare) and not accepts({"slot": "armor", "quality": "normal"})
 	ok = ok and int(materials["ruby"]) == 999999 and potion_upgrade("health", 2) and not potion_upgrade("health", 1)
-	ok = ok and should_equip(unique, rare) and list_auction(rare, 10, 5)
+	ok = ok and should_equip(unique, set_item) and should_equip(set_item, rare) and list_auction(rare, 10, 5)
 	ok = ok and expire_auctions(14) == 0 and expire_auctions(15) == 3
 	return ok
