@@ -40,6 +40,16 @@ warden:   dungeon_level=2 levels_cleared=1 kills>0                verdict=PASS
 
 Web preset은 설치 가능한 PWA를 생성한다. 독자 앱 아이콘은 `assets/app_icon_source.png`에서 `tools/icon_builder.gd`로 144/180/512 크기를 만들며, release pack은 개발용 `tools`, 로그, UID, 고해상도 원본을 제외한다.
 
+### Web/PWA 릴리스 검증
+
+저장소 루트 또는 다른 경로에서 다음 스크립트를 실행하면 빈 임시 디렉터리에 release export를 만들고 필수 PWA 파일, 1.5 MiB PCK 예산, 개발 도구·샘플·원본 아이콘의 패키지 제외를 한 번에 검증한다. Godot 로그에 export 오류가 있으면 프로세스 종료 코드가 0이어도 실패한다.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File prototype/game_dungeon/tools/release_check.ps1
+```
+
+Android 네이티브 출시는 Web/PWA와 별도이며 필요한 SDK와 실기기 완료 기준은 `docs/ANDROID_EXPORT_REQUIREMENTS.md`에 기록한다.
+
 ```powershell
 godot_console --headless --path . res://tools/network_harness.tscn -- net_server net_multi
 godot_console --headless --path . res://tools/network_harness.tscn -- net_client net_multi

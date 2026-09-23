@@ -38,6 +38,10 @@ godot_console --verbose --headless --path prototype/game_dungeon -- autoquit str
 | 런타임 예산 | 25Hz±5%, 활성 객체 128 이하, 50초 메모리 증가 64MiB 이하 | `[PERF]` 양 클래스 계측 | PASS |
 | Web/PWA 배포 | release export, 독자 144/180/512 아이콘, manifest/service worker, 개발 도구 제외 | Web 산출물·PCK 내용 게이트 | PASS |
 
+Web/PWA 행은 `prototype/game_dungeon/tools/release_check.ps1`로 재검증한다. 스크립트는 새 출력 디렉터리만 허용하고, 필수 산출물 8개, PCK 1.5 MiB 상한, 개발 도구·샘플·고해상도 원본의 패키지 제외, Godot 로그 기반 실패 감지를 모두 통과해야 `[RELEASE] verdict=PASS`를 출력한다.
+
+Android 네이티브 export와 실기기 검증은 Web/PWA 판정에 포함하지 않는다. 필요한 외부 도구와 완료 조건은 `docs/ANDROID_EXPORT_REQUIREMENTS.md`를 따른다.
+
 ## 아직 독립 합격으로 볼 수 없는 범위
 
 | 영역 | 현재 수준 | 완료 조건 |
