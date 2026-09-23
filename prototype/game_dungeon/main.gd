@@ -24,6 +24,7 @@ const SystemTests := preload("res://system_tests.gd")
 const SaveStore := preload("res://save_store.gd")
 const OnlineAuthority := preload("res://online_authority.gd")
 const Coverage := preload("res://coverage.gd")
+const PerformanceBudget := preload("res://performance_budget.gd")
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -144,6 +145,9 @@ var _save_selftest_ok := true
 var _online_selftest_ok := true
 var _coverage_selftest_ok := true
 var _quitting := false
+var _perf_start_memory := 0
+var _perf_peak_memory := 0
+var _perf_peak_active := 0
 
 func _iso(gx: float, gy: float) -> Vector2:
 	return Vector2((gx - gy) * TILE_W * 0.5, (gx + gy) * TILE_H * 0.5)
@@ -570,6 +574,7 @@ func _ready() -> void:
 		var coverage_report := Coverage.validate(Data, Skills, Item, Craft)
 		_coverage_selftest_ok = bool(coverage_report["ok"])
 		print("[COVERAGE] checks=%d monsters=%d skills=%d bases=%d failures=%s verdict=%s" % [int(coverage_report["checks"]), int(coverage_report.get("monsters", 0)), int(coverage_report.get("skills", 0)), int(coverage_report.get("bases", 0)), str(coverage_report["failures"]), "PASS" if _coverage_selftest_ok else "FAIL"])
+		print("[PERF] budget_selftest verdict=", "PASS" if PerformanceBudget.selftest() else "FAIL")
 		print("[ASSET] atlas=%s entries=%d selftest=%s" % [str(_assets.available()), _assets.entry_count(), "PASS" if _assets.selftest() else "FAIL"])
 		_automation = Automation.new() # 셀프테스트 상태를 실제 플레이와 분리
 		var uq := Item.generate(_rng, Item.WEAPON_BASES[1], 20, "unique")
@@ -659,6 +664,8 @@ func _choose_class(cls: String) -> void:
 func _start_game() -> void:
 	_started = true
 	_run_start = Time.get_ticks_msec()
+	_perf_start_memory = int(Performance.get_monitor(Performance.MEMORY_STATIC))
+	_perf_peak_memory = _perf_start_memory
 	if _auto_quit:
 		_rng.seed = 42  # 검증 재현성
 	else:
@@ -1404,6 +1411,8 @@ func _check_pickup() -> void:
 func _process(delta: float) -> void:
 	if not _started:
 		return
+	_perf_peak_memory = maxi(_perf_peak_memory, int(Performance.get_monitor(Performance.MEMORY_STATIC)))
+	_perf_peak_active = maxi(_perf_peak_active, _monsters.size() + _ground.size() + _projectiles.size() + 2)
 	if _cam:
 		_cam.position = _cam.position.lerp(_player.position, clampf(delta * 8.0, 0.0, 1.0))
 	# 애니메이션(걷기 bob·방향·팝)
@@ -1469,7 +1478,9 @@ func _process(delta: float) -> void:
 			_player.state_count(), _merc.state_count() if _merc != null else 0])
 		var asset_report := _assets.validate_runtime()
 		print("[ASSET] monsters compiled=%d fallback=%d runtime=%s" % [_compiled_monsters, _generated_monsters, str(asset_report)])
-		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok and _online_selftest_ok and _coverage_selftest_ok
+		var perf_report := PerformanceBudget.evaluate(elapsed, _logic_ticks, _perf_peak_active, _perf_start_memory, _perf_peak_memory)
+		print("[PERF] logic_hz=%.2f peak_active=%d memory_growth_kib=%.1f failures=%s verdict=%s" % [float(perf_report["logic_hz"]), int(perf_report["peak_active"]), float(perf_report["memory_growth"]) / 1024.0, str(perf_report["failures"]), "PASS" if bool(perf_report["ok"]) else "FAIL"])
+		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and bool(perf_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok and _online_selftest_ok and _coverage_selftest_ok
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		_release_runtime_resources()
 		await get_tree().process_frame

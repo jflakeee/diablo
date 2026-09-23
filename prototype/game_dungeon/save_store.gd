@@ -84,7 +84,8 @@ static func load_state(path: String = DEFAULT_PATH) -> Dictionary:
 
 static func selftest() -> Dictionary:
 	var failures: Array = []
-	var path := "user://save_store_selftest.json"
+	var suffix := str(OS.get_process_id())
+	var path := "user://save_store_selftest_%s.json" % suffix
 	var state := {
 		"class": "warden", "level": 7, "skills": {"sundering_strike": 3},
 		"inventory": [{"name": "test"}], "equipped": {"weapon": {}, "armor": {}},
@@ -110,7 +111,7 @@ static func selftest() -> Dictionary:
 	legacy["schema_version"] = 1
 	var migrated := _migrate(legacy)
 	if int(migrated.get("schema_version", 0)) != CURRENT_VERSION or not migrated.has("difficulty"): failures.append("v1 migration")
-	var corrupt_path := "user://save_store_corrupt.json"
+	var corrupt_path := "user://save_store_corrupt_%s.json" % suffix
 	var corrupt := FileAccess.open(corrupt_path, FileAccess.WRITE)
 	if corrupt != null:
 		corrupt.store_string("{broken")

@@ -36,6 +36,8 @@ warden:   dungeon_level=2 levels_cleared=1 kills>0                verdict=PASS
 
 `data/coverage.json`은 클래스·스킬·몬스터·아이템·제작·진행의 최소 역할 구성을 선언한다. `coverage.gd`가 시작 시 실제 데이터와 대조하므로 콘텐츠 제거 또는 역할 누락은 최종 PASS를 차단한다.
 
+50초 엄격 실행은 `performance_budget.gd` 기준으로 실제 논리 틱을 25Hz±5%로 유지하고, 활성 게임 객체 128개 이하, 정적 메모리 증가 64MiB 이하인지 측정한다. 초과 시 최종 결과가 실패한다.
+
 ```powershell
 godot_console --headless --path . res://tools/network_harness.tscn -- net_server net_multi
 godot_console --headless --path . res://tools/network_harness.tscn -- net_client net_multi
