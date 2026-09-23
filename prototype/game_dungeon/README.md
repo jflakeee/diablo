@@ -42,6 +42,8 @@ warden:   dungeon_level=2 levels_cleared=1 kills>0                verdict=PASS
 
 `data/quests.json`은 3개 액트에 걸친 6개 독자 퀘스트와 선행 조건·처치 목표·보상을 정의한다. 진행은 HUD에 표시되고 보스 및 일반 처치 이벤트와 연결되며 저장 데이터 스키마 v3에 포함된다. 이전 v1/v2 저장은 빈 퀘스트 상태를 보완한 뒤 정의에 맞춰 정규화한다.
 
+`data/waypoints.json`은 3개 액트의 9개 이동 지점을 정의한다. 새 층 진입 시 자동 해금되고 HUD에 현재 지점이 표시된다. 상인 패널의 `웨이포인트 순환 이동`은 현재 액트에서 이미 해금한 지점만 순환하므로 잠금 우회와 이전 액트 보스 보상 반복을 허용하지 않는다. 상태는 저장 스키마 v4에 포함되며 v1~v3 저장도 자동 이관된다.
+
 50초 엄격 실행은 `performance_budget.gd` 기준으로 실제 논리 틱을 25Hz±5%로 유지하고, 활성 게임 객체 128개 이하, 정적 메모리 증가 64MiB 이하인지 측정한다. 초과 시 최종 결과가 실패한다.
 
 Web preset은 설치 가능한 PWA를 생성한다. 독자 앱 아이콘은 `assets/app_icon_source.png`에서 `tools/icon_builder.gd`로 144/180/512 크기를 만들며, release pack은 개발용 `tools`, 로그, UID, 고해상도 원본을 제외한다.

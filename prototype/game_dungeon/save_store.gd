@@ -1,6 +1,6 @@
 extends RefCounted
 
-const CURRENT_VERSION := 3
+const CURRENT_VERSION := 4
 const DEFAULT_PATH := "user://ashen_depths_save.json"
 
 static func _migrate(raw: Dictionary) -> Dictionary:
@@ -21,6 +21,9 @@ static func _migrate(raw: Dictionary) -> Dictionary:
 	if version == 2:
 		state["quest_state"] = state.get("quest_state", {})
 		version = 3
+	if version == 3:
+		state["waypoint_state"] = state.get("waypoint_state", {})
+		version = 4
 	state["schema_version"] = version
 	return state
 
@@ -113,11 +116,15 @@ static func selftest() -> Dictionary:
 	var legacy := state.duplicate(true)
 	legacy["schema_version"] = 1
 	var migrated := _migrate(legacy)
-	if int(migrated.get("schema_version", 0)) != CURRENT_VERSION or not migrated.has("difficulty") or not migrated.has("quest_state"): failures.append("v1 migration")
+	if int(migrated.get("schema_version", 0)) != CURRENT_VERSION or not migrated.has("difficulty") or not migrated.has("quest_state") or not migrated.has("waypoint_state"): failures.append("v1 migration")
 	var v2 := state.duplicate(true)
 	v2["schema_version"] = 2
 	var migrated_v2 := _migrate(v2)
 	if int(migrated_v2.get("schema_version", 0)) != CURRENT_VERSION or not migrated_v2.get("quest_state", null) is Dictionary: failures.append("v2 quest migration")
+	var v3 := state.duplicate(true)
+	v3["schema_version"] = 3
+	var migrated_v3 := _migrate(v3)
+	if int(migrated_v3.get("schema_version", 0)) != CURRENT_VERSION or not migrated_v3.get("waypoint_state", null) is Dictionary: failures.append("v3 waypoint migration")
 	var corrupt_path := "user://save_store_corrupt_%s.json" % suffix
 	var corrupt := FileAccess.open(corrupt_path, FileAccess.WRITE)
 	if corrupt != null:
@@ -127,4 +134,4 @@ static func selftest() -> Dictionary:
 	for cleanup in [path, path + ".tmp", path + ".bak", corrupt_path]:
 		var absolute := ProjectSettings.globalize_path(cleanup)
 		if FileAccess.file_exists(absolute): DirAccess.remove_absolute(absolute)
-	return {"ok": failures.is_empty(), "checks": 8, "failures": failures}
+	return {"ok": failures.is_empty(), "checks": 9, "failures": failures}

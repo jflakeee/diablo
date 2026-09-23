@@ -26,6 +26,7 @@ const OnlineAuthority := preload("res://online_authority.gd")
 const Coverage := preload("res://coverage.gd")
 const PerformanceBudget := preload("res://performance_budget.gd")
 const Quest := preload("res://quest.gd")
+const Waypoint := preload("res://waypoint.gd")
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -43,6 +44,8 @@ var _acts_cleared := 0
 var _exit_locked := false
 var _quest_defs: Array = []
 var _quest_state: Dictionary = {}
+var _waypoint_defs: Array = []
+var _waypoint_state: Dictionary = {}
 
 func _level_in_act() -> int:
 	return ((_dlevel - 1) % ACT_LEN) + 1
@@ -147,6 +150,7 @@ var _system_selftest_ok := true
 var _save_selftest_ok := true
 var _online_selftest_ok := true
 var _coverage_selftest_ok := true
+var _waypoint_selftest_ok := true
 var _quitting := false
 var _perf_start_memory := 0
 var _perf_peak_memory := 0
@@ -435,6 +439,7 @@ func _complete_act(boss: Node) -> void:
 func _next_level() -> void:
 	_levels_cleared += 1
 	_dlevel += 1
+	Waypoint.unlock(_waypoint_defs, _waypoint_state, _act, _level_in_act())
 	for g in _ground:
 		if is_instance_valid(g):
 			g.queue_free()
@@ -576,7 +581,7 @@ func _ready() -> void:
 		print("[ONLINE] checks=%d failures=%s verdict=%s" % [int(online_report["checks"]), str(online_report["failures"]), "PASS" if _online_selftest_ok else "FAIL"])
 		var coverage_report := Coverage.validate(Data, Skills, Item, Craft)
 		_coverage_selftest_ok = bool(coverage_report["ok"])
-		print("[COVERAGE] checks=%d monsters=%d skills=%d bases=%d quests=%d failures=%s verdict=%s" % [int(coverage_report["checks"]), int(coverage_report.get("monsters", 0)), int(coverage_report.get("skills", 0)), int(coverage_report.get("bases", 0)), int(coverage_report.get("quests", 0)), str(coverage_report["failures"]), "PASS" if _coverage_selftest_ok else "FAIL"])
+		print("[COVERAGE] checks=%d monsters=%d skills=%d bases=%d quests=%d waypoints=%d failures=%s verdict=%s" % [int(coverage_report["checks"]), int(coverage_report.get("monsters", 0)), int(coverage_report.get("skills", 0)), int(coverage_report.get("bases", 0)), int(coverage_report.get("quests", 0)), int(coverage_report.get("waypoints", 0)), str(coverage_report["failures"]), "PASS" if _coverage_selftest_ok else "FAIL"])
 		print("[PERF] budget_selftest verdict=", "PASS" if PerformanceBudget.selftest() else "FAIL")
 		print("[ASSET] atlas=%s entries=%d selftest=%s" % [str(_assets.available()), _assets.entry_count(), "PASS" if _assets.selftest() else "FAIL"])
 		_automation = Automation.new() # 셀프테스트 상태를 실제 플레이와 분리
@@ -668,6 +673,9 @@ func _start_game() -> void:
 	_started = true
 	_quest_defs = Data.quests()
 	_quest_state = Quest.new_state(_quest_defs)
+	_waypoint_defs = Data.waypoints()
+	_waypoint_state = Waypoint.new_state()
+	Waypoint.unlock(_waypoint_defs, _waypoint_state, _act, _level_in_act())
 	_run_start = Time.get_ticks_msec()
 	_perf_start_memory = int(Performance.get_monitor(Performance.MEMORY_STATIC))
 	_perf_peak_memory = _perf_start_memory
@@ -856,6 +864,7 @@ func _start_game() -> void:
 	if _auto_quit:
 		_craft_selftest()
 		_act_reward_selftest()
+		_waypoint_travel_selftest()
 	print("[GD] ready — class=%s life=%d dungeon=%dx%d entrance=(%d,%d) exit=(%d,%d)" % [
 		_class, _player.max_life, _gw, _gh, _ent_cell.x, _ent_cell.y, _exit_cell.x, _exit_cell.y])
 
@@ -882,6 +891,20 @@ func _act_reward_selftest() -> void:
 	_acts_cleared = act0
 	_act = 1
 	_exit_locked = false
+
+func _waypoint_travel_selftest() -> void:
+	var saved_state := _waypoint_state.duplicate(true)
+	var saved_level := _dlevel
+	Waypoint.unlock(_waypoint_defs, _waypoint_state, _act, 2)
+	_waypoint_state["current"] = String(Waypoint.find_at(_waypoint_defs, _act, 1).get("id", ""))
+	_travel_waypoint(0)
+	var reached_second := _level_in_act() == 2 and String(_waypoint_state.get("current", "")) == String(Waypoint.find_at(_waypoint_defs, _act, 2).get("id", ""))
+	_travel_waypoint(0)
+	var returned_first := _level_in_act() == 1 and String(_waypoint_state.get("current", "")) == String(Waypoint.find_at(_waypoint_defs, _act, 1).get("id", ""))
+	_waypoint_selftest_ok = reached_second and returned_first
+	_waypoint_state = saved_state
+	_dlevel = saved_level
+	print("[WAYPOINT_TEST] forward=%s return=%s verdict=%s" % [str(reached_second), str(returned_first), "PASS" if _waypoint_selftest_ok else "FAIL"])
 
 func _data_selftest() -> void:
 	var mons := Data.monsters()
@@ -1026,6 +1049,7 @@ func _gather_save_state(reason: String = "manual") -> Dictionary:
 		"difficulty": _difficulty, "act": _act, "acts_cleared": _acts_cleared,
 		"dungeon_level": _dlevel, "levels_cleared": _levels_cleared,
 		"quest_state": _quest_state.duplicate(true),
+		"waypoint_state": _waypoint_state.duplicate(true),
 	}
 
 func _save_game() -> void:
@@ -1069,6 +1093,8 @@ func _load_game() -> void:
 	_dlevel = maxi(int(state.get("dungeon_level", 1)), 1)
 	_levels_cleared = maxi(int(state.get("levels_cleared", 0)), 0)
 	_quest_state = Quest.normalize_state(_quest_defs, state.get("quest_state", {}))
+	_waypoint_state = Waypoint.normalize_state(_waypoint_defs, state.get("waypoint_state", {}))
+	Waypoint.unlock(_waypoint_defs, _waypoint_state, _act, _level_in_act())
 	_recompute_player()
 	_rebuild_inv()
 	_rebuild_char_panel()
@@ -1464,7 +1490,7 @@ func _process(delta: float) -> void:
 	if _stat_points > 0 or _player.skill_points > 0:
 		_hud.text += "  ▲포인트: 스탯%d 스킬%d (Char)" % [_stat_points, _player.skill_points]
 	var quest_gate := "🔒 보스 처치 필요" if _exit_locked else ("⚔ 보스 층" if _is_boss_level() else "탐험 중")
-	_hud.text += "\nACT %d · 층 %d/%d · %s (클리어 %d)\n퀘스트: %s" % [_act, _level_in_act(), ACT_LEN, quest_gate, _acts_cleared, Quest.objective_text(_quest_defs, _quest_state, _act)]
+	_hud.text += "\nACT %d · 층 %d/%d · %s (클리어 %d)\n퀘스트: %s · WP: %s" % [_act, _level_in_act(), ACT_LEN, quest_gate, _acts_cleared, Quest.objective_text(_quest_defs, _quest_state, _act), Waypoint.current_name(_waypoint_defs, _waypoint_state)]
 
 	if _auto_quit and elapsed >= 50.0 and not _quitting:
 		_quitting = true
@@ -1484,6 +1510,7 @@ func _process(delta: float) -> void:
 			if String((quest_entry as Dictionary).get("status", "")) == "complete":
 				completed_quests += 1
 		print("[QUEST] completed=%d/%d current=%s" % [completed_quests, _quest_defs.size(), Quest.objective_text(_quest_defs, _quest_state, _act)])
+		print("[WAYPOINT] unlocked=%d/%d current=%s" % [(_waypoint_state.get("unlocked", {}) as Dictionary).size(), _waypoint_defs.size(), Waypoint.current_name(_waypoint_defs, _waypoint_state)])
 		print("[CHAR] str=%d dex=%d vit=%d energy=%d discipline=%d unspent(stat=%d skill=%d)" % [
 			_player.stat_str, _player.stat_dex, _player.stat_vit, _player.stat_energy,
 			_player.skill_level("weapon_discipline" if _class != "arcanist" else "ember_bolt"), _stat_points, _player.skill_points])
@@ -1494,7 +1521,7 @@ func _process(delta: float) -> void:
 		print("[ASSET] monsters compiled=%d fallback=%d runtime=%s" % [_compiled_monsters, _generated_monsters, str(asset_report)])
 		var perf_report := PerformanceBudget.evaluate(elapsed, _logic_ticks, _perf_peak_active, _perf_start_memory, _perf_peak_memory)
 		print("[PERF] logic_hz=%.2f peak_active=%d memory_growth_kib=%.1f failures=%s verdict=%s" % [float(perf_report["logic_hz"]), int(perf_report["peak_active"]), float(perf_report["memory_growth"]) / 1024.0, str(perf_report["failures"]), "PASS" if bool(perf_report["ok"]) else "FAIL"])
-		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and bool(perf_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok and _online_selftest_ok and _coverage_selftest_ok
+		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and bool(perf_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok and _online_selftest_ok and _coverage_selftest_ok and _waypoint_selftest_ok
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		_release_runtime_resources()
 		await get_tree().process_frame
@@ -2071,6 +2098,7 @@ func _build_vendor() -> void:
 	_vendor_btn(vb, "생명 포션 구매 (%dg)" % COST_HP_POT, func(): _buy_potion("health"))
 	_vendor_btn(vb, "마나 포션 구매 (%dg)" % COST_MP_POT, func(): _buy_potion("mana"))
 	_vendor_btn(vb, "장착 장비 모두 수리", func(): _repair_equipped())
+	_vendor_btn(vb, "웨이포인트 순환 이동", func(): _travel_waypoint(0))
 	_vendor_btn(vb, "인벤토리 전부 판매", func(): _sell_all())
 	_vendor_btn(vb, "🎲 도박 — 무작위 아이템", func(): _gamble())
 	_vendor_btn(vb, "자동 습득 등급 변경", func(): _cycle_automation("pickup_min"))
@@ -2094,6 +2122,37 @@ func _vendor_btn(vb: VBoxContainer, text: String, cb: Callable) -> void:
 
 func _toggle_vendor() -> void:
 	_vendor_panel.visible = not _vendor_panel.visible
+	_refresh_vendor()
+
+func _travel_waypoint(direction: int) -> void:
+	var target := Waypoint.cycle(_waypoint_defs, _waypoint_state, _act) if direction == 0 else Waypoint.adjacent(_waypoint_defs, _waypoint_state, _act, direction)
+	if target.is_empty():
+		_combat_log = "이동 가능한 웨이포인트 없음"
+		return
+	_dlevel = (_act - 1) * ACT_LEN + int(target.get("floor", 1))
+	Waypoint.unlock(_waypoint_defs, _waypoint_state, _act, _level_in_act())
+	for ground_item in _ground:
+		if is_instance_valid(ground_item):
+			ground_item.queue_free()
+	_ground.clear()
+	for projectile in _projectiles:
+		var projectile_node: Node = projectile.get("node", null)
+		if is_instance_valid(projectile_node):
+			projectile_node.queue_free()
+	_projectiles.clear()
+	_generate_dungeon()
+	_build_minimap_tex()
+	_player.gx = _ent_cell.x
+	_player.gy = _ent_cell.y
+	_player.position = _iso(_player.gx, _player.gy)
+	if _merc != null:
+		_merc.gx = _player.gx + 1
+		_merc.gy = _player.gy
+		_merc.position = _iso(_merc.gx, _merc.gy)
+	_spawn_dungeon_monsters()
+	if is_instance_valid(_cam):
+		_cam.position = _player.position
+	_combat_log = "웨이포인트 이동: %s" % Waypoint.current_name(_waypoint_defs, _waypoint_state)
 	_refresh_vendor()
 
 # ── 캐릭터 성장 패널 ──

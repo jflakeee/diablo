@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "waypoints": [
+    {"id":"cinder_gate","act":1,"floor":1,"name":"잿불 관문"},
+    {"id":"hollow_watch","act":1,"floor":2,"name":"공허 감시소"},
+    {"id":"matron_descent","act":1,"floor":3,"name":"무리어미 하강로"},
+    {"id":"glass_causeway","act":2,"floor":1,"name":"유리 둑길"},
+    {"id":"sunken_archive","act":2,"floor":2,"name":"침몰 기록고"},
+    {"id":"heart_vault","act":2,"floor":3,"name":"심장 금고"},
+    {"id":"gilded_breach","act":3,"floor":1,"name":"황금 균열"},
+    {"id":"storm_ossuary","act":3,"floor":2,"name":"폭풍 납골당"},
+    {"id":"depths_seal","act":3,"floor":3,"name":"심연 봉인소"}
+  ]
+}

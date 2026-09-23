@@ -25,6 +25,8 @@
     "levels_per_act": 3,
     "minimum_quests": 6,
     "minimum_acts": 3,
+    "minimum_waypoints": 9,
+    "waypoints_per_act": 3,
     "required_quest_targets": ["any", "ranged", "boss", "rank:champion"]
   }
 }

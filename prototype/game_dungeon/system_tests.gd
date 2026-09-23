@@ -7,6 +7,7 @@ const LevelGen := preload("res://level_gen.gd")
 const Item := preload("res://item.gd")
 const Data := preload("res://data.gd")
 const Quest := preload("res://quest.gd")
+const Waypoint := preload("res://waypoint.gd")
 
 static func _check(condition: bool, label: String, failures: Array) -> void:
 	if not condition:
@@ -105,4 +106,16 @@ static func run() -> Dictionary:
 	Item.lose_durability(set_armor, Item.durability_max(set_armor))
 	_check(Item.equipped_set_bonus([set_weapon, set_armor]).is_empty(), "broken set piece disables bonus", failures)
 
-	return {"ok": failures.is_empty(), "checks": 38, "failures": failures}
+	var waypoint_defs := Data.waypoints()
+	var waypoint_state := Waypoint.new_state()
+	_check(waypoint_defs.size() == 9 and Waypoint.unlock(waypoint_defs, waypoint_state, 1, 1), "waypoint initial unlock", failures)
+	_check(Waypoint.adjacent(waypoint_defs, waypoint_state, 1, -1).is_empty(), "waypoint locked travel rejection", failures)
+	Waypoint.unlock(waypoint_defs, waypoint_state, 1, 2)
+	var previous_waypoint := Waypoint.adjacent(waypoint_defs, waypoint_state, 1, -1)
+	_check(String(previous_waypoint.get("id", "")) == "cinder_gate", "waypoint backward travel", failures)
+	_check(String(Waypoint.cycle(waypoint_defs, waypoint_state, 1).get("id", "")) == "cinder_gate", "waypoint mobile cycle", failures)
+	_check(Waypoint.adjacent(waypoint_defs, waypoint_state, 2, -1).is_empty(), "waypoint cross-act isolation", failures)
+	var restored_waypoints := Waypoint.normalize_state(waypoint_defs, waypoint_state.duplicate(true))
+	_check((restored_waypoints["unlocked"] as Dictionary).size() == 2 and String(restored_waypoints["current"]) == "hollow_watch", "waypoint save normalization", failures)
+
+	return {"ok": failures.is_empty(), "checks": 44, "failures": failures}

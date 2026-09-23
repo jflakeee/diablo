@@ -32,10 +32,11 @@ godot_console --verbose --headless --path prototype/game_dungeon -- autoquit str
 | 정체성 | 프로젝트명, 몬스터 12종, 금지명 | `[IDENTITY]` | PASS |
 | 진행/보스 | 보스 처치 시 출구·보상·Act 진행 | `[ACTTEST]` | PASS |
 | 퀘스트 캠페인 | 3개 액트·6개 독자 퀘스트, 선행 조건, 처치 역할, 보상, HUD, 저장 | `[SYSTEM]` 퀘스트 연쇄/복원, `[COVERAGE] quests=6`, `[QUEST]` 런타임 진행 | PASS |
+| 웨이포인트 | 3개 액트·9개 지점, 층 진입 해금, 현재 액트 순환 이동, 잠금/타 액트 거부, 저장 | `[SYSTEM]` 이동 경계/복원, `[COVERAGE] waypoints=9`, `[WAYPOINT]` 런타임 해금 | PASS |
 | 동료/경제 | Ember Scout 전투, 골드·판매·도박·장비 내구도·수리 | 양 클래스 자동 플레이, `[SYSTEM]` 파손/비활성/수리비/구형 저장 호환 검사 | PASS |
-| 저장 | 원자 교체, 왕복, v1→v2 이관, 손상 거부·백업 복구·중단 격리 | `[SAVE] checks=7` | PASS |
+| 저장 | 원자 교체, 왕복, v1→v4 이관, 퀘스트·웨이포인트 상태, 손상 거부·백업 복구·중단 격리 | `[SAVE] checks=9` | PASS |
 | 온라인 권위 | 세션 재접속, 시퀀스/이동 검증, 멱등 에스크로, 100계정 보존성 | `[ONLINE] checks=8`, ENet 3프로세스 하네스 | PASS |
-| 콘텐츠 커버리지 | 클래스·스킬 역할/속성, 적 역할/저항, 고유·세트 장비·접사·제작·진행·퀘스트 최소 구성 | `[COVERAGE] checks=23` | PASS |
+| 콘텐츠 커버리지 | 클래스·스킬 역할/속성, 적 역할/저항, 고유·세트 장비·접사·제작·진행·퀘스트·웨이포인트 최소 구성 | `[COVERAGE] checks=26` | PASS |
 | 런타임 예산 | 25Hz±5%, 활성 객체 128 이하, 50초 메모리 증가 64MiB 이하 | `[PERF]` 양 클래스 계측 | PASS |
 | Web/PWA 배포 | release export, 독자 144/180/512 아이콘, manifest/service worker, 개발 도구 제외 | Web 산출물·PCK 내용 게이트 | PASS |
 

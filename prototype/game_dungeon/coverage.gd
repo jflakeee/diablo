@@ -71,7 +71,7 @@ static func validate(data_script: GDScript, skills_script: GDScript, item_script
 	for affix in item_script.PREFIXES: stats.append(String(affix.get("stat", "")))
 	for affix in item_script.SUFFIXES: stats.append(String(affix.get("stat", "")))
 	var item_spec: Dictionary = spec["items"]
-	checks += 6
+	checks += 9
 	if base_count < int(item_spec["minimum_bases"]): failures.append("item bases")
 	if item_script.UNIQUES.size() < int(item_spec["minimum_uniques"]): failures.append("unique count")
 	var set_ids := {}
@@ -114,4 +114,26 @@ static func validate(data_script: GDScript, skills_script: GDScript, item_script
 	if quest_acts.size() < int(progression["minimum_acts"]): failures.append("quest acts")
 	if not _has_all(quest_targets, progression["required_quest_targets"]): failures.append("quest target roles")
 	if not quest_integrity: failures.append("quest integrity")
-	return {"ok": failures.is_empty(), "checks": checks, "failures": failures, "monsters": monsters.size(), "skills": skill_defs.size(), "bases": base_count, "quests": quests.size()}
+	var waypoints: Array = data_script.waypoints()
+	var waypoint_ids := {}
+	var waypoint_pairs := {}
+	var waypoint_per_act := {}
+	var waypoint_integrity := true
+	for raw in waypoints:
+		var waypoint: Dictionary = raw
+		var waypoint_id := String(waypoint.get("id", ""))
+		var waypoint_act := int(waypoint.get("act", 0))
+		var waypoint_floor := int(waypoint.get("floor", 0))
+		var pair := "%d:%d" % [waypoint_act, waypoint_floor]
+		if waypoint_id.is_empty() or waypoint_ids.has(waypoint_id) or waypoint_pairs.has(pair):
+			waypoint_integrity = false
+		waypoint_ids[waypoint_id] = true
+		waypoint_pairs[pair] = true
+		waypoint_per_act[waypoint_act] = int(waypoint_per_act.get(waypoint_act, 0)) + 1
+	if waypoints.size() < int(progression["minimum_waypoints"]): failures.append("waypoint count")
+	for waypoint_act in range(1, int(progression["minimum_acts"]) + 1):
+		if int(waypoint_per_act.get(waypoint_act, 0)) < int(progression["waypoints_per_act"]):
+			waypoint_integrity = false
+	if waypoint_per_act.size() < int(progression["minimum_acts"]): failures.append("waypoint acts")
+	if not waypoint_integrity: failures.append("waypoint integrity")
+	return {"ok": failures.is_empty(), "checks": checks, "failures": failures, "monsters": monsters.size(), "skills": skill_defs.size(), "bases": base_count, "quests": quests.size(), "waypoints": waypoints.size()}

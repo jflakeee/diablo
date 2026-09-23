@@ -76,3 +76,9 @@ static func quests() -> Array:
 	if d == null:
 		return []
 	return d.get("quests", [])
+
+static func waypoints() -> Array:
+	var d = _load("res://data/waypoints.json")
+	if d == null:
+		return []
+	return d.get("waypoints", [])
