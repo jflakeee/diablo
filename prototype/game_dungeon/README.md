@@ -38,6 +38,8 @@ warden:   dungeon_level=2 levels_cleared=1 kills>0                verdict=PASS
 
 50초 엄격 실행은 `performance_budget.gd` 기준으로 실제 논리 틱을 25Hz±5%로 유지하고, 활성 게임 객체 128개 이하, 정적 메모리 증가 64MiB 이하인지 측정한다. 초과 시 최종 결과가 실패한다.
 
+Web preset은 설치 가능한 PWA를 생성한다. 독자 앱 아이콘은 `assets/app_icon_source.png`에서 `tools/icon_builder.gd`로 144/180/512 크기를 만들며, release pack은 개발용 `tools`, 로그, UID, 고해상도 원본을 제외한다.
+
 ```powershell
 godot_console --headless --path . res://tools/network_harness.tscn -- net_server net_multi
 godot_console --headless --path . res://tools/network_harness.tscn -- net_client net_multi

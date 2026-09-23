@@ -36,6 +36,7 @@ godot_console --verbose --headless --path prototype/game_dungeon -- autoquit str
 | 온라인 권위 | 세션 재접속, 시퀀스/이동 검증, 멱등 에스크로, 100계정 보존성 | `[ONLINE] checks=8`, ENet 3프로세스 하네스 | PASS |
 | 콘텐츠 커버리지 | 클래스·스킬 역할/속성, 적 역할/저항, 장비·접사·제작·진행 최소 구성 | `[COVERAGE] checks=17` | PASS |
 | 런타임 예산 | 25Hz±5%, 활성 객체 128 이하, 50초 메모리 증가 64MiB 이하 | `[PERF]` 양 클래스 계측 | PASS |
+| Web/PWA 배포 | release export, 독자 144/180/512 아이콘, manifest/service worker, 개발 도구 제외 | Web 산출물·PCK 내용 게이트 | PASS |
 
 ## 아직 독립 합격으로 볼 수 없는 범위
 
