@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "quests": [
+    {"id":"embers_at_the_gate","act":1,"order":1,"name":"성문의 잿불","requires":[],"objective":{"type":"kill","target":"any","count":5},"reward":{"gold":120}},
+    {"id":"silence_the_matron","act":1,"order":2,"name":"무리어미의 침묵","requires":["embers_at_the_gate"],"objective":{"type":"kill","target":"boss","count":1},"reward":{"gold":300,"skill_points":1}},
+    {"id":"broken_watchers","act":2,"order":1,"name":"부서진 감시자","requires":["silence_the_matron"],"objective":{"type":"kill","target":"ranged","count":4},"reward":{"gold":240}},
+    {"id":"heart_below","act":2,"order":2,"name":"심연 아래의 심장","requires":["broken_watchers"],"objective":{"type":"kill","target":"boss","count":1},"reward":{"gold":450,"skill_points":1}},
+    {"id":"gilded_hunters","act":3,"order":1,"name":"황금빛 사냥꾼","requires":["heart_below"],"objective":{"type":"kill","target":"rank:champion","count":2},"reward":{"gold":360}},
+    {"id":"seal_the_depths","act":3,"order":2,"name":"심연 봉인","requires":["gilded_hunters"],"objective":{"type":"kill","target":"boss","count":1},"reward":{"gold":700,"skill_points":2}}
+  ]
+}

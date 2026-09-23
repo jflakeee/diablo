@@ -70,3 +70,9 @@ static func affixes() -> Dictionary:
 	if d == null:
 		return {"prefixes": [], "suffixes": []}
 	return d
+
+static func quests() -> Array:
+	var d = _load("res://data/quests.json")
+	if d == null:
+		return []
+	return d.get("quests", [])

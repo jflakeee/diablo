@@ -25,6 +25,7 @@ const SaveStore := preload("res://save_store.gd")
 const OnlineAuthority := preload("res://online_authority.gd")
 const Coverage := preload("res://coverage.gd")
 const PerformanceBudget := preload("res://performance_budget.gd")
+const Quest := preload("res://quest.gd")
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -40,6 +41,8 @@ const ACT_LEN := 3            # 액트당 던전 층수(마지막 층=보스)
 var _act := 1
 var _acts_cleared := 0
 var _exit_locked := false
+var _quest_defs: Array = []
+var _quest_state: Dictionary = {}
 
 func _level_in_act() -> int:
 	return ((_dlevel - 1) % ACT_LEN) + 1
@@ -573,7 +576,7 @@ func _ready() -> void:
 		print("[ONLINE] checks=%d failures=%s verdict=%s" % [int(online_report["checks"]), str(online_report["failures"]), "PASS" if _online_selftest_ok else "FAIL"])
 		var coverage_report := Coverage.validate(Data, Skills, Item, Craft)
 		_coverage_selftest_ok = bool(coverage_report["ok"])
-		print("[COVERAGE] checks=%d monsters=%d skills=%d bases=%d failures=%s verdict=%s" % [int(coverage_report["checks"]), int(coverage_report.get("monsters", 0)), int(coverage_report.get("skills", 0)), int(coverage_report.get("bases", 0)), str(coverage_report["failures"]), "PASS" if _coverage_selftest_ok else "FAIL"])
+		print("[COVERAGE] checks=%d monsters=%d skills=%d bases=%d quests=%d failures=%s verdict=%s" % [int(coverage_report["checks"]), int(coverage_report.get("monsters", 0)), int(coverage_report.get("skills", 0)), int(coverage_report.get("bases", 0)), int(coverage_report.get("quests", 0)), str(coverage_report["failures"]), "PASS" if _coverage_selftest_ok else "FAIL"])
 		print("[PERF] budget_selftest verdict=", "PASS" if PerformanceBudget.selftest() else "FAIL")
 		print("[ASSET] atlas=%s entries=%d selftest=%s" % [str(_assets.available()), _assets.entry_count(), "PASS" if _assets.selftest() else "FAIL"])
 		_automation = Automation.new() # 셀프테스트 상태를 실제 플레이와 분리
@@ -663,6 +666,8 @@ func _choose_class(cls: String) -> void:
 
 func _start_game() -> void:
 	_started = true
+	_quest_defs = Data.quests()
+	_quest_state = Quest.new_state(_quest_defs)
 	_run_start = Time.get_ticks_msec()
 	_perf_start_memory = int(Performance.get_monitor(Performance.MEMORY_STATIC))
 	_perf_peak_memory = _perf_start_memory
@@ -1020,6 +1025,7 @@ func _gather_save_state(reason: String = "manual") -> Dictionary:
 		"kills": _kills, "gold": _gold, "belt_hp": _belt_hp, "belt_mp": _belt_mp,
 		"difficulty": _difficulty, "act": _act, "acts_cleared": _acts_cleared,
 		"dungeon_level": _dlevel, "levels_cleared": _levels_cleared,
+		"quest_state": _quest_state.duplicate(true),
 	}
 
 func _save_game() -> void:
@@ -1062,6 +1068,7 @@ func _load_game() -> void:
 	_acts_cleared = maxi(int(state.get("acts_cleared", 0)), 0)
 	_dlevel = maxi(int(state.get("dungeon_level", 1)), 1)
 	_levels_cleared = maxi(int(state.get("levels_cleared", 0)), 0)
+	_quest_state = Quest.normalize_state(_quest_defs, state.get("quest_state", {}))
 	_recompute_player()
 	_rebuild_inv()
 	_rebuild_char_panel()
@@ -1456,8 +1463,8 @@ func _process(delta: float) -> void:
 		_hud.text += "\n동료 Ember Scout %s  킬 %d" % [ms, _merc_kills]
 	if _stat_points > 0 or _player.skill_points > 0:
 		_hud.text += "  ▲포인트: 스탯%d 스킬%d (Char)" % [_stat_points, _player.skill_points]
-	var quest := "🔒 보스 처치 필요" if _exit_locked else ("⚔ 보스 층" if _is_boss_level() else "탐험 중")
-	_hud.text += "\nACT %d · 층 %d/%d · %s (클리어 %d)" % [_act, _level_in_act(), ACT_LEN, quest, _acts_cleared]
+	var quest_gate := "🔒 보스 처치 필요" if _exit_locked else ("⚔ 보스 층" if _is_boss_level() else "탐험 중")
+	_hud.text += "\nACT %d · 층 %d/%d · %s (클리어 %d)\n퀘스트: %s" % [_act, _level_in_act(), ACT_LEN, quest_gate, _acts_cleared, Quest.objective_text(_quest_defs, _quest_state, _act)]
 
 	if _auto_quit and elapsed >= 50.0 and not _quitting:
 		_quitting = true
@@ -1472,6 +1479,11 @@ func _process(delta: float) -> void:
 		print("[MAP] tex=%s grid=%dx%d monster_dots=%d" % [str(_minimap != null and _minimap.tex != null), _minimap.gw if _minimap else 0, _minimap.gh if _minimap else 0, _minimap.monster_cells.size() if _minimap else 0])
 		print("[ACT] act=%d level_in_act=%d/%d boss_level=%s exit_locked=%s acts_cleared=%d" % [
 			_act, _level_in_act(), ACT_LEN, str(_is_boss_level()), str(_exit_locked), _acts_cleared])
+		var completed_quests := 0
+		for quest_entry in _quest_state.values():
+			if String((quest_entry as Dictionary).get("status", "")) == "complete":
+				completed_quests += 1
+		print("[QUEST] completed=%d/%d current=%s" % [completed_quests, _quest_defs.size(), Quest.objective_text(_quest_defs, _quest_state, _act)])
 		print("[CHAR] str=%d dex=%d vit=%d energy=%d discipline=%d unspent(stat=%d skill=%d)" % [
 			_player.stat_str, _player.stat_dex, _player.stat_vit, _player.stat_energy,
 			_player.skill_level("weapon_discipline" if _class != "arcanist" else "ember_bolt"), _stat_points, _player.skill_points])
@@ -1843,9 +1855,24 @@ func _grant_xp(amount: int) -> void:
 		_combat_log = "LEVEL UP → %d" % _player.level
 		need = _player.level * 100
 
+func _apply_quest_kill(target: String, rank: String) -> void:
+	var completed := Quest.apply_kill(_quest_defs, _quest_state, _act, target, rank)
+	for id in completed:
+		var definition := Quest.definition_by_id(_quest_defs, String(id))
+		var reward: Dictionary = definition.get("reward", {})
+		var reward_gold := int(reward.get("gold", 0))
+		var reward_skills := int(reward.get("skill_points", 0))
+		_gold += reward_gold
+		_player.skill_points += reward_skills
+		if _auto_quit and reward_skills > 0:
+			_auto_spend_points()
+		_combat_log = "퀘스트 완료: %s (+%dg)" % [String(definition.get("name", id)), reward_gold]
+		_spawn_text(_player.position + Vector2(0, -48), "QUEST COMPLETE", Color(1.0, 0.82, 0.3))
+
 func _on_monster_died(m: Node) -> void:
 	_kills += 1
 	_play_sfx("death")
+	_apply_quest_kill(String(m.get_meta("kind", "melee")), String(m.get_meta("rank", "")))
 	# 액트 보스 처치 → 퀘스트 완료
 	if _boss != null and m == _boss:
 		_complete_act(m)

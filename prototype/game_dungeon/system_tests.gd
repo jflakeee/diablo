@@ -5,6 +5,8 @@ const Skills := preload("res://skills.gd")
 const Craft := preload("res://craft.gd")
 const LevelGen := preload("res://level_gen.gd")
 const Item := preload("res://item.gd")
+const Data := preload("res://data.gd")
+const Quest := preload("res://quest.gd")
 
 static func _check(condition: bool, label: String, failures: Array) -> void:
 	if not condition:
@@ -82,4 +84,16 @@ static func run() -> Dictionary:
 	var legacy_item := {"slot": "armor", "quality": "normal", "ilvl": 1}
 	_check(Item.durability(legacy_item) == 32 and not Item.is_broken(legacy_item), "legacy item durability migration", failures)
 
-	return {"ok": failures.is_empty(), "checks": 29, "failures": failures}
+	var quest_defs := Data.quests()
+	var quest_state := Quest.new_state(quest_defs)
+	_check(quest_defs.size() == 6 and String(quest_state["embers_at_the_gate"]["status"]) == "active", "quest campaign initialization", failures)
+	for i in 5:
+		Quest.apply_kill(quest_defs, quest_state, 1, "melee")
+	_check(String(quest_state["embers_at_the_gate"]["status"]) == "complete" and String(quest_state["silence_the_matron"]["status"]) == "active", "quest prerequisite unlock", failures)
+	var completed := Quest.apply_kill(quest_defs, quest_state, 1, "boss")
+	_check(completed == ["silence_the_matron"] and String(quest_state["broken_watchers"]["status"]) == "active", "quest act chain", failures)
+	_check(Quest.objective_text(quest_defs, quest_state, 2).contains("0/4"), "quest objective text", failures)
+	var restored := Quest.normalize_state(quest_defs, quest_state.duplicate(true))
+	_check(String(restored["broken_watchers"]["status"]) == "active" and int(restored["embers_at_the_gate"]["progress"]) == 5, "quest save normalization", failures)
+
+	return {"ok": failures.is_empty(), "checks": 34, "failures": failures}

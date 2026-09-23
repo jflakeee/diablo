@@ -84,7 +84,29 @@ static func validate(data_script: GDScript, skills_script: GDScript, item_script
 	if craft_script.RUNEWORDS.size() < int(craft_spec["minimum_words"]): failures.append("word count")
 
 	var progression: Dictionary = spec["progression"]
-	checks += 2
+	checks += 6
 	if int(progression["difficulties"]) != 3: failures.append("difficulty tiers")
 	if int(progression["levels_per_act"]) != 3: failures.append("act structure")
-	return {"ok": failures.is_empty(), "checks": checks, "failures": failures, "monsters": monsters.size(), "skills": skill_defs.size(), "bases": base_count}
+	var quests: Array = data_script.quests()
+	var quest_ids := {}
+	var quest_acts := {}
+	var quest_targets: Array = []
+	var quest_integrity := true
+	for raw in quests:
+		var quest: Dictionary = raw
+		var quest_id := String(quest.get("id", ""))
+		if quest_id.is_empty() or quest_ids.has(quest_id):
+			quest_integrity = false
+		quest_ids[quest_id] = true
+		quest_acts[int(quest.get("act", 0))] = true
+		var objective: Dictionary = quest.get("objective", {})
+		quest_targets.append(String(objective.get("target", "")))
+	for raw in quests:
+		for required_id in (raw as Dictionary).get("requires", []):
+			if not quest_ids.has(String(required_id)):
+				quest_integrity = false
+	if quests.size() < int(progression["minimum_quests"]): failures.append("quest count")
+	if quest_acts.size() < int(progression["minimum_acts"]): failures.append("quest acts")
+	if not _has_all(quest_targets, progression["required_quest_targets"]): failures.append("quest target roles")
+	if not quest_integrity: failures.append("quest integrity")
+	return {"ok": failures.is_empty(), "checks": checks, "failures": failures, "monsters": monsters.size(), "skills": skill_defs.size(), "bases": base_count, "quests": quests.size()}

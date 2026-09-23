@@ -38,6 +38,8 @@ warden:   dungeon_level=2 levels_cleared=1 kills>0                verdict=PASS
 
 `data/coverage.json`은 클래스·스킬·몬스터·아이템·제작·진행의 최소 역할 구성을 선언한다. `coverage.gd`가 시작 시 실제 데이터와 대조하므로 콘텐츠 제거 또는 역할 누락은 최종 PASS를 차단한다.
 
+`data/quests.json`은 3개 액트에 걸친 6개 독자 퀘스트와 선행 조건·처치 목표·보상을 정의한다. 진행은 HUD에 표시되고 보스 및 일반 처치 이벤트와 연결되며 저장 데이터 스키마 v3에 포함된다. 이전 v1/v2 저장은 빈 퀘스트 상태를 보완한 뒤 정의에 맞춰 정규화한다.
+
 50초 엄격 실행은 `performance_budget.gd` 기준으로 실제 논리 틱을 25Hz±5%로 유지하고, 활성 게임 객체 128개 이하, 정적 메모리 증가 64MiB 이하인지 측정한다. 초과 시 최종 결과가 실패한다.
 
 Web preset은 설치 가능한 PWA를 생성한다. 독자 앱 아이콘은 `assets/app_icon_source.png`에서 `tools/icon_builder.gd`로 144/180/512 크기를 만들며, release pack은 개발용 `tools`, 로그, UID, 고해상도 원본을 제외한다.

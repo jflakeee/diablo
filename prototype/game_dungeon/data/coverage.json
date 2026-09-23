@@ -18,5 +18,11 @@
     "required_affix_stats": ["ed", "ar", "def", "life", "mana", "str", "dex", "res_all"]
   },
   "crafting": {"minimum_sigils": 10, "minimum_gems": 7, "minimum_words": 3},
-  "progression": {"difficulties": 3, "levels_per_act": 3}
+  "progression": {
+    "difficulties": 3,
+    "levels_per_act": 3,
+    "minimum_quests": 6,
+    "minimum_acts": 3,
+    "required_quest_targets": ["any", "ranged", "boss", "rank:champion"]
+  }
 }
