@@ -15,6 +15,11 @@ const ARMOR_BASES := [
 	{"name": "Leather Armor", "slot": "armor", "defense": 14},
 	{"name": "Ring Mail", "slot": "armor", "defense": 26},
 ]
+const ACCESSORY_BASES := [
+	{"name": "Copper Ring", "slot": "ring"},
+	{"name": "Moonstone Ring", "slot": "ring"},
+	{"name": "Ashen Pendant", "slot": "amulet"},
+]
 
 # 유니크 아이템(고정 스탯) — 베이스명 → 유니크
 const UNIQUES := {
@@ -24,6 +29,9 @@ const UNIQUES := {
 	"Quilted Armor": {"name": "Ashweave", "affixes": {"def": 30, "res_all": 12, "dex": 8, "life": 15}},
 	"Leather Armor": {"name": "Frostveil", "affixes": {"def": 45, "res_cold": 35, "res_all": 10, "life": 25}},
 	"Ring Mail": {"name": "Crownless Mantle", "affixes": {"def": 55, "res_all": 15, "mana": 30, "str": 8}},
+	"Copper Ring": {"name": "Kindled Circuit", "affixes": {"life": 18, "res_fire": 20, "ar": 35}},
+	"Moonstone Ring": {"name": "Pale Orbit", "affixes": {"mana": 24, "res_cold": 20, "dex": 5}},
+	"Ashen Pendant": {"name": "Depthward Seal", "affixes": {"res_all": 16, "str": 5, "life": 12}},
 }
 
 # 독자 세트 장비. 동일 set_id 두 부위를 함께 장착하면 SET_BONUSES가 활성화된다.
@@ -90,12 +98,15 @@ static func _roll_affixes(rng: RandomNumberGenerator, it: Dictionary, table: Arr
 
 # 접사 규칙(Part 1 §3): 매직 = 접미사만50% / 접두사만25% / 둘다25%. 레어 = pre 1~3 + suf 1~3.
 static func generate(rng: RandomNumberGenerator, base: Dictionary, ilvl: int, quality: String) -> Dictionary:
+	var slot := String(base["slot"])
+	var indestructible := slot in ["ring", "amulet"]
+	var maximum_durability := 1 if indestructible else (24 if slot == "weapon" else 32)
 	var it := {
-		"name": String(base["name"]), "slot": String(base["slot"]), "quality": quality, "ilvl": ilvl,
+		"name": String(base["name"]), "slot": slot, "quality": quality, "ilvl": ilvl,
 		"dmin": int(base.get("dmin", 0)), "dmax": int(base.get("dmax", 0)),
 		"defense": int(base.get("defense", 0)),
-		"durability_max": 24 if String(base["slot"]) == "weapon" else 32,
-		"durability": 24 if String(base["slot"]) == "weapon" else 32,
+		"durability_max": maximum_durability, "durability": maximum_durability,
+		"indestructible": indestructible,
 		"affixes": {}, "prefix": "", "suffix": "",
 	}
 	if quality == "normal":
@@ -137,10 +148,13 @@ static func roll_drop(rng: RandomNumberGenerator, monster_level: int, magic_find
 	if rng.randf() < 0.40:
 		return {}
 	var base: Dictionary
-	if rng.randf() < 0.5:
+	var base_roll := rng.randf()
+	if base_roll < 0.42:
 		base = WEAPON_BASES[rng.randi_range(0, WEAPON_BASES.size() - 1)]
-	else:
+	elif base_roll < 0.84:
 		base = ARMOR_BASES[rng.randi_range(0, ARMOR_BASES.size() - 1)]
+	else:
+		base = ACCESSORY_BASES[rng.randi_range(0, ACCESSORY_BASES.size() - 1)]
 	var ilvl := monster_level + 8   # 데모: 접사 다양성 위해 상향(정식은 mlvl 그대로)
 	var eff_mf := (magic_find * 600.0) / (magic_find + 600.0) if magic_find > 0 else 0.0
 	var rare_chance := 4.0 * (1.0 + eff_mf / 100.0)
@@ -195,16 +209,20 @@ static func quality_color(q: String) -> Color:
 
 # 구형 저장에는 내구도 필드가 없다. 해당 아이템은 완전 수리 상태로 간주한다.
 static func durability_max(it: Dictionary) -> int:
+	if bool(it.get("indestructible", false)):
+		return 1
 	return maxi(1, int(it.get("durability_max", 24 if String(it.get("slot", "")) == "weapon" else 32)))
 
 static func durability(it: Dictionary) -> int:
 	return clampi(int(it.get("durability", durability_max(it))), 0, durability_max(it))
 
 static func is_broken(it: Dictionary) -> bool:
-	return not it.is_empty() and durability(it) <= 0
+	return not it.is_empty() and not bool(it.get("indestructible", false)) and durability(it) <= 0
 
 static func lose_durability(it: Dictionary, amount: int = 1) -> bool:
 	if it.is_empty() or amount <= 0:
+		return false
+	if bool(it.get("indestructible", false)):
 		return false
 	var was_broken := is_broken(it)
 	it["durability_max"] = durability_max(it)
@@ -213,6 +231,8 @@ static func lose_durability(it: Dictionary, amount: int = 1) -> bool:
 
 static func repair_cost(it: Dictionary) -> int:
 	if it.is_empty():
+		return 0
+	if bool(it.get("indestructible", false)):
 		return 0
 	var missing := durability_max(it) - durability(it)
 	var quality_multiplier: int = int({"normal": 1, "magic": 2, "rare": 3, "set": 4, "unique": 5}.get(String(it.get("quality", "normal")), 1))

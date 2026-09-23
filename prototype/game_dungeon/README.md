@@ -65,6 +65,14 @@ godot_console --headless --path . res://tools/network_harness.tscn -- net_server
 godot_console --headless --path . res://tools/network_harness.tscn -- net_client net_multi
 godot_console --headless --path . res://tools/network_harness.tscn -- net_client2 net_multi
 ```
+
+### Jewelry equipment
+
+The equipment model includes dedicated `ring` and `amulet` slots in addition to
+weapon and armor. Jewelry participates in world drops, gambling, automatic
+equipment comparison, affix/stat aggregation, and save/load. Unique jewelry has
+fixed authored affixes and is indestructible, so it is excluded from durability
+loss and repair costs. Older saves load with empty jewelry slots.
 → 두 클래스 모두 **다층 던전 클리어→워프** 동작, 런타임 에러 0.
 
 ## 정식화

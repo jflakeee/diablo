@@ -71,7 +71,7 @@ static func validate(data_script: GDScript, skills_script: GDScript, item_script
 	var affixes: Dictionary = data_script.affixes()
 	var slots: Array = []
 	var base_count := 0
-	for group in ["weapons", "armor"]:
+	for group in ["weapons", "armor", "accessories"]:
 		for base in bases.get(group, []):
 			base_count += 1
 			slots.append(String(base.get("slot", "")))

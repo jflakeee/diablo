@@ -8,5 +8,10 @@
     {"name": "Quilted Armor", "slot": "armor", "defense": 9,  "qlvl": 1},
     {"name": "Leather Armor", "slot": "armor", "defense": 14, "qlvl": 3},
     {"name": "Ring Mail",     "slot": "armor", "defense": 26, "qlvl": 7}
+  ],
+  "accessories": [
+    {"name": "Copper Ring", "slot": "ring", "qlvl": 2},
+    {"name": "Moonstone Ring", "slot": "ring", "qlvl": 6},
+    {"name": "Ashen Pendant", "slot": "amulet", "qlvl": 8}
   ]
 }

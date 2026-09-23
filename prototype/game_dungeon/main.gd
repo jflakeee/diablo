@@ -65,6 +65,7 @@ const RANGED_RANGE := 5.0
 const NOVA_RADIUS := 3.5
 const SPELL_RANGE := 7.0
 const FIREBALL_CD := 0.6
+const EQUIPMENT_SLOTS := ["weapon", "armor", "ring", "amulet"]
 
 var _class := "warden"
 var _projectiles: Array = []
@@ -120,7 +121,7 @@ var _combat_log := "-"
 var _mana_acc := 0.0
 
 var _inventory: Array = []
-var _equipped := {"weapon": {}, "armor": {}}
+var _equipped := {"weapon": {}, "armor": {}, "ring": {}, "amulet": {}}
 var _eq := {"str": 0, "dex": 0, "ar": 0, "ed": 0, "life": 0, "mana": 0, "def": 0, "res_all": 0}
 var _player_mf := 50
 var _automation := Automation.new()
@@ -419,7 +420,7 @@ func _complete_act(boss: Node) -> void:
 	var uniq_bases: Array = Item.UNIQUES.keys()
 	var pick_name := String(uniq_bases[_rng.randi_range(0, uniq_bases.size() - 1)])
 	var base: Dictionary = {}
-	for b in Item.WEAPON_BASES + Item.ARMOR_BASES:
+	for b in Item.WEAPON_BASES + Item.ARMOR_BASES + Item.ACCESSORY_BASES:
 		if String(b["name"]) == pick_name:
 			base = b
 			break
@@ -915,11 +916,12 @@ func _data_selftest() -> void:
 	var afx := Data.affixes()
 	var w: Array = bases.get("weapons", [])
 	var a: Array = bases.get("armor", [])
+	var accessories: Array = bases.get("accessories", [])
 	var pre: Array = afx.get("prefixes", [])
 	var suf: Array = afx.get("suffixes", [])
-	print("[DD] data loaded — monsters=%d weapons=%d armor=%d prefixes=%d suffixes=%d" % [
-		mons.size(), w.size(), a.size(), pre.size(), suf.size()])
-	var ok: bool = mons.size() > 0 and w.size() > 0 and pre.size() > 0 and suf.size() > 0
+	print("[DD] data loaded — monsters=%d weapons=%d armor=%d accessories=%d prefixes=%d suffixes=%d" % [
+		mons.size(), w.size(), a.size(), accessories.size(), pre.size(), suf.size()])
+	var ok: bool = mons.size() > 0 and w.size() > 0 and a.size() > 0 and accessories.size() > 0 and pre.size() > 0 and suf.size() > 0
 	print("[DD] data_selftest verdict=", ("PASS" if ok else "FAIL"))
 
 func _craft_selftest() -> void:
@@ -1047,7 +1049,7 @@ func _gather_save_state(reason: String = "manual") -> Dictionary:
 		"stat_str": _player.stat_str, "stat_dex": _player.stat_dex,
 		"stat_vit": _player.stat_vit, "stat_energy": _player.stat_energy,
 		"skills": _player.skills.duplicate(true), "inventory": _inventory.duplicate(true),
-		"equipped": {"weapon": (_equipped["weapon"] as Dictionary).duplicate(true), "armor": (_equipped["armor"] as Dictionary).duplicate(true)},
+		"equipped": {"weapon": (_equipped["weapon"] as Dictionary).duplicate(true), "armor": (_equipped["armor"] as Dictionary).duplicate(true), "ring": (_equipped["ring"] as Dictionary).duplicate(true), "amulet": (_equipped["amulet"] as Dictionary).duplicate(true)},
 		"kills": _kills, "gold": _gold, "belt_hp": _belt_hp, "belt_mp": _belt_mp,
 		"difficulty": _difficulty, "act": _act, "acts_cleared": _acts_cleared,
 		"dungeon_level": _dlevel, "levels_cleared": _levels_cleared,
@@ -1085,7 +1087,7 @@ func _load_game() -> void:
 	_player.skills = (state.get("skills", {}) as Dictionary).duplicate(true)
 	_inventory = (state.get("inventory", []) as Array).duplicate(true)
 	var equipped: Dictionary = state.get("equipped", {})
-	_equipped = {"weapon": (equipped.get("weapon", {}) as Dictionary).duplicate(true), "armor": (equipped.get("armor", {}) as Dictionary).duplicate(true)}
+	_equipped = {"weapon": (equipped.get("weapon", {}) as Dictionary).duplicate(true), "armor": (equipped.get("armor", {}) as Dictionary).duplicate(true), "ring": (equipped.get("ring", {}) as Dictionary).duplicate(true), "amulet": (equipped.get("amulet", {}) as Dictionary).duplicate(true)}
 	_kills = int(state.get("kills", 0))
 	_gold = int(state.get("gold", 0))
 	_belt_hp = clampi(int(state.get("belt_hp", 2)), 0, BELT_MAX)
@@ -1846,14 +1848,16 @@ func _recompute_vitals(a: ActorScript) -> void:
 
 func _recompute_player() -> void:
 	var eq := {"str": 0, "dex": 0, "ar": 0, "ed": 0, "life": 0, "mana": 0, "def": 0, "res_all": 0}
-	for slot in ["weapon", "armor"]:
+	for slot in EQUIPMENT_SLOTS:
 		var it: Dictionary = _equipped[slot]
 		if it.is_empty():
 			continue
 		var eff := Item.effective_affixes(it)
 		for stat in eff:
 			eq[stat] = int(eq.get(stat, 0)) + int(eff[stat])
-	var set_bonus := Item.equipped_set_bonus([_equipped["weapon"], _equipped["armor"]])
+	var set_items: Array = []
+	for slot in EQUIPMENT_SLOTS: set_items.append(_equipped[slot])
+	var set_bonus := Item.equipped_set_bonus(set_items)
 	for stat in set_bonus:
 		eq[stat] = int(eq.get(stat, 0)) + int(set_bonus[stat])
 	_eq = eq
@@ -2267,7 +2271,9 @@ func _refresh_vendor() -> void:
 		_vendor_gold_lbl.text = "골드: %d    벨트 ♥%d ✦%d    가방 %d    수리비 %dg    도박비 %dg" % [_gold, _belt_hp, _belt_mp, _inventory.size(), _repair_equipped_cost(), _gamble_cost()]
 
 func _repair_equipped_cost() -> int:
-	return Item.repair_cost(_equipped["weapon"]) + Item.repair_cost(_equipped["armor"])
+	var total := 0
+	for slot in EQUIPMENT_SLOTS: total += Item.repair_cost(_equipped[slot])
+	return total
 
 func _repair_equipped() -> void:
 	var cost := _repair_equipped_cost()
@@ -2278,8 +2284,7 @@ func _repair_equipped() -> void:
 		_combat_log = "골드 부족 (수리 %dg)" % cost
 		return
 	_gold -= cost
-	Item.repair(_equipped["weapon"])
-	Item.repair(_equipped["armor"])
+	for slot in EQUIPMENT_SLOTS: Item.repair(_equipped[slot])
 	_recompute_player()
 	_combat_log = "장비 수리 완료 (-%dg)" % cost
 	_rebuild_inv()
@@ -2309,10 +2314,13 @@ func _gamble() -> void:
 	_gold -= cost
 	_gambles += 1
 	var base: Dictionary
-	if _rng.randf() < 0.5:
+	var base_roll := _rng.randf()
+	if base_roll < 0.42:
 		base = Item.WEAPON_BASES[_rng.randi_range(0, Item.WEAPON_BASES.size() - 1)]
-	else:
+	elif base_roll < 0.84:
 		base = Item.ARMOR_BASES[_rng.randi_range(0, Item.ARMOR_BASES.size() - 1)]
+	else:
+		base = Item.ACCESSORY_BASES[_rng.randi_range(0, Item.ACCESSORY_BASES.size() - 1)]
 	var ilvl := _player.level + 5
 	var r := _rng.randf() * 100.0
 	var q := "magic"
@@ -2346,6 +2354,8 @@ func _equipped_label(slot: String) -> String:
 	var it: Dictionary = _equipped[slot]
 	if it.is_empty():
 		return "-"
+	if bool(it.get("indestructible", false)):
+		return "%s (불괴)" % Item.display_name(it)
 	return "%s (%d/%d)%s" % [Item.display_name(it), Item.durability(it), Item.durability_max(it), " 파손" if Item.is_broken(it) else ""]
 
 func _rebuild_inv() -> void:
@@ -2355,8 +2365,10 @@ func _rebuild_inv() -> void:
 		c.queue_free()
 	var wn := _equipped_label("weapon")
 	var an := _equipped_label("armor")
+	var rn := _equipped_label("ring")
+	var mn := _equipped_label("amulet")
 	var head := Label.new()
-	head.text = "Weapon: %s\nArmor: %s\n가방 %d · 재료 %d · 경매 %d · 분해재료 %d\n필터 습득≥%s 장착≥%s 경매≥%s" % [wn, an, _inventory.size(), _automation.materials.size(), _automation.auctions.size(), _automation.salvage, _automation.pickup_min, _automation.equip_min, _automation.auction_min]
+	head.text = "Weapon: %s\nArmor: %s\nRing: %s\nAmulet: %s\n가방 %d · 재료 %d · 경매 %d · 분해재료 %d\n필터 습득≥%s 장착≥%s 경매≥%s" % [wn, an, rn, mn, _inventory.size(), _automation.materials.size(), _automation.auctions.size(), _automation.salvage, _automation.pickup_min, _automation.equip_min, _automation.auction_min]
 	_inv_vbox.add_child(head)
 	for it in _inventory:
 		var row := HBoxContainer.new()

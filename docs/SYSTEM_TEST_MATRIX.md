@@ -11,6 +11,13 @@ godot_console --verbose --headless --path prototype/game_dungeon -- autoquit str
 godot_console --verbose --headless --path prototype/game_dungeon -- autoquit strict_assets sorc
 ```
 
+## Jewelry regression coverage
+
+The item regression suite covers the `ring` and `amulet` slots, authored unique
+identity and fixed affixes, indestructible durability behavior, and zero repair
+cost. Content coverage requires all four equipment slots and nine base items.
+The current system suite reports 53 checks.
+
 에셋 컴파일은 `[AG][RESULT] verdict=PASS`, 두 클래스 실행은 `[SYSTEM] ... verdict=PASS`와 최종 `[GD][RESULT] verdict=PASS`를 모두 출력해야 한다. `strict_assets`에서는 누락 목록이 비어 있고 `fallback_count=0`이어야 한다. 테스트 프로세스 종료 시 누수·고아 리소스 경고가 없어야 한다.
 
 ## 자동 검증 행렬

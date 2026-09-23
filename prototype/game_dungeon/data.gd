@@ -62,7 +62,7 @@ static func monster_art_errors() -> Array:
 static func item_bases() -> Dictionary:
 	var d = _load("res://data/item_bases.json")
 	if d == null:
-		return {"weapons": [], "armor": []}
+		return {"weapons": [], "armor": [], "accessories": []}
 	return d
 
 static func affixes() -> Dictionary:

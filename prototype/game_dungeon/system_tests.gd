@@ -64,6 +64,13 @@ static func run() -> Dictionary:
 	var capped_tree := {"ember_bolt": Skills.MAX_LEVEL}
 	_check(not Skills.can_invest("ember_bolt", capped_tree, 99), "skill maximum level", failures)
 	_check(is_equal_approx(Skills.synergy_bonus_pct("void_fury", {"sundering_strike": 2}), 12.0), "attack synergy damage", failures)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	var unique_ring := Item.generate(rng, Item.ACCESSORY_BASES[0], 12, "unique")
+	_check(Item.display_name(unique_ring) == "Kindled Circuit (Copper Ring)", "unique accessory identity", failures)
+	_check(String(unique_ring.get("slot", "")) == "ring" and int(unique_ring["affixes"].get("res_fire", 0)) == 20, "accessory fixed affixes", failures)
+	_check(bool(unique_ring.get("indestructible", false)) and not Item.lose_durability(unique_ring, 99), "accessory indestructible", failures)
+	_check(Item.repair_cost(unique_ring) == 0, "accessory repair exclusion", failures)
 
 	_check(String(Craft.match_runeword("weapon", ["Vey", "Ahn"]).get("name", "")) == "Tempered Edge", "sigil order match", failures)
 	_check(Craft.match_runeword("weapon", ["Ahn", "Vey"]).is_empty(), "sigil reverse rejection", failures)
@@ -78,8 +85,6 @@ static func run() -> Dictionary:
 	_check(level_a["entrance"] == level_b["entrance"] and level_a["exit"] == level_b["exit"] and level_a["grid"] == level_b["grid"], "level determinism", failures)
 	_check(_connected(level_a), "level connectivity", failures)
 
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 7
 	var unique_item := Item.generate(rng, Item.WEAPON_BASES[1], 20, "unique")
 	_check(Item.display_name(unique_item) == "Rift Cleaver (Hand Axe)", "unique identity", failures)
 	_check(int(unique_item["affixes"].get("ed", 0)) == 70, "unique fixed affix", failures)
@@ -126,4 +131,4 @@ static func run() -> Dictionary:
 	var restored_waypoints := Waypoint.normalize_state(waypoint_defs, waypoint_state.duplicate(true))
 	_check((restored_waypoints["unlocked"] as Dictionary).size() == 2 and String(restored_waypoints["current"]) == "hollow_watch", "waypoint save normalization", failures)
 
-	return {"ok": failures.is_empty(), "checks": 49, "failures": failures}
+	return {"ok": failures.is_empty(), "checks": 53, "failures": failures}
