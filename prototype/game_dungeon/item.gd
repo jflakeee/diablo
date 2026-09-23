@@ -82,6 +82,8 @@ static func generate(rng: RandomNumberGenerator, base: Dictionary, ilvl: int, qu
 		"name": String(base["name"]), "slot": String(base["slot"]), "quality": quality, "ilvl": ilvl,
 		"dmin": int(base.get("dmin", 0)), "dmax": int(base.get("dmax", 0)),
 		"defense": int(base.get("defense", 0)),
+		"durability_max": 24 if String(base["slot"]) == "weapon" else 32,
+		"durability": 24 if String(base["slot"]) == "weapon" else 32,
 		"affixes": {}, "prefix": "", "suffix": "",
 	}
 	if quality == "normal":
@@ -163,6 +165,39 @@ static func quality_color(q: String) -> Color:
 		return Color(0.72, 0.55, 0.28)   # 유니크 금갈색
 	return Color(0.85, 0.85, 0.85)
 
+# 구형 저장에는 내구도 필드가 없다. 해당 아이템은 완전 수리 상태로 간주한다.
+static func durability_max(it: Dictionary) -> int:
+	return maxi(1, int(it.get("durability_max", 24 if String(it.get("slot", "")) == "weapon" else 32)))
+
+static func durability(it: Dictionary) -> int:
+	return clampi(int(it.get("durability", durability_max(it))), 0, durability_max(it))
+
+static func is_broken(it: Dictionary) -> bool:
+	return not it.is_empty() and durability(it) <= 0
+
+static func lose_durability(it: Dictionary, amount: int = 1) -> bool:
+	if it.is_empty() or amount <= 0:
+		return false
+	var was_broken := is_broken(it)
+	it["durability_max"] = durability_max(it)
+	it["durability"] = maxi(0, durability(it) - amount)
+	return not was_broken and is_broken(it)
+
+static func repair_cost(it: Dictionary) -> int:
+	if it.is_empty():
+		return 0
+	var missing := durability_max(it) - durability(it)
+	var quality_multiplier: int = int({"normal": 1, "magic": 2, "rare": 3, "unique": 5}.get(String(it.get("quality", "normal")), 1))
+	return missing * int(quality_multiplier) * maxi(1, 1 + int(it.get("ilvl", 1)) / 5)
+
+static func repair(it: Dictionary) -> int:
+	if it.is_empty():
+		return 0
+	var cost := repair_cost(it)
+	it["durability_max"] = durability_max(it)
+	it["durability"] = durability_max(it)
+	return cost
+
 # ── 소켓/룬워드 (Phase 4) ──
 static func make_socketed(base: Dictionary, sockets: int) -> Dictionary:
 	var it := generate(null, base, 1, "normal")
@@ -181,6 +216,8 @@ static func socket_insert(it: Dictionary, socketable: Dictionary) -> bool:
 # 유효 스탯 = 베이스 접사 + 소켓(보석/룬) + 룬워드(순서·소켓수 일치 시)
 static func effective_affixes(it: Dictionary) -> Dictionary:
 	var out := {}
+	if is_broken(it):
+		return out
 	for k in it.get("affixes", {}):
 		out[k] = int(it["affixes"][k])
 	var slot := String(it["slot"])

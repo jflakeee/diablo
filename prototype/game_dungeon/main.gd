@@ -1284,6 +1284,7 @@ func _ranged_ai(m: ActorScript, delta: float) -> void:
 		if CombatLib.roll_hit(_rng, m.attack_rating, _player.defense, m.level, _player.level):
 			var dmg := CombatLib.physical_damage(_rng, m.dmg_min, m.dmg_max, 0.0)
 			_player.take_damage(dmg)
+			_damage_armor()
 			_spawn_text(_player.position, str(dmg), Color(1, 0.6, 0.2))
 			_apply_enchant(m)
 		m.attack_cd = 1.6
@@ -1314,6 +1315,7 @@ func _boss_melee(m: ActorScript) -> void:
 	if CombatLib.roll_hit(_rng, m.attack_rating, _player.defense, m.level, _player.level):
 		var dmg := CombatLib.physical_damage(_rng, m.dmg_min, m.dmg_max, 0.0)
 		_player.take_damage(dmg)
+		_damage_armor()
 		_spawn_text(_player.position, str(dmg), Color(1, 0.3, 0.3))
 
 func _boss_nova(m: ActorScript) -> void:
@@ -1438,8 +1440,8 @@ func _process(delta: float) -> void:
 	for m in _monsters:
 		if m.alive:
 			alive_cnt += 1
-	var wn := Item.display_name(_equipped["weapon"]) if not _equipped["weapon"].is_empty() else "-"
-	var an := Item.display_name(_equipped["armor"]) if not _equipped["armor"].is_empty() else "-"
+	var wn := _equipped_label("weapon")
+	var an := _equipped_label("armor")
 	var elapsed := float(Time.get_ticks_msec() - _run_start) / 1000.0
 	_hud.text = "%s Lv%d  Life %d/%d  Mana %d/%d   골드 %d\nWpn: %s (%d-%d)  Arm: %s  Def %d\nkills %d  drops %d  bag %d  MF %d   벨트 ♥%d ✦%d\n%s" % [
 		_player.actor_name, _player.level, _player.life, _player.max_life, _player.mana, _player.max_mana, _gold,
@@ -1686,6 +1688,8 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 		_hits += 1
 		_play_sfx("hit")
 		var dmg := CombatLib.physical_damage(_rng, _player.dmg_min, _player.dmg_max, dmg_bonus)
+		if Item.lose_durability(_equipped["weapon"]):
+			_recompute_player()
 		var crit := CombatLib.roll_deadly_strike(_rng, Skills.discipline_deadly_strike(m_lvl))
 		if crit:
 			dmg *= 2
@@ -1738,10 +1742,16 @@ func _monster_attack(m: ActorScript) -> void:
 			return
 		var dmg := CombatLib.physical_damage(_rng, m.dmg_min, m.dmg_max, 0.0)
 		_player.take_damage(dmg)
+		_damage_armor()
 		_spawn_text(_player.position, str(dmg), Color(1, 0.4, 0.4))
 		_apply_enchant(m)
 	else:
 		_spawn_text(_player.position, "miss", Color(0.85, 0.85, 0.85))
+
+func _damage_armor() -> void:
+	if Item.lose_durability(_equipped["armor"]):
+		_recompute_player()
+		_combat_log = "방어구 파손"
 
 # 유니크 인챈트 원소 피해(피격 시) — 플레이어 저항 적용. 냉기는 슬로우.
 func _apply_enchant(m: ActorScript) -> void:
@@ -1791,8 +1801,10 @@ func _recompute_player() -> void:
 	_eq = eq
 	var eff_dex := _player.stat_dex + int(eq["dex"])
 	var arm_def := int(_equipped["armor"]["defense"]) if not _equipped["armor"].is_empty() else 0
+	if Item.is_broken(_equipped["armor"]):
+		arm_def = 0
 	_player.defense = CombatLib.character_defense(eff_dex, 15) + arm_def + int(eq["def"])
-	if not _equipped["weapon"].is_empty():
+	if not _equipped["weapon"].is_empty() and not Item.is_broken(_equipped["weapon"]):
 		_player.dmg_min = int(_equipped["weapon"]["dmin"])
 		_player.dmg_max = int(_equipped["weapon"]["dmax"])
 	else:
@@ -2028,6 +2040,7 @@ func _build_vendor() -> void:
 	vb.add_child(_vendor_gold_lbl)
 	_vendor_btn(vb, "생명 포션 구매 (%dg)" % COST_HP_POT, func(): _buy_potion("health"))
 	_vendor_btn(vb, "마나 포션 구매 (%dg)" % COST_MP_POT, func(): _buy_potion("mana"))
+	_vendor_btn(vb, "장착 장비 모두 수리", func(): _repair_equipped())
 	_vendor_btn(vb, "인벤토리 전부 판매", func(): _sell_all())
 	_vendor_btn(vb, "🎲 도박 — 무작위 아이템", func(): _gamble())
 	_vendor_btn(vb, "자동 습득 등급 변경", func(): _cycle_automation("pickup_min"))
@@ -2136,7 +2149,26 @@ func _auto_spend_points() -> void:
 
 func _refresh_vendor() -> void:
 	if _vendor_gold_lbl:
-		_vendor_gold_lbl.text = "골드: %d    벨트 ♥%d ✦%d    가방 %d    도박비 %dg" % [_gold, _belt_hp, _belt_mp, _inventory.size(), _gamble_cost()]
+		_vendor_gold_lbl.text = "골드: %d    벨트 ♥%d ✦%d    가방 %d    수리비 %dg    도박비 %dg" % [_gold, _belt_hp, _belt_mp, _inventory.size(), _repair_equipped_cost(), _gamble_cost()]
+
+func _repair_equipped_cost() -> int:
+	return Item.repair_cost(_equipped["weapon"]) + Item.repair_cost(_equipped["armor"])
+
+func _repair_equipped() -> void:
+	var cost := _repair_equipped_cost()
+	if cost <= 0:
+		_combat_log = "수리할 장비 없음"
+		return
+	if _gold < cost:
+		_combat_log = "골드 부족 (수리 %dg)" % cost
+		return
+	_gold -= cost
+	Item.repair(_equipped["weapon"])
+	Item.repair(_equipped["armor"])
+	_recompute_player()
+	_combat_log = "장비 수리 완료 (-%dg)" % cost
+	_rebuild_inv()
+	_refresh_vendor()
 
 func _buy_potion(ptype: String) -> void:
 	var cost := COST_HP_POT if ptype == "health" else COST_MP_POT
@@ -2193,13 +2225,19 @@ func _sell_all() -> void:
 	_rebuild_inv()
 	_refresh_vendor()
 
+func _equipped_label(slot: String) -> String:
+	var it: Dictionary = _equipped[slot]
+	if it.is_empty():
+		return "-"
+	return "%s (%d/%d)%s" % [Item.display_name(it), Item.durability(it), Item.durability_max(it), " 파손" if Item.is_broken(it) else ""]
+
 func _rebuild_inv() -> void:
 	if _inv_vbox == null:
 		return
 	for c in _inv_vbox.get_children():
 		c.queue_free()
-	var wn := Item.display_name(_equipped["weapon"]) if not _equipped["weapon"].is_empty() else "-"
-	var an := Item.display_name(_equipped["armor"]) if not _equipped["armor"].is_empty() else "-"
+	var wn := _equipped_label("weapon")
+	var an := _equipped_label("armor")
 	var head := Label.new()
 	head.text = "Weapon: %s\nArmor: %s\n가방 %d · 재료 %d · 경매 %d · 분해재료 %d\n필터 습득≥%s 장착≥%s 경매≥%s" % [wn, an, _inventory.size(), _automation.materials.size(), _automation.auctions.size(), _automation.salvage, _automation.pickup_min, _automation.equip_min, _automation.auction_min]
 	_inv_vbox.add_child(head)

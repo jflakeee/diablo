@@ -73,5 +73,13 @@ static func run() -> Dictionary:
 	_check(Item.display_name(unique_item) == "Rift Cleaver (Hand Axe)", "unique identity", failures)
 	_check(int(unique_item["affixes"].get("ed", 0)) == 70, "unique fixed affix", failures)
 	_check(Item.quality_color("unique") == Color(0.72, 0.55, 0.28), "unique quality color", failures)
+	var durable_item := Item.generate(rng, Item.WEAPON_BASES[0], 10, "rare")
+	_check(Item.durability(durable_item) == 24 and not Item.is_broken(durable_item), "item initial durability", failures)
+	Item.lose_durability(durable_item, 24)
+	_check(Item.is_broken(durable_item) and Item.effective_affixes(durable_item).is_empty(), "broken item disabled", failures)
+	var expected_repair_cost := Item.repair_cost(durable_item)
+	_check(expected_repair_cost == 216 and Item.repair(durable_item) == expected_repair_cost and Item.durability(durable_item) == 24, "item repair cost", failures)
+	var legacy_item := {"slot": "armor", "quality": "normal", "ilvl": 1}
+	_check(Item.durability(legacy_item) == 32 and not Item.is_broken(legacy_item), "legacy item durability migration", failures)
 
-	return {"ok": failures.is_empty(), "checks": 25, "failures": failures}
+	return {"ok": failures.is_empty(), "checks": 29, "failures": failures}
