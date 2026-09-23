@@ -56,6 +56,14 @@ static func run() -> Dictionary:
 	_check(Skills.mana_cost("ember_bolt") == 3 and Skills.mana_cost("storm_lance") == 4 and Skills.mana_cost("phase_step") == 6, "arcanist mana costs", failures)
 	_check(is_equal_approx(Skills.sundering_damage_pct(1), 45.0), "sundering scaling", failures)
 	_check(is_equal_approx(Skills.iron_chant_bonus_pct(1), 35.0), "iron chant scaling", failures)
+	var arcanist_tree := {"ember_bolt": 1, "frost_shard": 0, "storm_lance": 0, "phase_step": 0}
+	_check(not Skills.can_invest("frost_shard", arcanist_tree, 1) and Skills.can_invest("frost_shard", arcanist_tree, 2), "skill level prerequisite", failures)
+	_check(not Skills.can_invest("storm_lance", arcanist_tree, 4), "skill dependency rejection", failures)
+	arcanist_tree["frost_shard"] = 3
+	_check(Skills.apply_synergy(100, "ember_bolt", arcanist_tree) == 109, "spell synergy damage", failures)
+	var capped_tree := {"ember_bolt": Skills.MAX_LEVEL}
+	_check(not Skills.can_invest("ember_bolt", capped_tree, 99), "skill maximum level", failures)
+	_check(is_equal_approx(Skills.synergy_bonus_pct("void_fury", {"sundering_strike": 2}), 12.0), "attack synergy damage", failures)
 
 	_check(String(Craft.match_runeword("weapon", ["Vey", "Ahn"]).get("name", "")) == "Tempered Edge", "sigil order match", failures)
 	_check(Craft.match_runeword("weapon", ["Ahn", "Vey"]).is_empty(), "sigil reverse rejection", failures)
@@ -118,4 +126,4 @@ static func run() -> Dictionary:
 	var restored_waypoints := Waypoint.normalize_state(waypoint_defs, waypoint_state.duplicate(true))
 	_check((restored_waypoints["unlocked"] as Dictionary).size() == 2 and String(restored_waypoints["current"]) == "hollow_watch", "waypoint save normalization", failures)
 
-	return {"ok": failures.is_empty(), "checks": 44, "failures": failures}
+	return {"ok": failures.is_empty(), "checks": 49, "failures": failures}

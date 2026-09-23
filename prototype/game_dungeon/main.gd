@@ -698,7 +698,7 @@ func _start_game() -> void:
 		_player.max_life = 40 + 2 * _player.stat_vit + 1  # Part 1 §2
 		_player.max_mana = 35 + 2 * _player.stat_energy + 2
 		_player.speed = 5.5
-		_player.skills = {"ember_bolt": 3, "frost_shard": 3, "storm_lance": 3, "phase_step": 1}
+		_player.skills = {"ember_bolt": 1, "frost_shard": 0, "storm_lance": 0, "phase_step": 0}
 		_base_res_fire = 30      # 소서리스 화염 기본 저항
 		_player.leech_pct = 8    # 스펠 생명 흡혈 8%
 	else:
@@ -710,9 +710,12 @@ func _start_game() -> void:
 		_player.max_life = CombatLib.warden_max_life(25, 1)
 		_player.max_mana = CombatLib.warden_max_mana(15, 1)
 		_player.speed = 6.0
-		_player.skills = {"sundering_strike": 1, "void_fury": 1, "iron_chant": 1, "weapon_discipline": 1}
+		_player.skills = {"sundering_strike": 1, "void_fury": 0, "iron_chant": 0, "weapon_discipline": 1}
 		_player.block_val = 30   # 방패 블록
 		_player.leech_pct = 6    # 물리 생명 흡혈 6%
+	# 종단 검증은 모든 스킬 실행 경로와 기존 50초 층 클리어 기준을 함께 검사한다.
+	if _auto_quit:
+		_player.skills = {"ember_bolt": 3, "frost_shard": 3, "storm_lance": 3, "phase_step": 1} if _class == "arcanist" else {"sundering_strike": 1, "void_fury": 1, "iron_chant": 1, "weapon_discipline": 1}
 	_player.is_player = true
 	_player.level = 1
 	_player.base_max_life = _player.max_life
@@ -1400,7 +1403,7 @@ func _auto_play(delta: float) -> void:
 	# 골드 여유 시 도박(검증)
 	if _gold > _gamble_cost() + 400:
 		_gamble()
-	if _class == "warden" and not _bo_done:
+	if _class == "warden" and not _bo_done and _player.skill_level("iron_chant") > 0:
 		_cast_iron_chant()
 		_bo_done = true
 	var tgt := _nearest_monster()
@@ -1415,10 +1418,13 @@ func _auto_play(delta: float) -> void:
 		if dd <= rng_use:
 			if _player.attack_cd <= 0.0:
 				if _class == "arcanist":
-					var el := _spells_cast % 3   # 3속성 번갈아
-					if el == 0:
+					var learned_spells: Array = []
+					for spell_id in ["ember_bolt", "frost_shard", "storm_lance"]:
+						if _player.skill_level(spell_id) > 0: learned_spells.append(spell_id)
+					var selected_spell := String(learned_spells[_spells_cast % learned_spells.size()])
+					if selected_spell == "ember_bolt":
 						_cast_bolt(tgt, "fire", Color(1, 0.5, 0.15), 14, 26)
-					elif el == 1:
+					elif selected_spell == "frost_shard":
 						_cast_bolt(tgt, "cold", Color(0.4, 0.7, 1.0), 10, 20)
 					else:
 						_cast_storm_lance(tgt)
@@ -1553,6 +1559,9 @@ func _nearest_ground() -> Node:
 	return best
 
 func _on_skill_used(id: String) -> void:
+	if _player.skill_level(id) <= 0:
+		_combat_log = "아직 배우지 않은 스킬"
+		return
 	if id == "iron_chant":
 		_cast_iron_chant()
 		return
@@ -1597,6 +1606,7 @@ func _cast_bolt(target: ActorScript, element: String, color: Color, base_min: in
 	_spells_cast += 1
 	var lvl := _player.skill_level(skill_id)
 	var dmg := _rng.randi_range(base_min, base_max) + lvl * 4
+	dmg = Skills.apply_synergy(dmg, skill_id, _player.skills)
 	_spawn_projectile(_player.position, target, dmg, element, color)
 	_combat_log = "%s bolt (dmg~%d)" % [element, dmg]
 
@@ -1611,6 +1621,7 @@ func _cast_storm_lance(target: ActorScript) -> void:
 	_play_sfx("spell")
 	_spells_cast += 1
 	var raw := _rng.randi_range(6, 30) + _player.skill_level("storm_lance") * 3
+	raw = Skills.apply_synergy(raw, "storm_lance", _player.skills)
 	var dmg := CombatLib.apply_resistance(raw, target.res_light)
 	target.take_damage(dmg)
 	_spell_hits += 1
@@ -1620,6 +1631,8 @@ func _cast_storm_lance(target: ActorScript) -> void:
 		_grant_xp(target.level * 40)
 
 func _cast_phase_step(target: ActorScript) -> void:
+	if _player.skill_level("phase_step") <= 0:
+		return
 	if not _player.spend_mana(Skills.mana_cost("phase_step")):
 		return
 	_spells_cast += 1
@@ -1636,6 +1649,8 @@ func _cast_phase_step(target: ActorScript) -> void:
 	_combat_log = "Phase Step"
 
 func _blink_away(target: ActorScript) -> void:
+	if _player.skill_level("phase_step") <= 0:
+		return
 	if not _player.spend_mana(Skills.mana_cost("phase_step")):
 		return
 	_spells_cast += 1
@@ -1708,6 +1723,7 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 	var label := "Attack"
 	if use_skill:
 		label = Skills.def_name(skill_id)
+		dmg_bonus += Skills.synergy_bonus_pct(skill_id, _player.skills)
 		if skill_id == "sundering_strike":
 			ar_bonus += Skills.sundering_ar_pct(s_lvl)
 			dmg_bonus += Skills.sundering_damage_pct(s_lvl)
@@ -1813,7 +1829,7 @@ func _cast_iron_chant() -> void:
 	var lvl := _player.skill_level("iron_chant")
 	if lvl <= 0 or not _player.spend_mana(Skills.mana_cost("iron_chant")):
 		return
-	_player.bo_pct = Skills.iron_chant_bonus_pct(lvl)
+	_player.bo_pct = Skills.iron_chant_bonus_pct(lvl) + Skills.synergy_bonus_pct("iron_chant", _player.skills)
 	_player.bo_timer = Skills.iron_chant_duration(lvl)
 	_recompute_vitals(_player)
 	_bo_casts += 1
@@ -2195,10 +2211,11 @@ func _rebuild_char_panel() -> void:
 	_char_vbox.add_child(sep)
 	for sk in _class_skill_ids():
 		var b2 := Button.new()
-		b2.text = "＋ %s (Lv%d)" % [_skill_label(sk), _player.skill_level(sk)]
+		var required_level := int(Skills.DEFS[sk].get("required_level", 1))
+		b2.text = "＋ %s (Lv%d · 요구%d · 시너지+%.0f%%)" % [_skill_label(sk), _player.skill_level(sk), required_level, Skills.synergy_bonus_pct(sk, _player.skills)]
 		b2.custom_minimum_size = Vector2(344, 44)
 		b2.add_theme_font_size_override("font_size", _accessibility.font_size(18))
-		b2.disabled = _player.skill_points <= 0
+		b2.disabled = _player.skill_points <= 0 or not Skills.can_invest(sk, _player.skills, _player.level)
 		b2.pressed.connect(func(): _spend_skill(sk))
 		_char_vbox.add_child(b2)
 
@@ -2220,7 +2237,7 @@ func _spend_stat(stat: String) -> void:
 	_rebuild_char_panel()
 
 func _spend_skill(id: String) -> void:
-	if _player.skill_points <= 0:
+	if _player.skill_points <= 0 or not Skills.can_invest(id, _player.skills, _player.level):
 		return
 	_player.skill_points -= 1
 	_player.skills[id] = _player.skill_level(id) + 1
@@ -2234,7 +2251,16 @@ func _auto_spend_points() -> void:
 		else:
 			_spend_stat("vit" if _player.stat_vit <= _player.stat_str else "str")
 	while _player.skill_points > 0:
-		_spend_skill("ember_bolt" if _class == "arcanist" else "weapon_discipline")
+		var candidate := ""
+		var candidate_level := Skills.MAX_LEVEL + 1
+		for skill_id in _class_skill_ids():
+			var current_level := _player.skill_level(skill_id)
+			if Skills.can_invest(skill_id, _player.skills, _player.level) and current_level < candidate_level:
+				candidate = skill_id
+				candidate_level = current_level
+		if candidate.is_empty():
+			break
+		_spend_skill(candidate)
 
 func _refresh_vendor() -> void:
 	if _vendor_gold_lbl:

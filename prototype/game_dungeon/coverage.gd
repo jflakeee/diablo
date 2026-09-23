@@ -30,13 +30,24 @@ static func validate(data_script: GDScript, skills_script: GDScript, item_script
 	var skill_defs: Dictionary = skills_script.DEFS
 	var skill_types: Array = []
 	var elements: Array = []
+	var prerequisite_skills := 0
 	for definition in skill_defs.values():
 		skill_types.append(String(definition.get("type", "")))
 		elements.append(String(definition.get("element", "")))
-	checks += 3
+		if not (definition.get("requires", []) as Array).is_empty(): prerequisite_skills += 1
+	var synergy_links := 0
+	var synergy_integrity := true
+	for target in skills_script.SYNERGIES:
+		if not skill_defs.has(target): synergy_integrity = false
+		for contributor in (skills_script.SYNERGIES[target] as Dictionary):
+			synergy_links += 1
+			if not skill_defs.has(contributor): synergy_integrity = false
+	checks += 5
 	if skill_defs.size() < int(skill_spec["minimum"]): failures.append("skill count")
 	if not _has_all(skill_types, skill_spec["required_types"]): failures.append("skill types")
 	if not _has_all(elements, skill_spec["required_elements"]): failures.append("skill elements")
+	if synergy_links < int(skill_spec["minimum_synergy_links"]) or not synergy_integrity: failures.append("skill synergies")
+	if prerequisite_skills < int(skill_spec["minimum_prerequisite_skills"]): failures.append("skill prerequisites")
 
 	var monsters: Array = data_script.monsters()
 	var monster_kinds: Array = []

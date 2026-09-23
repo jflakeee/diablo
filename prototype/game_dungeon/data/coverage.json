@@ -3,6 +3,8 @@
   "classes": {"required_ids": ["warden", "arcanist"], "minimum": 2},
   "skills": {
     "minimum": 8,
+    "minimum_synergy_links": 6,
+    "minimum_prerequisite_skills": 5,
     "required_types": ["attack", "spell", "buff", "passive", "mobility"],
     "required_elements": ["physical", "fire", "cold", "light"]
   },
