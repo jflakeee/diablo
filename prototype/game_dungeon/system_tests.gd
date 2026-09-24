@@ -8,6 +8,7 @@ const Item := preload("res://item.gd")
 const Data := preload("res://data.gd")
 const Quest := preload("res://quest.gd")
 const Waypoint := preload("res://waypoint.gd")
+const Mercenary := preload("res://mercenary.gd")
 
 static func _check(condition: bool, label: String, failures: Array) -> void:
 	if not condition:
@@ -71,6 +72,17 @@ static func run() -> Dictionary:
 	_check(String(unique_ring.get("slot", "")) == "ring" and int(unique_ring["affixes"].get("res_fire", 0)) == 20, "accessory fixed affixes", failures)
 	_check(bool(unique_ring.get("indestructible", false)) and not Item.lose_durability(unique_ring, 99), "accessory indestructible", failures)
 	_check(Item.repair_cost(unique_ring) == 0, "accessory repair exclusion", failures)
+	var merc_weapon := Item.generate(rng, Item.WEAPON_BASES[1], 12, "unique")
+	var merc_armor := Item.generate(rng, Item.ARMOR_BASES[0], 12, "unique")
+	var merc_equipment := Mercenary.normalize_equipment({"weapon": merc_weapon, "armor": merc_armor, "ring": unique_ring})
+	var merc_stats := Mercenary.stats(10, merc_equipment, Item)
+	_check(Mercenary.can_equip(merc_weapon) and not Mercenary.can_equip(unique_ring), "mercenary slot restrictions", failures)
+	_check(merc_equipment.size() == 2 and not merc_equipment.has("ring"), "mercenary equipment normalization", failures)
+	_check(int(merc_stats["dmg_max"]) > 42 and int(merc_stats["attack_rating"]) > 300, "mercenary weapon scaling", failures)
+	_check(int(merc_stats["life"]) > 280 and int(merc_stats["defense"]) > 50, "mercenary armor scaling", failures)
+	(merc_equipment["weapon"] as Dictionary)["durability"] = 0
+	var broken_merc_stats := Mercenary.stats(10, merc_equipment, Item)
+	_check(int(broken_merc_stats["dmg_max"]) < int(merc_stats["dmg_max"]), "mercenary broken weapon exclusion", failures)
 
 	_check(String(Craft.match_runeword("weapon", ["Vey", "Ahn"]).get("name", "")) == "Tempered Edge", "sigil order match", failures)
 	_check(Craft.match_runeword("weapon", ["Ahn", "Vey"]).is_empty(), "sigil reverse rejection", failures)
@@ -131,4 +143,4 @@ static func run() -> Dictionary:
 	var restored_waypoints := Waypoint.normalize_state(waypoint_defs, waypoint_state.duplicate(true))
 	_check((restored_waypoints["unlocked"] as Dictionary).size() == 2 and String(restored_waypoints["current"]) == "hollow_watch", "waypoint save normalization", failures)
 
-	return {"ok": failures.is_empty(), "checks": 53, "failures": failures}
+	return {"ok": failures.is_empty(), "checks": 58, "failures": failures}

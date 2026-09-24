@@ -73,6 +73,14 @@ weapon and armor. Jewelry participates in world drops, gambling, automatic
 equipment comparison, affix/stat aggregation, and save/load. Unique jewelry has
 fixed authored affixes and is indestructible, so it is excluded from durability
 loss and repair costs. Older saves load with empty jewelry slots.
+
+### Mercenary equipment
+
+Ember Scout has persistent weapon and armor slots. Inventory rows expose a
+separate mercenary equip action, and equipped base stats plus affixes contribute
+to companion damage, attack rating, defense, life, and elemental resistances.
+Broken equipment is ignored and save schema v5 migrates older saves with empty
+companion slots.
 → 두 클래스 모두 **다층 던전 클리어→워프** 동작, 런타임 에러 0.
 
 ## 정식화

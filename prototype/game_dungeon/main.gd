@@ -27,6 +27,7 @@ const Coverage := preload("res://coverage.gd")
 const PerformanceBudget := preload("res://performance_budget.gd")
 const Quest := preload("res://quest.gd")
 const Waypoint := preload("res://waypoint.gd")
+const Mercenary := preload("res://mercenary.gd")
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -97,6 +98,7 @@ var _merc: ActorScript
 var _merc_cd := 0.0
 var _merc_kills := 0
 var _merc_revive_t := 0.0
+var _merc_equipped := Mercenary.empty_equipment()
 const MERC_RANGE := 6.0
 const MERC_CD := 1.1
 # ── 골드 경제 & 상인 ──
@@ -1055,6 +1057,7 @@ func _gather_save_state(reason: String = "manual") -> Dictionary:
 		"dungeon_level": _dlevel, "levels_cleared": _levels_cleared,
 		"quest_state": _quest_state.duplicate(true),
 		"waypoint_state": _waypoint_state.duplicate(true),
+		"merc_equipped": _merc_equipped.duplicate(true),
 	}
 
 func _save_game() -> void:
@@ -1099,8 +1102,11 @@ func _load_game() -> void:
 	_levels_cleared = maxi(int(state.get("levels_cleared", 0)), 0)
 	_quest_state = Quest.normalize_state(_quest_defs, state.get("quest_state", {}))
 	_waypoint_state = Waypoint.normalize_state(_waypoint_defs, state.get("waypoint_state", {}))
+	_merc_equipped = Mercenary.normalize_equipment(state.get("merc_equipped", {}))
 	Waypoint.unlock(_waypoint_defs, _waypoint_state, _act, _level_in_act())
 	_recompute_player()
+	if _merc != null:
+		_merc_scale_stats()
 	_rebuild_inv()
 	_rebuild_char_panel()
 	_refresh_vendor()
@@ -1237,13 +1243,19 @@ func _set_hero_art(actor: ActorScript, kind: String, color: Color, seed: int, sc
 
 func _merc_scale_stats() -> void:
 	var lv := _player.level
-	_merc.max_life = 60 + lv * 22
+	var stats := Mercenary.stats(lv, _merc_equipped, Item)
+	_merc.max_life = int(stats["life"])
 	_merc.base_max_life = _merc.max_life
 	if _merc.alive:
 		_merc.life = _merc.max_life
-	_merc.attack_rating = 120 + lv * 18
-	_merc.dmg_min = 6 + lv * 2
-	_merc.dmg_max = 12 + lv * 3
+	_merc.attack_rating = int(stats["attack_rating"])
+	_merc.dmg_min = int(stats["dmg_min"])
+	_merc.dmg_max = int(stats["dmg_max"])
+	_merc.defense = int(stats["defense"])
+	_merc.res_fire = int(stats["res_fire"])
+	_merc.res_cold = int(stats["res_cold"])
+	_merc.res_light = int(stats["res_light"])
+	_merc.res_poison = int(stats["res_poison"])
 	_merc.speed = 5.6
 
 # 용병 AI: 플레이어 추종 + 최근접 몬스터에 화염 화살(원거리)
@@ -2097,6 +2109,20 @@ func _equip(it: Dictionary) -> void:
 	_combat_log = "equipped %s" % Item.display_name(it)
 	_rebuild_inv()
 
+func _equip_merc_from_inventory(it: Dictionary) -> void:
+	if not Mercenary.can_equip(it):
+		return
+	var slot := String(it["slot"])
+	var old: Dictionary = _merc_equipped[slot]
+	if not old.is_empty() and old != it:
+		_inventory.append(old)
+	_inventory.erase(it)
+	_merc_equipped[slot] = it
+	if _merc != null:
+		_merc_scale_stats()
+	_combat_log = "Ember Scout equipped %s" % Item.display_name(it)
+	_rebuild_inv()
+
 func _toggle_bag() -> void:
 	_inv_panel.visible = not _inv_panel.visible
 	if _inv_panel.visible:
@@ -2367,8 +2393,10 @@ func _rebuild_inv() -> void:
 	var an := _equipped_label("armor")
 	var rn := _equipped_label("ring")
 	var mn := _equipped_label("amulet")
+	var merc_weapon := Item.display_name(_merc_equipped["weapon"]) if not (_merc_equipped["weapon"] as Dictionary).is_empty() else "-"
+	var merc_armor := Item.display_name(_merc_equipped["armor"]) if not (_merc_equipped["armor"] as Dictionary).is_empty() else "-"
 	var head := Label.new()
-	head.text = "Weapon: %s\nArmor: %s\nRing: %s\nAmulet: %s\n가방 %d · 재료 %d · 경매 %d · 분해재료 %d\n필터 습득≥%s 장착≥%s 경매≥%s" % [wn, an, rn, mn, _inventory.size(), _automation.materials.size(), _automation.auctions.size(), _automation.salvage, _automation.pickup_min, _automation.equip_min, _automation.auction_min]
+	head.text = "Weapon: %s\nArmor: %s\nRing: %s\nAmulet: %s\nMerc Weapon: %s\nMerc Armor: %s\n가방 %d · 재료 %d · 경매 %d · 분해재료 %d\n필터 습득≥%s 장착≥%s 경매≥%s" % [wn, an, rn, mn, merc_weapon, merc_armor, _inventory.size(), _automation.materials.size(), _automation.auctions.size(), _automation.salvage, _automation.pickup_min, _automation.equip_min, _automation.auction_min]
 	_inv_vbox.add_child(head)
 	for it in _inventory:
 		var row := HBoxContainer.new()
@@ -2379,6 +2407,12 @@ func _rebuild_inv() -> void:
 		var captured: Dictionary = it
 		btn.pressed.connect(func(): _equip_from_inventory(captured))
 		row.add_child(btn)
+		if Mercenary.can_equip(it):
+			var merc_btn := Button.new()
+			merc_btn.text = "동료"
+			merc_btn.tooltip_text = "Ember Scout에게 장착"
+			merc_btn.pressed.connect(func(): _equip_merc_from_inventory(captured))
+			row.add_child(merc_btn)
 		var protect := Button.new()
 		protect.text = "🔒" if bool(it.get("salvage_protected", false)) else "분해OK"
 		protect.tooltip_text = "경매 만료 시 자동 분해 금지 전환"
