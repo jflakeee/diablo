@@ -9,6 +9,7 @@ const Data := preload("res://data.gd")
 const Quest := preload("res://quest.gd")
 const Waypoint := preload("res://waypoint.gd")
 const Mercenary := preload("res://mercenary.gd")
+const Stamina := preload("res://stamina.gd")
 
 static func _check(condition: bool, label: String, failures: Array) -> void:
 	if not condition:
@@ -83,6 +84,15 @@ static func run() -> Dictionary:
 	(merc_equipment["weapon"] as Dictionary)["durability"] = 0
 	var broken_merc_stats := Mercenary.stats(10, merc_equipment, Item)
 	_check(int(broken_merc_stats["dmg_max"]) < int(merc_stats["dmg_max"]), "mercenary broken weapon exclusion", failures)
+	_check(Stamina.maximum(10, 25) == 140.0, "stamina maximum scaling", failures)
+	_check(is_equal_approx(Stamina.drain_per_second(), 3.90625), "stamina base drain", failures)
+	_check(Stamina.armor_speed_penalty(Item.ARMOR_BASES[2]) == 10 and Stamina.drain_per_second(10) > Stamina.drain_per_second(), "heavy armor stamina penalty", failures)
+	var run_state := Stamina.update(100.0, 140.0, true, true, 1.0, 0.0)
+	_check(bool(run_state["running"]) and float(run_state["stamina"]) < 100.0, "running consumes stamina", failures)
+	var exhausted_state := Stamina.update(0.0, 140.0, true, true, 1.0, 0.0)
+	_check(not bool(exhausted_state["running"]) and float(exhausted_state["stamina"]) == 0.0, "exhaustion forces walking", failures)
+	var recovery_state := Stamina.update(50.0, 140.0, false, false, 1.0, 0.0)
+	_check(float(recovery_state["stamina"]) > 50.0, "idle stamina recovery", failures)
 
 	_check(String(Craft.match_runeword("weapon", ["Vey", "Ahn"]).get("name", "")) == "Tempered Edge", "sigil order match", failures)
 	_check(Craft.match_runeword("weapon", ["Ahn", "Vey"]).is_empty(), "sigil reverse rejection", failures)
@@ -143,4 +153,4 @@ static func run() -> Dictionary:
 	var restored_waypoints := Waypoint.normalize_state(waypoint_defs, waypoint_state.duplicate(true))
 	_check((restored_waypoints["unlocked"] as Dictionary).size() == 2 and String(restored_waypoints["current"]) == "hollow_watch", "waypoint save normalization", failures)
 
-	return {"ok": failures.is_empty(), "checks": 58, "failures": failures}
+	return {"ok": failures.is_empty(), "checks": 64, "failures": failures}

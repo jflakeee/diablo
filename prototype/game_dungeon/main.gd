@@ -28,6 +28,7 @@ const PerformanceBudget := preload("res://performance_budget.gd")
 const Quest := preload("res://quest.gd")
 const Waypoint := preload("res://waypoint.gd")
 const Mercenary := preload("res://mercenary.gd")
+const Stamina := preload("res://stamina.gd")
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -120,6 +121,11 @@ var _inv_panel: Panel
 var _inv_vbox: VBoxContainer
 var _rng := RandomNumberGenerator.new()
 var _combat_log := "-"
+var _stamina := 100.0
+var _stamina_max := 100.0
+var _stamina_recovery_delay := 0.0
+var _player_moved_last_tick := false
+var _player_running := false
 var _mana_acc := 0.0
 
 var _inventory: Array = []
@@ -499,6 +505,16 @@ func _step(actor: ActorScript, dir: Vector2, delta: float) -> void:
 	if dir.length() < 0.01:
 		return
 	var sp := actor.speed * (0.5 if actor.slow_timer > 0.0 else 1.0)  # 냉기 슬로우
+	if actor == _player:
+		var wants_run := _auto_quit or (_joy != null and _joy.value.length() >= 0.72)
+		var armor_penalty := Stamina.armor_speed_penalty(_equipped["armor"])
+		var stamina_state := Stamina.update(_stamina, _stamina_max, true, wants_run, delta, _stamina_recovery_delay, armor_penalty)
+		_stamina = float(stamina_state["stamina"])
+		_stamina_recovery_delay = float(stamina_state["recovery_delay"])
+		_player_running = bool(stamina_state["running"])
+		_player_moved_last_tick = true
+		if _player_running:
+			sp *= Stamina.RUN_SPEED_MULTIPLIER
 	var nx: float = actor.gx + dir.x * sp * delta
 	var ny: float = actor.gy + dir.y * sp * delta
 	if _walkable(nx, actor.gy):
@@ -1058,6 +1074,7 @@ func _gather_save_state(reason: String = "manual") -> Dictionary:
 		"quest_state": _quest_state.duplicate(true),
 		"waypoint_state": _waypoint_state.duplicate(true),
 		"merc_equipped": _merc_equipped.duplicate(true),
+		"stamina": _stamina,
 	}
 
 func _save_game() -> void:
@@ -1105,6 +1122,8 @@ func _load_game() -> void:
 	_merc_equipped = Mercenary.normalize_equipment(state.get("merc_equipped", {}))
 	Waypoint.unlock(_waypoint_defs, _waypoint_state, _act, _level_in_act())
 	_recompute_player()
+	var saved_stamina := float(state.get("stamina", -1.0))
+	_stamina = _stamina_max if saved_stamina < 0.0 else clampf(saved_stamina, 0.0, _stamina_max)
 	if _merc != null:
 		_merc_scale_stats()
 	_rebuild_inv()
@@ -1167,6 +1186,12 @@ func _physics_process(delta: float) -> void:
 	_logic_ticks += 1
 	if not _player.alive:
 		return
+	if not _player_moved_last_tick:
+		var stamina_state := Stamina.update(_stamina, _stamina_max, false, false, delta, _stamina_recovery_delay)
+		_stamina = float(stamina_state["stamina"])
+		_stamina_recovery_delay = float(stamina_state["recovery_delay"])
+		_player_running = false
+	_player_moved_last_tick = false
 
 	_mana_acc += MANA_REGEN * delta
 	var whole := int(_mana_acc)
@@ -1500,6 +1525,7 @@ func _process(delta: float) -> void:
 		_player.actor_name, _player.level, _player.life, _player.max_life, _player.mana, _player.max_mana, _gold,
 		wn, _player.dmg_min, _player.dmg_max, an, _player.defense,
 		_kills, _items_dropped, _inventory.size(), _player_mf, _belt_hp, _belt_mp, _combat_log]
+	_hud.text += "\nStamina %d/%d · %s" % [roundi(_stamina), roundi(_stamina_max), "RUN" if _player_running else "WALK"]
 	if _pot_hp_btn:
 		_pot_hp_btn.text = "♥\n%d" % _belt_hp
 	if _pot_mp_btn:
@@ -1873,6 +1899,9 @@ func _recompute_player() -> void:
 	for stat in set_bonus:
 		eq[stat] = int(eq.get(stat, 0)) + int(set_bonus[stat])
 	_eq = eq
+	var previous_stamina_max := _stamina_max
+	_stamina_max = Stamina.maximum(_player.level, _player.stat_vit)
+	_stamina = _stamina_max if previous_stamina_max <= 0.0 else clampf(_stamina * _stamina_max / previous_stamina_max, 0.0, _stamina_max)
 	var eff_dex := _player.stat_dex + int(eq["dex"])
 	var arm_def := int(_equipped["armor"]["defense"]) if not _equipped["armor"].is_empty() else 0
 	if Item.is_broken(_equipped["armor"]):

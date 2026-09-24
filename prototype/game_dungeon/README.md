@@ -81,6 +81,14 @@ separate mercenary equip action, and equipped base stats plus affixes contribute
 to companion damage, attack rating, defense, life, and elemental resistances.
 Broken equipment is ignored and save schema v5 migrates older saves with empty
 companion slots.
+
+### Run and stamina
+
+Strong joystick input activates running at 1.6x walk speed while stamina is
+available. Maximum stamina scales with level and vitality, armor weight affects
+drain, exhaustion forces walking, and stopping restores stamina after a short
+delay. The HUD exposes the current pool and movement state; schema v6 persists
+the pool while older saves start full.
 → 두 클래스 모두 **다층 던전 클리어→워프** 동작, 런타임 에러 0.
 
 ## 정식화
