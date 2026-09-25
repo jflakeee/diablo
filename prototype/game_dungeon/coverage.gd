@@ -71,10 +71,13 @@ static func validate(data_script: GDScript, skills_script: GDScript, item_script
 	var affixes: Dictionary = data_script.affixes()
 	var slots: Array = []
 	var base_count := 0
+	var bases_with_requirements := 0
 	for group in ["weapons", "armor", "accessories"]:
 		for base in bases.get(group, []):
 			base_count += 1
 			slots.append(String(base.get("slot", "")))
+			if base.has("req_level") and base.has("req_str") and base.has("req_dex"):
+				bases_with_requirements += 1
 	var stats: Array = []
 	for group in ["prefixes", "suffixes"]:
 		for affix in affixes.get(group, []): stats.append(String(affix.get("stat", "")))
@@ -84,6 +87,7 @@ static func validate(data_script: GDScript, skills_script: GDScript, item_script
 	var item_spec: Dictionary = spec["items"]
 	checks += 9
 	if base_count < int(item_spec["minimum_bases"]): failures.append("item bases")
+	if bases_with_requirements != base_count: failures.append("item requirements")
 	if item_script.UNIQUES.size() < int(item_spec["minimum_uniques"]): failures.append("unique count")
 	var set_ids := {}
 	for set_piece in item_script.SETS.values():

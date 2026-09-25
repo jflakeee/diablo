@@ -75,6 +75,12 @@ static func run() -> Dictionary:
 	_check(String(unique_ring.get("slot", "")) == "ring" and int(unique_ring["affixes"].get("res_fire", 0)) == 20, "accessory fixed affixes", failures)
 	_check(bool(unique_ring.get("indestructible", false)) and not Item.lose_durability(unique_ring, 99), "accessory indestructible", failures)
 	_check(Item.repair_cost(unique_ring) == 0, "accessory repair exclusion", failures)
+	_check(int(unique_ring.get("req_level", 0)) == 2 and int(unique_ring.get("req_str", -1)) == 0, "item requirements copied", failures)
+	_check(not Item.can_equip(unique_ring, 1, 99, 99) and Item.can_equip(unique_ring, 2, 0, 0), "item level requirement", failures)
+	var demanding_weapon := Item.generate(rng, Item.WEAPON_BASES[0], 8, "rare")
+	_check(not Item.can_equip(demanding_weapon, 8, 9, 10) and not Item.can_equip(demanding_weapon, 8, 10, 9), "item attribute requirements", failures)
+	_check(Item.can_equip(demanding_weapon, 8, 10, 10), "item requirements accepted", failures)
+	_check(Item.can_equip({"slot": "armor"}, 1, 0, 0), "legacy item requirement defaults", failures)
 	var merc_weapon := Item.generate(rng, Item.WEAPON_BASES[1], 12, "unique")
 	var merc_armor := Item.generate(rng, Item.ARMOR_BASES[0], 12, "unique")
 	var merc_equipment := Mercenary.normalize_equipment({"weapon": merc_weapon, "armor": merc_armor, "ring": unique_ring})
@@ -172,4 +178,4 @@ static func run() -> Dictionary:
 	var restored_waypoints := Waypoint.normalize_state(waypoint_defs, waypoint_state.duplicate(true))
 	_check((restored_waypoints["unlocked"] as Dictionary).size() == 2 and String(restored_waypoints["current"]) == "hollow_watch", "waypoint save normalization", failures)
 
-	return {"ok": failures.is_empty(), "checks": 74, "failures": failures}
+	return {"ok": failures.is_empty(), "checks": 79, "failures": failures}

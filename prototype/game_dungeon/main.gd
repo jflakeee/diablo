@@ -2189,7 +2189,7 @@ func _pickup(n: Node) -> void:
 func _auto_equip(it: Dictionary) -> void:
 	var slot := String(it["slot"])
 	var cur: Dictionary = _equipped[slot]
-	if _automation.should_equip(it, cur):
+	if Item.can_equip(it, _player.level, _player.stat_str, _player.stat_dex) and _automation.should_equip(it, cur):
 		if not cur.is_empty():
 			_inventory.erase(cur)
 			if not _automation.list_auction(cur, int(Time.get_ticks_msec() / 1000)):
@@ -2198,6 +2198,10 @@ func _auto_equip(it: Dictionary) -> void:
 		_inventory.erase(it)
 
 func _equip_from_inventory(it: Dictionary) -> void:
+	var requirement_failures := Item.requirement_failures(it, _player.level, _player.stat_str, _player.stat_dex)
+	if not requirement_failures.is_empty():
+		_combat_log = "장착 요구조건 부족: %s" % ", ".join(requirement_failures)
+		return
 	var slot := String(it["slot"])
 	var old: Dictionary = _equipped[slot]
 	if not old.is_empty() and old != it:
@@ -2213,7 +2217,8 @@ func _equip(it: Dictionary) -> void:
 	_rebuild_inv()
 
 func _equip_merc_from_inventory(it: Dictionary) -> void:
-	if not Mercenary.can_equip(it):
+	if not Mercenary.can_equip(it, _merc.level if _merc != null else _player.level):
+		_combat_log = "동료 장착 요구조건 부족: %s" % Item.requirement_text(it)
 		return
 	var slot := String(it["slot"])
 	var old: Dictionary = _merc_equipped[slot]
@@ -2516,16 +2521,18 @@ func _rebuild_inv() -> void:
 	for it in _inventory:
 		var row := HBoxContainer.new()
 		var btn := Button.new()
-		btn.text = "%s  [%s]" % [Item.display_name(it), Item.affix_text(it)]
+		btn.text = "%s  [%s]  %s" % [Item.display_name(it), Item.affix_text(it), Item.requirement_text(it)]
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		btn.add_theme_color_override("font_color", Item.quality_color(String(it["quality"])))
+		btn.disabled = not Item.can_equip(it, _player.level, _player.stat_str, _player.stat_dex)
 		var captured: Dictionary = it
 		btn.pressed.connect(func(): _equip_from_inventory(captured))
 		row.add_child(btn)
-		if Mercenary.can_equip(it):
+		if String(it.get("slot", "")) in Mercenary.SLOTS:
 			var merc_btn := Button.new()
 			merc_btn.text = "동료"
 			merc_btn.tooltip_text = "Ember Scout에게 장착"
+			merc_btn.disabled = not Mercenary.can_equip(it, _merc.level if _merc != null else _player.level)
 			merc_btn.pressed.connect(func(): _equip_merc_from_inventory(captured))
 			row.add_child(merc_btn)
 		var stash_btn := Button.new()

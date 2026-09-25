@@ -1,17 +1,17 @@
 {
   "weapons": [
-    {"name": "Short Sword", "slot": "weapon", "dmin": 2, "dmax": 7,  "qlvl": 1},
-    {"name": "Hand Axe",    "slot": "weapon", "dmin": 3, "dmax": 10, "qlvl": 2},
-    {"name": "Mace",        "slot": "weapon", "dmin": 3, "dmax": 8,  "qlvl": 3}
+    {"name": "Short Sword", "slot": "weapon", "dmin": 2, "dmax": 7,  "qlvl": 1, "req_level": 1, "req_str": 10, "req_dex": 10},
+    {"name": "Hand Axe",    "slot": "weapon", "dmin": 3, "dmax": 10, "qlvl": 2, "req_level": 1, "req_str": 20, "req_dex": 0},
+    {"name": "Mace",        "slot": "weapon", "dmin": 3, "dmax": 8,  "qlvl": 3, "req_level": 2, "req_str": 25, "req_dex": 0}
   ],
   "armor": [
-    {"name": "Quilted Armor", "slot": "armor", "defense": 9,  "qlvl": 1},
-    {"name": "Leather Armor", "slot": "armor", "defense": 14, "qlvl": 3},
-    {"name": "Ring Mail",     "slot": "armor", "defense": 26, "qlvl": 7}
+    {"name": "Quilted Armor", "slot": "armor", "defense": 9,  "qlvl": 1, "req_level": 1, "req_str": 10, "req_dex": 0},
+    {"name": "Leather Armor", "slot": "armor", "defense": 14, "qlvl": 3, "req_level": 2, "req_str": 15, "req_dex": 0},
+    {"name": "Ring Mail",     "slot": "armor", "defense": 26, "qlvl": 7, "req_level": 5, "req_str": 30, "req_dex": 0}
   ],
   "accessories": [
-    {"name": "Copper Ring", "slot": "ring", "qlvl": 2},
-    {"name": "Moonstone Ring", "slot": "ring", "qlvl": 6},
-    {"name": "Ashen Pendant", "slot": "amulet", "qlvl": 8}
+    {"name": "Copper Ring", "slot": "ring", "qlvl": 2, "req_level": 2, "req_str": 0, "req_dex": 0},
+    {"name": "Moonstone Ring", "slot": "ring", "qlvl": 6, "req_level": 4, "req_str": 0, "req_dex": 0},
+    {"name": "Ashen Pendant", "slot": "amulet", "qlvl": 8, "req_level": 6, "req_str": 0, "req_dex": 0}
   ]
 }

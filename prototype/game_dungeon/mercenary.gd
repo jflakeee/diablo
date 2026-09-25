@@ -15,8 +15,14 @@ static func normalize_equipment(raw) -> Dictionary:
 			equipment[slot] = (item as Dictionary).duplicate(true)
 	return equipment
 
-static func can_equip(item: Dictionary) -> bool:
-	return String(item.get("slot", "")) in SLOTS
+static func strength(level: int) -> int:
+	return 20 + maxi(1, level) * 3
+
+static func dexterity(level: int) -> int:
+	return 15 + maxi(1, level) * 2
+
+static func can_equip(item: Dictionary, level: int = 99) -> bool:
+	return String(item.get("slot", "")) in SLOTS and level >= int(item.get("req_level", 1)) and strength(level) >= int(item.get("req_str", 0)) and dexterity(level) >= int(item.get("req_dex", 0))
 
 static func stats(level: int, equipment: Dictionary, item_script: GDScript) -> Dictionary:
 	var result := {

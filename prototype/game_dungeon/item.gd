@@ -6,19 +6,19 @@ extends RefCounted
 const Craft := preload("res://craft.gd")
 
 const WEAPON_BASES := [
-	{"name": "Short Sword", "slot": "weapon", "dmin": 2, "dmax": 7},
-	{"name": "Hand Axe", "slot": "weapon", "dmin": 3, "dmax": 10},
-	{"name": "Mace", "slot": "weapon", "dmin": 3, "dmax": 8},
+	{"name": "Short Sword", "slot": "weapon", "dmin": 2, "dmax": 7, "req_level": 1, "req_str": 10, "req_dex": 10},
+	{"name": "Hand Axe", "slot": "weapon", "dmin": 3, "dmax": 10, "req_level": 1, "req_str": 20, "req_dex": 0},
+	{"name": "Mace", "slot": "weapon", "dmin": 3, "dmax": 8, "req_level": 2, "req_str": 25, "req_dex": 0},
 ]
 const ARMOR_BASES := [
-	{"name": "Quilted Armor", "slot": "armor", "defense": 9},
-	{"name": "Leather Armor", "slot": "armor", "defense": 14},
-	{"name": "Ring Mail", "slot": "armor", "defense": 26},
+	{"name": "Quilted Armor", "slot": "armor", "defense": 9, "req_level": 1, "req_str": 10, "req_dex": 0},
+	{"name": "Leather Armor", "slot": "armor", "defense": 14, "req_level": 2, "req_str": 15, "req_dex": 0},
+	{"name": "Ring Mail", "slot": "armor", "defense": 26, "req_level": 5, "req_str": 30, "req_dex": 0},
 ]
 const ACCESSORY_BASES := [
-	{"name": "Copper Ring", "slot": "ring"},
-	{"name": "Moonstone Ring", "slot": "ring"},
-	{"name": "Ashen Pendant", "slot": "amulet"},
+	{"name": "Copper Ring", "slot": "ring", "req_level": 2, "req_str": 0, "req_dex": 0},
+	{"name": "Moonstone Ring", "slot": "ring", "req_level": 4, "req_str": 0, "req_dex": 0},
+	{"name": "Ashen Pendant", "slot": "amulet", "req_level": 6, "req_str": 0, "req_dex": 0},
 ]
 
 # 유니크 아이템(고정 스탯) — 베이스명 → 유니크
@@ -105,6 +105,7 @@ static func generate(rng: RandomNumberGenerator, base: Dictionary, ilvl: int, qu
 		"name": String(base["name"]), "slot": slot, "quality": quality, "ilvl": ilvl,
 		"dmin": int(base.get("dmin", 0)), "dmax": int(base.get("dmax", 0)),
 		"defense": int(base.get("defense", 0)),
+		"req_level": int(base.get("req_level", 1)), "req_str": int(base.get("req_str", 0)), "req_dex": int(base.get("req_dex", 0)),
 		"durability_max": maximum_durability, "durability": maximum_durability,
 		"indestructible": indestructible,
 		"affixes": {}, "prefix": "", "suffix": "",
@@ -142,6 +143,19 @@ static func generate(rng: RandomNumberGenerator, base: Dictionary, ilvl: int, qu
 	_roll_affixes(rng, it, PREFIXES, n_pre, ilvl, true)
 	_roll_affixes(rng, it, SUFFIXES, n_suf, ilvl, false)
 	return it
+
+static func requirement_failures(it: Dictionary, character_level: int, strength: int, dexterity: int) -> Array:
+	var failures: Array = []
+	if character_level < int(it.get("req_level", 1)): failures.append("Lv %d" % int(it.get("req_level", 1)))
+	if strength < int(it.get("req_str", 0)): failures.append("STR %d" % int(it.get("req_str", 0)))
+	if dexterity < int(it.get("req_dex", 0)): failures.append("DEX %d" % int(it.get("req_dex", 0)))
+	return failures
+
+static func can_equip(it: Dictionary, character_level: int, strength: int, dexterity: int) -> bool:
+	return requirement_failures(it, character_level, strength, dexterity).is_empty()
+
+static func requirement_text(it: Dictionary) -> String:
+	return "Req Lv%d STR%d DEX%d" % [int(it.get("req_level", 1)), int(it.get("req_str", 0)), int(it.get("req_dex", 0))]
 
 # 드롭 롤(Part 1 §4 근사 + Part 5 §5 MF): {} = NoDrop
 static func roll_drop(rng: RandomNumberGenerator, monster_level: int, magic_find: int) -> Dictionary:

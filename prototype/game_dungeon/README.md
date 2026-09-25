@@ -105,6 +105,14 @@ stash. Transfers preserve complete item dictionaries, reject missing or
 duplicate operations, and never remove an item when the stash is full. Schema
 v8 persists and bounds stored entries while migrating older saves to an empty
 stash.
+
+### Equipment requirements
+
+Every item base defines level, strength, and dexterity requirements. Generated
+normal, magic, rare, set, and unique items retain those requirements. Automatic
+equipment and manual player or mercenary actions reject unmet requirements;
+the Bag displays the thresholds and disables invalid touch targets. Legacy
+items without requirement fields remain usable with level-one defaults.
 → 두 클래스 모두 **다층 던전 클리어→워프** 동작, 런타임 에러 0.
 
 ## 정식화
