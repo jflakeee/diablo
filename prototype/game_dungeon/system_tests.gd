@@ -10,6 +10,7 @@ const Quest := preload("res://quest.gd")
 const Waypoint := preload("res://waypoint.gd")
 const Mercenary := preload("res://mercenary.gd")
 const Stamina := preload("res://stamina.gd")
+const DeathSystem := preload("res://death_system.gd")
 
 static func _check(condition: bool, label: String, failures: Array) -> void:
 	if not condition:
@@ -93,6 +94,12 @@ static func run() -> Dictionary:
 	_check(not bool(exhausted_state["running"]) and float(exhausted_state["stamina"]) == 0.0, "exhaustion forces walking", failures)
 	var recovery_state := Stamina.update(50.0, 140.0, false, false, 1.0, 0.0)
 	_check(float(recovery_state["stamina"]) > 50.0, "idle stamina recovery", failures)
+	_check(DeathSystem.experience_loss(0, 1000) == 0 and DeathSystem.experience_loss(1, 1000) == 50, "death experience normal nightmare", failures)
+	_check(DeathSystem.experience_loss(2, 1000) == 100, "death experience hell", failures)
+	_check(DeathSystem.gold_loss(999) == 199 and DeathSystem.gold_loss(0) == 0, "death carried gold loss", failures)
+	var corpse := DeathSystem.normalize_corpse(DeathSystem.create_corpse(4.0, 7.0, 123))
+	_check(bool(corpse.get("active", false)) and int(corpse.get("held_gold", 0)) == 123, "corpse state normalization", failures)
+	_check(DeathSystem.can_recover(corpse, 4.8, 7.0) and not DeathSystem.can_recover(corpse, 6.0, 7.0), "corpse recovery radius", failures)
 
 	_check(String(Craft.match_runeword("weapon", ["Vey", "Ahn"]).get("name", "")) == "Tempered Edge", "sigil order match", failures)
 	_check(Craft.match_runeword("weapon", ["Ahn", "Vey"]).is_empty(), "sigil reverse rejection", failures)
@@ -153,4 +160,4 @@ static func run() -> Dictionary:
 	var restored_waypoints := Waypoint.normalize_state(waypoint_defs, waypoint_state.duplicate(true))
 	_check((restored_waypoints["unlocked"] as Dictionary).size() == 2 and String(restored_waypoints["current"]) == "hollow_watch", "waypoint save normalization", failures)
 
-	return {"ok": failures.is_empty(), "checks": 64, "failures": failures}
+	return {"ok": failures.is_empty(), "checks": 69, "failures": failures}

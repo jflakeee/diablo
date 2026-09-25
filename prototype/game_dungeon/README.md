@@ -89,6 +89,14 @@ available. Maximum stamina scales with level and vitality, armor weight affects
 drain, exhaustion forces walking, and stopping restores stamina after a short
 delay. The HUD exposes the current pool and movement state; schema v6 persists
 the pool while older saves start full.
+
+### Death and corpse recovery
+
+Death creates a visible corpse at the defeat position, applies difficulty-based
+experience loss and moves 20% of carried gold onto the corpse. After a short
+delay the hero revives at the dungeon entrance with half life and mana; walking
+back to the marker recovers its gold. Corpse position, held gold, and death count
+persist in save schema v7.
 → 두 클래스 모두 **다층 던전 클리어→워프** 동작, 런타임 에러 0.
 
 ## 정식화

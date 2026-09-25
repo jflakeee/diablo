@@ -29,6 +29,7 @@ const Quest := preload("res://quest.gd")
 const Waypoint := preload("res://waypoint.gd")
 const Mercenary := preload("res://mercenary.gd")
 const Stamina := preload("res://stamina.gd")
+const DeathSystem := preload("res://death_system.gd")
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -126,6 +127,10 @@ var _stamina_max := 100.0
 var _stamina_recovery_delay := 0.0
 var _player_moved_last_tick := false
 var _player_running := false
+var _death_respawn_t := 0.0
+var _corpse_state: Dictionary = {}
+var _corpse_marker: Node2D
+var _player_deaths := 0
 var _mana_acc := 0.0
 
 var _inventory: Array = []
@@ -736,6 +741,7 @@ func _start_game() -> void:
 	if _auto_quit:
 		_player.skills = {"ember_bolt": 3, "frost_shard": 3, "storm_lance": 3, "phase_step": 1} if _class == "arcanist" else {"sundering_strike": 1, "void_fury": 1, "iron_chant": 1, "weapon_discipline": 1}
 	_player.is_player = true
+	_player.died.connect(_on_player_died)
 	_player.level = 1
 	_player.base_max_life = _player.max_life
 	_player.life = _player.max_life
@@ -1075,6 +1081,7 @@ func _gather_save_state(reason: String = "manual") -> Dictionary:
 		"waypoint_state": _waypoint_state.duplicate(true),
 		"merc_equipped": _merc_equipped.duplicate(true),
 		"stamina": _stamina,
+		"corpse_state": _corpse_state.duplicate(true), "player_deaths": _player_deaths,
 	}
 
 func _save_game() -> void:
@@ -1124,6 +1131,9 @@ func _load_game() -> void:
 	_recompute_player()
 	var saved_stamina := float(state.get("stamina", -1.0))
 	_stamina = _stamina_max if saved_stamina < 0.0 else clampf(saved_stamina, 0.0, _stamina_max)
+	_corpse_state = DeathSystem.normalize_corpse(state.get("corpse_state", {}))
+	_player_deaths = maxi(0, int(state.get("player_deaths", 0)))
+	_spawn_corpse_marker()
 	if _merc != null:
 		_merc_scale_stats()
 	_rebuild_inv()
@@ -1185,6 +1195,9 @@ func _physics_process(delta: float) -> void:
 		return
 	_logic_ticks += 1
 	if not _player.alive:
+		_death_respawn_t = maxf(0.0, _death_respawn_t - delta)
+		if _death_respawn_t <= 0.0:
+			_respawn_player()
 		return
 	if not _player_moved_last_tick:
 		var stamina_state := Stamina.update(_stamina, _stamina_max, false, false, delta, _stamina_recovery_delay)
@@ -1215,6 +1228,7 @@ func _physics_process(delta: float) -> void:
 			_walk_toward(_player.gx + dir.x, _player.gy + dir.y, delta)
 
 	_check_pickup()
+	_check_corpse_recovery()
 
 	# 출구 도달 → 다음 던전 레벨(워프). 보스 층은 보스 처치 전 잠금.
 	if Vector2(_player.gx, _player.gy).distance_to(Vector2(_exit_cell.x, _exit_cell.y)) < 1.3:
@@ -1326,6 +1340,60 @@ func _merc_fire(tgt: ActorScript) -> void:
 func _on_merc_died(_a: Node) -> void:
 	_merc_revive_t = 8.0                    # 8초 후 부활
 	_combat_log = "용병 쓰러짐 (8초 후 부활)"
+
+func _on_player_died(_actor: Node) -> void:
+	_player_deaths += 1
+	var lost_gold := DeathSystem.gold_loss(_gold)
+	_gold -= lost_gold
+	var lost_xp := mini(_player.xp, DeathSystem.experience_loss(_difficulty, _player.level * 100))
+	_player.xp -= lost_xp
+	var previous_gold := int(_corpse_state.get("held_gold", 0))
+	_corpse_state = DeathSystem.create_corpse(_player.gx, _player.gy, lost_gold + previous_gold)
+	_spawn_corpse_marker()
+	_death_respawn_t = DeathSystem.RESPAWN_DELAY
+	_combat_log = "쓰러짐 · 골드 %d, 경험치 %d 손실" % [lost_gold, lost_xp]
+
+func _respawn_player() -> void:
+	_player.alive = true
+	_player.modulate = Color.WHITE
+	_player.life = maxi(1, roundi(_player.max_life * 0.5))
+	_player.mana = roundi(_player.max_mana * 0.5)
+	_player.gx = _ent_cell.x
+	_player.gy = _ent_cell.y
+	_player.position = _iso(_player.gx, _player.gy)
+	_combat_log = "체크포인트 부활 · 시체를 회수하십시오"
+
+func _spawn_corpse_marker() -> void:
+	if is_instance_valid(_corpse_marker):
+		_corpse_marker.queue_free()
+	_corpse_marker = null
+	if _corpse_state.is_empty() or _world == null:
+		return
+	var marker := Node2D.new()
+	var diamond := Polygon2D.new()
+	diamond.polygon = PackedVector2Array([Vector2(0, -10), Vector2(14, 0), Vector2(0, 10), Vector2(-14, 0)])
+	diamond.color = Color(0.65, 0.12, 0.08, 0.9)
+	marker.add_child(diamond)
+	var label := Label.new()
+	label.text = "CORPSE"
+	label.position = Vector2(-27, -34)
+	label.add_theme_color_override("font_color", Color(1.0, 0.55, 0.35))
+	marker.add_child(label)
+	marker.position = _iso(float(_corpse_state["gx"]), float(_corpse_state["gy"]))
+	marker.z_index = 4
+	_world.add_child(marker)
+	_corpse_marker = marker
+
+func _check_corpse_recovery() -> void:
+	if not DeathSystem.can_recover(_corpse_state, _player.gx, _player.gy):
+		return
+	var recovered_gold := int(_corpse_state.get("held_gold", 0))
+	_gold += recovered_gold
+	_corpse_state.clear()
+	if is_instance_valid(_corpse_marker):
+		_corpse_marker.queue_free()
+	_corpse_marker = null
+	_combat_log = "시체 회수 · 골드 +%d" % recovered_gold
 
 func _merc_revive() -> void:
 	if _merc == null:
@@ -1526,6 +1594,8 @@ func _process(delta: float) -> void:
 		wn, _player.dmg_min, _player.dmg_max, an, _player.defense,
 		_kills, _items_dropped, _inventory.size(), _player_mf, _belt_hp, _belt_mp, _combat_log]
 	_hud.text += "\nStamina %d/%d · %s" % [roundi(_stamina), roundi(_stamina_max), "RUN" if _player_running else "WALK"]
+	if not _corpse_state.is_empty():
+		_hud.text += " · Corpse %dg · Deaths %d" % [int(_corpse_state.get("held_gold", 0)), _player_deaths]
 	if _pot_hp_btn:
 		_pot_hp_btn.text = "♥\n%d" % _belt_hp
 	if _pot_mp_btn:
