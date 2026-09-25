@@ -1,6 +1,6 @@
 extends RefCounted
 
-const CURRENT_VERSION := 7
+const CURRENT_VERSION := 8
 const DEFAULT_PATH := "user://ashen_depths_save.json"
 
 static func _migrate(raw: Dictionary) -> Dictionary:
@@ -34,6 +34,9 @@ static func _migrate(raw: Dictionary) -> Dictionary:
 		state["corpse_state"] = state.get("corpse_state", {})
 		state["player_deaths"] = int(state.get("player_deaths", 0))
 		version = 7
+	if version == 7:
+		state["stash"] = state.get("stash", [])
+		version = 8
 	state["schema_version"] = version
 	return state
 
@@ -126,7 +129,7 @@ static func selftest() -> Dictionary:
 	var legacy := state.duplicate(true)
 	legacy["schema_version"] = 1
 	var migrated := _migrate(legacy)
-	if int(migrated.get("schema_version", 0)) != CURRENT_VERSION or not migrated.has("difficulty") or not migrated.has("quest_state") or not migrated.has("waypoint_state") or not migrated.has("merc_equipped") or not migrated.has("stamina") or not migrated.has("corpse_state"): failures.append("v1 migration")
+	if int(migrated.get("schema_version", 0)) != CURRENT_VERSION or not migrated.has("difficulty") or not migrated.has("quest_state") or not migrated.has("waypoint_state") or not migrated.has("merc_equipped") or not migrated.has("stamina") or not migrated.has("corpse_state") or not migrated.has("stash"): failures.append("v1 migration")
 	var v2 := state.duplicate(true)
 	v2["schema_version"] = 2
 	var migrated_v2 := _migrate(v2)
@@ -147,6 +150,10 @@ static func selftest() -> Dictionary:
 	v6["schema_version"] = 6
 	var migrated_v6 := _migrate(v6)
 	if int(migrated_v6.get("schema_version", 0)) != CURRENT_VERSION or not migrated_v6.get("corpse_state", null) is Dictionary: failures.append("v6 corpse migration")
+	var v7 := state.duplicate(true)
+	v7["schema_version"] = 7
+	var migrated_v7 := _migrate(v7)
+	if int(migrated_v7.get("schema_version", 0)) != CURRENT_VERSION or not migrated_v7.get("stash", null) is Array: failures.append("v7 stash migration")
 	var corrupt_path := "user://save_store_corrupt_%s.json" % suffix
 	var corrupt := FileAccess.open(corrupt_path, FileAccess.WRITE)
 	if corrupt != null:
@@ -156,4 +163,4 @@ static func selftest() -> Dictionary:
 	for cleanup in [path, path + ".tmp", path + ".bak", corrupt_path]:
 		var absolute := ProjectSettings.globalize_path(cleanup)
 		if FileAccess.file_exists(absolute): DirAccess.remove_absolute(absolute)
-	return {"ok": failures.is_empty(), "checks": 12, "failures": failures}
+	return {"ok": failures.is_empty(), "checks": 13, "failures": failures}

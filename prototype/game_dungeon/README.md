@@ -97,6 +97,14 @@ experience loss and moves 20% of carried gold onto the corpse. After a short
 delay the hero revives at the dungeon entrance with half life and mana; walking
 back to the marker recovers its gold. Corpse position, held gold, and death count
 persist in save schema v7.
+
+### Personal stash
+
+The Bag panel supports one-tap transfers into and out of a 48-item personal
+stash. Transfers preserve complete item dictionaries, reject missing or
+duplicate operations, and never remove an item when the stash is full. Schema
+v8 persists and bounds stored entries while migrating older saves to an empty
+stash.
 → 두 클래스 모두 **다층 던전 클리어→워프** 동작, 런타임 에러 0.
 
 ## 정식화

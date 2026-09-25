@@ -30,6 +30,7 @@ const Waypoint := preload("res://waypoint.gd")
 const Mercenary := preload("res://mercenary.gd")
 const Stamina := preload("res://stamina.gd")
 const DeathSystem := preload("res://death_system.gd")
+const Stash := preload("res://stash.gd")
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -134,6 +135,7 @@ var _player_deaths := 0
 var _mana_acc := 0.0
 
 var _inventory: Array = []
+var _stash: Array = []
 var _equipped := {"weapon": {}, "armor": {}, "ring": {}, "amulet": {}}
 var _eq := {"str": 0, "dex": 0, "ar": 0, "ed": 0, "life": 0, "mana": 0, "def": 0, "res_all": 0}
 var _player_mf := 50
@@ -1073,6 +1075,7 @@ func _gather_save_state(reason: String = "manual") -> Dictionary:
 		"stat_str": _player.stat_str, "stat_dex": _player.stat_dex,
 		"stat_vit": _player.stat_vit, "stat_energy": _player.stat_energy,
 		"skills": _player.skills.duplicate(true), "inventory": _inventory.duplicate(true),
+		"stash": _stash.duplicate(true),
 		"equipped": {"weapon": (_equipped["weapon"] as Dictionary).duplicate(true), "armor": (_equipped["armor"] as Dictionary).duplicate(true), "ring": (_equipped["ring"] as Dictionary).duplicate(true), "amulet": (_equipped["amulet"] as Dictionary).duplicate(true)},
 		"kills": _kills, "gold": _gold, "belt_hp": _belt_hp, "belt_mp": _belt_mp,
 		"difficulty": _difficulty, "act": _act, "acts_cleared": _acts_cleared,
@@ -1113,6 +1116,7 @@ func _load_game() -> void:
 	_player.stat_energy = int(state.get("stat_energy", _player.stat_energy))
 	_player.skills = (state.get("skills", {}) as Dictionary).duplicate(true)
 	_inventory = (state.get("inventory", []) as Array).duplicate(true)
+	_stash = Stash.normalize(state.get("stash", []))
 	var equipped: Dictionary = state.get("equipped", {})
 	_equipped = {"weapon": (equipped.get("weapon", {}) as Dictionary).duplicate(true), "armor": (equipped.get("armor", {}) as Dictionary).duplicate(true), "ring": (equipped.get("ring", {}) as Dictionary).duplicate(true), "amulet": (equipped.get("amulet", {}) as Dictionary).duplicate(true)}
 	_kills = int(state.get("kills", 0))
@@ -2222,6 +2226,18 @@ func _equip_merc_from_inventory(it: Dictionary) -> void:
 	_combat_log = "Ember Scout equipped %s" % Item.display_name(it)
 	_rebuild_inv()
 
+func _deposit_to_stash(it: Dictionary) -> void:
+	if Stash.deposit(it, _inventory, _stash):
+		_combat_log = "보관함 이동: %s" % Item.display_name(it)
+	else:
+		_combat_log = "보관함이 가득 찼습니다 (%d/%d)" % [_stash.size(), Stash.CAPACITY]
+	_rebuild_inv()
+
+func _withdraw_from_stash(it: Dictionary) -> void:
+	if Stash.withdraw(it, _inventory, _stash):
+		_combat_log = "가방 이동: %s" % Item.display_name(it)
+	_rebuild_inv()
+
 func _toggle_bag() -> void:
 	_inv_panel.visible = not _inv_panel.visible
 	if _inv_panel.visible:
@@ -2495,7 +2511,7 @@ func _rebuild_inv() -> void:
 	var merc_weapon := Item.display_name(_merc_equipped["weapon"]) if not (_merc_equipped["weapon"] as Dictionary).is_empty() else "-"
 	var merc_armor := Item.display_name(_merc_equipped["armor"]) if not (_merc_equipped["armor"] as Dictionary).is_empty() else "-"
 	var head := Label.new()
-	head.text = "Weapon: %s\nArmor: %s\nRing: %s\nAmulet: %s\nMerc Weapon: %s\nMerc Armor: %s\n가방 %d · 재료 %d · 경매 %d · 분해재료 %d\n필터 습득≥%s 장착≥%s 경매≥%s" % [wn, an, rn, mn, merc_weapon, merc_armor, _inventory.size(), _automation.materials.size(), _automation.auctions.size(), _automation.salvage, _automation.pickup_min, _automation.equip_min, _automation.auction_min]
+	head.text = "Weapon: %s\nArmor: %s\nRing: %s\nAmulet: %s\nMerc Weapon: %s\nMerc Armor: %s\n가방 %d · 보관함 %d/%d · 재료 %d · 경매 %d · 분해재료 %d\n필터 습득≥%s 장착≥%s 경매≥%s" % [wn, an, rn, mn, merc_weapon, merc_armor, _inventory.size(), _stash.size(), Stash.CAPACITY, _automation.materials.size(), _automation.auctions.size(), _automation.salvage, _automation.pickup_min, _automation.equip_min, _automation.auction_min]
 	_inv_vbox.add_child(head)
 	for it in _inventory:
 		var row := HBoxContainer.new()
@@ -2512,6 +2528,11 @@ func _rebuild_inv() -> void:
 			merc_btn.tooltip_text = "Ember Scout에게 장착"
 			merc_btn.pressed.connect(func(): _equip_merc_from_inventory(captured))
 			row.add_child(merc_btn)
+		var stash_btn := Button.new()
+		stash_btn.text = "보관"
+		stash_btn.tooltip_text = "개인 보관함으로 이동"
+		stash_btn.pressed.connect(func(): _deposit_to_stash(captured))
+		row.add_child(stash_btn)
 		var protect := Button.new()
 		protect.text = "🔒" if bool(it.get("salvage_protected", false)) else "분해OK"
 		protect.tooltip_text = "경매 만료 시 자동 분해 금지 전환"
@@ -2521,6 +2542,24 @@ func _rebuild_inv() -> void:
 		)
 		row.add_child(protect)
 		_inv_vbox.add_child(row)
+	if not _stash.is_empty():
+		var stash_header := Label.new()
+		stash_header.text = "— 개인 보관함 —"
+		stash_header.add_theme_color_override("font_color", Color(0.9, 0.75, 0.35))
+		_inv_vbox.add_child(stash_header)
+	for stored in _stash:
+		var stash_row := HBoxContainer.new()
+		var stash_label := Label.new()
+		stash_label.text = Item.display_name(stored)
+		stash_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		stash_label.add_theme_color_override("font_color", Item.quality_color(String(stored.get("quality", "normal"))))
+		stash_row.add_child(stash_label)
+		var withdraw := Button.new()
+		withdraw.text = "꺼내기"
+		var captured_stored: Dictionary = stored
+		withdraw.pressed.connect(func(): _withdraw_from_stash(captured_stored))
+		stash_row.add_child(withdraw)
+		_inv_vbox.add_child(stash_row)
 
 func _flash(from: Vector2, to: Vector2) -> void:
 	_attack_line.clear_points()

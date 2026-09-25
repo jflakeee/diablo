@@ -11,6 +11,7 @@ const Waypoint := preload("res://waypoint.gd")
 const Mercenary := preload("res://mercenary.gd")
 const Stamina := preload("res://stamina.gd")
 const DeathSystem := preload("res://death_system.gd")
+const Stash := preload("res://stash.gd")
 
 static func _check(condition: bool, label: String, failures: Array) -> void:
 	if not condition:
@@ -100,6 +101,17 @@ static func run() -> Dictionary:
 	var corpse := DeathSystem.normalize_corpse(DeathSystem.create_corpse(4.0, 7.0, 123))
 	_check(bool(corpse.get("active", false)) and int(corpse.get("held_gold", 0)) == 123, "corpse state normalization", failures)
 	_check(DeathSystem.can_recover(corpse, 4.8, 7.0) and not DeathSystem.can_recover(corpse, 6.0, 7.0), "corpse recovery radius", failures)
+	var stash_item := Item.generate(rng, Item.ARMOR_BASES[1], 8, "rare")
+	var test_inventory: Array = [stash_item]
+	var test_stash: Array = []
+	_check(Stash.deposit(stash_item, test_inventory, test_stash) and test_inventory.is_empty() and test_stash.size() == 1, "stash deposit", failures)
+	_check(not Stash.deposit(stash_item, test_inventory, test_stash), "stash duplicate deposit rejection", failures)
+	_check(Stash.withdraw(stash_item, test_inventory, test_stash) and test_inventory.size() == 1 and test_stash.is_empty(), "stash withdrawal", failures)
+	var oversized_stash: Array = []
+	for index in Stash.CAPACITY + 3: oversized_stash.append({"name": "Stored %d" % index, "slot": "armor"})
+	_check(Stash.normalize(oversized_stash).size() == Stash.CAPACITY, "stash normalization capacity", failures)
+	var full_stash := Stash.normalize(oversized_stash)
+	_check(not Stash.deposit(stash_item, test_inventory, full_stash) and test_inventory.size() == 1, "stash full rejection", failures)
 
 	_check(String(Craft.match_runeword("weapon", ["Vey", "Ahn"]).get("name", "")) == "Tempered Edge", "sigil order match", failures)
 	_check(Craft.match_runeword("weapon", ["Ahn", "Vey"]).is_empty(), "sigil reverse rejection", failures)
@@ -160,4 +172,4 @@ static func run() -> Dictionary:
 	var restored_waypoints := Waypoint.normalize_state(waypoint_defs, waypoint_state.duplicate(true))
 	_check((restored_waypoints["unlocked"] as Dictionary).size() == 2 and String(restored_waypoints["current"]) == "hollow_watch", "waypoint save normalization", failures)
 
-	return {"ok": failures.is_empty(), "checks": 69, "failures": failures}
+	return {"ok": failures.is_empty(), "checks": 74, "failures": failures}
