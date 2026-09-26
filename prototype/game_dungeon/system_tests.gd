@@ -81,6 +81,10 @@ static func run() -> Dictionary:
 	_check(not Item.can_equip(demanding_weapon, 8, 9, 10) and not Item.can_equip(demanding_weapon, 8, 10, 9), "item attribute requirements", failures)
 	_check(Item.can_equip(demanding_weapon, 8, 10, 10), "item requirements accepted", failures)
 	_check(Item.can_equip({"slot": "armor"}, 1, 0, 0), "legacy item requirement defaults", failures)
+	var second_ring := Item.generate(rng, Item.ACCESSORY_BASES[1], 12, "unique")
+	var dual_ring_affixes := Item.aggregate_affixes([unique_ring, second_ring])
+	_check(int(dual_ring_affixes.get("mana", 0)) == 24 and int(dual_ring_affixes.get("life", 0)) == 18, "dual ring affix aggregation", failures)
+	_check(int(dual_ring_affixes.get("res_fire", 0)) == 20 and int(dual_ring_affixes.get("res_cold", 0)) == 20, "dual ring resistance aggregation", failures)
 	var merc_weapon := Item.generate(rng, Item.WEAPON_BASES[1], 12, "unique")
 	var merc_armor := Item.generate(rng, Item.ARMOR_BASES[0], 12, "unique")
 	var merc_equipment := Mercenary.normalize_equipment({"weapon": merc_weapon, "armor": merc_armor, "ring": unique_ring})
@@ -178,4 +182,4 @@ static func run() -> Dictionary:
 	var restored_waypoints := Waypoint.normalize_state(waypoint_defs, waypoint_state.duplicate(true))
 	_check((restored_waypoints["unlocked"] as Dictionary).size() == 2 and String(restored_waypoints["current"]) == "hollow_watch", "waypoint save normalization", failures)
 
-	return {"ok": failures.is_empty(), "checks": 79, "failures": failures}
+	return {"ok": failures.is_empty(), "checks": 81, "failures": failures}

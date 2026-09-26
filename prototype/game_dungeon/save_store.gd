@@ -1,6 +1,6 @@
 extends RefCounted
 
-const CURRENT_VERSION := 8
+const CURRENT_VERSION := 9
 const DEFAULT_PATH := "user://ashen_depths_save.json"
 
 static func _migrate(raw: Dictionary) -> Dictionary:
@@ -37,6 +37,13 @@ static func _migrate(raw: Dictionary) -> Dictionary:
 	if version == 7:
 		state["stash"] = state.get("stash", [])
 		version = 8
+	if version == 8:
+		var equipped: Dictionary = state.get("equipped", {})
+		equipped["ring_left"] = equipped.get("ring_left", equipped.get("ring", {}))
+		equipped["ring_right"] = equipped.get("ring_right", {})
+		equipped.erase("ring")
+		state["equipped"] = equipped
+		version = 9
 	state["schema_version"] = version
 	return state
 
@@ -154,6 +161,11 @@ static func selftest() -> Dictionary:
 	v7["schema_version"] = 7
 	var migrated_v7 := _migrate(v7)
 	if int(migrated_v7.get("schema_version", 0)) != CURRENT_VERSION or not migrated_v7.get("stash", null) is Array: failures.append("v7 stash migration")
+	var v8 := state.duplicate(true)
+	v8["schema_version"] = 8
+	v8["equipped"] = {"weapon": {}, "armor": {}, "ring": {"name": "legacy ring", "slot": "ring"}, "amulet": {}}
+	var migrated_v8 := _migrate(v8)
+	if int(migrated_v8.get("schema_version", 0)) != CURRENT_VERSION or String((migrated_v8["equipped"]["ring_left"] as Dictionary).get("name", "")) != "legacy ring" or not (migrated_v8["equipped"]["ring_right"] as Dictionary).is_empty(): failures.append("v8 dual ring migration")
 	var corrupt_path := "user://save_store_corrupt_%s.json" % suffix
 	var corrupt := FileAccess.open(corrupt_path, FileAccess.WRITE)
 	if corrupt != null:
@@ -163,4 +175,4 @@ static func selftest() -> Dictionary:
 	for cleanup in [path, path + ".tmp", path + ".bak", corrupt_path]:
 		var absolute := ProjectSettings.globalize_path(cleanup)
 		if FileAccess.file_exists(absolute): DirAccess.remove_absolute(absolute)
-	return {"ok": failures.is_empty(), "checks": 13, "failures": failures}
+	return {"ok": failures.is_empty(), "checks": 14, "failures": failures}

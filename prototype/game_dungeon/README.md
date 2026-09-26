@@ -113,6 +113,13 @@ normal, magic, rare, set, and unique items retain those requirements. Automatic
 equipment and manual player or mercenary actions reject unmet requirements;
 the Bag displays the thresholds and disables invalid touch targets. Legacy
 items without requirement fields remain usable with level-one defaults.
+
+### Dual ring slots
+
+Characters equip independent left and right rings. Empty slots are filled first;
+when both are occupied, automatic and one-tap equipment replaces the lower-score
+ring. Both rings contribute affixes and resistances. Save schema v9 migrates the
+former single `ring` entry into `ring_left` and initializes `ring_right` empty.
 → 두 클래스 모두 **다층 던전 클리어→워프** 동작, 런타임 에러 0.
 
 ## 정식화

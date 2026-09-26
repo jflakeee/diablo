@@ -301,6 +301,15 @@ static func effective_affixes(it: Dictionary) -> Dictionary:
 				out[k] = int(out.get(k, 0)) + int(rw["stats"][k])
 	return out
 
+static func aggregate_affixes(items: Array) -> Dictionary:
+	var result := {}
+	for item in items:
+		if not item is Dictionary or (item as Dictionary).is_empty():
+			continue
+		for stat in effective_affixes(item):
+			result[stat] = int(result.get(stat, 0)) + int(effective_affixes(item)[stat])
+	return result
+
 static func equipped_set_bonus(items: Array) -> Dictionary:
 	var counts := {}
 	for raw in items:
