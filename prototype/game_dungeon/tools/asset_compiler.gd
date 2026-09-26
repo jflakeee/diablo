@@ -292,7 +292,7 @@ func _ready() -> void:
 		var img := tex.get_image()
 		if img.save_png(OUTPUT + "/%02d_%s.png" % [i, String(samples[i][1])]) == OK:
 			saved += 1
-	print("[AG] generated %d assets, saved %d PNG → user://assetgen" % [samples.size(), saved])
+	print("[AG] generated %d assets, saved %d PNG to user://assetgen" % [samples.size(), saved])
 	var cache_before := PixelGen.cache_size()
 	var cached_a := PixelGen.icon("gem", 0)
 	var cached_b := PixelGen.icon("gem", 0)
