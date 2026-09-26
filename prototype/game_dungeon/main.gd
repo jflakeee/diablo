@@ -31,7 +31,7 @@ const Mercenary := preload("res://mercenary.gd")
 const Stamina := preload("res://stamina.gd")
 const DeathSystem := preload("res://death_system.gd")
 const Stash := preload("res://stash.gd")
-const DEPLOYED_AT_KST := "2026-09-26 22:44 KST"
+const DEPLOYED_AT_KST := "2026-09-27 07:45 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -792,7 +792,9 @@ func _start_game() -> void:
 	var mobile_profile := MobileUI.prefer_mobile(physical_vp)
 	_cam = Camera2D.new()
 	_cam.position = _player.position
-	var world_zoom := 1.38 if mobile_profile else 1.1
+	# Mobile uses exactly twice the desktop world scale so actors and dungeon
+	# tiles remain legible inside a narrow browser viewport.
+	var world_zoom := 2.2 if mobile_profile else 1.1
 	_cam.zoom = Vector2(world_zoom, world_zoom)
 	_world.add_child(_cam)
 	_cam.make_current()
@@ -1097,45 +1099,50 @@ func _build_settings_panel() -> void:
 	box.custom_minimum_size = Vector2(336, 406)
 	_settings_panel.add_child(box)
 	var title := Label.new()
-	title.text = "접근성 / UI 설정"
+	title.text = "UI SETTINGS"
 	title.add_theme_font_size_override("font_size", _accessibility.font_size(22))
 	box.add_child(title)
 	_settings_scale_button = Button.new()
 	_settings_scale_button.custom_minimum_size = Vector2(336, 52)
+	_settings_scale_button.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	_settings_scale_button.pressed.connect(_cycle_ui_scale)
 	box.add_child(_settings_scale_button)
 	_settings_text_button = Button.new()
 	_settings_text_button.custom_minimum_size = Vector2(336, 52)
+	_settings_text_button.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	_settings_text_button.pressed.connect(_cycle_text_scale)
 	box.add_child(_settings_text_button)
 	_settings_fullscreen_button = Button.new()
 	_settings_fullscreen_button.custom_minimum_size = Vector2(336, 52)
+	_settings_fullscreen_button.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	_settings_fullscreen_button.pressed.connect(_toggle_fullscreen)
 	box.add_child(_settings_fullscreen_button)
 	var save_button := Button.new()
-	save_button.text = "게임 저장"
+	save_button.text = "SAVE GAME"
 	save_button.custom_minimum_size = Vector2(336, 52)
+	save_button.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	save_button.pressed.connect(_save_game)
 	box.add_child(save_button)
 	var load_button := Button.new()
-	load_button.text = "불러오기"
+	load_button.text = "LOAD GAME"
 	load_button.custom_minimum_size = Vector2(336, 52)
+	load_button.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	load_button.pressed.connect(_load_game)
 	box.add_child(load_button)
 	var note := Label.new()
-	note.text = "변경 사항은 다음 전투 HUD 생성부터 적용됩니다."
+	note.text = "UI changes apply when the combat HUD is rebuilt."
 	note.add_theme_font_size_override("font_size", _accessibility.font_size(14))
 	box.add_child(note)
 	_refresh_settings_labels()
 
 func _refresh_settings_labels() -> void:
 	if _settings_scale_button:
-		_settings_scale_button.text = "UI 배율: %d%%" % roundi(_accessibility.ui_scale * 100.0)
+		_settings_scale_button.text = "UI SCALE: %d%%" % roundi(_accessibility.ui_scale * 100.0)
 	if _settings_text_button:
-		_settings_text_button.text = "본문 텍스트: %s" % ("크게" if _accessibility.text_scale > 1.0 else "보통")
+		_settings_text_button.text = "TEXT SIZE: %s" % ("LARGE" if _accessibility.text_scale > 1.0 else "NORMAL")
 	if _settings_fullscreen_button:
 		var fullscreen := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
-		_settings_fullscreen_button.text = "전체화면 종료 (F11)" if fullscreen else "전체화면 (F11)"
+		_settings_fullscreen_button.text = "EXIT FULLSCREEN (F11)" if fullscreen else "FULLSCREEN (F11)"
 
 func _toggle_fullscreen() -> void:
 	var fullscreen := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
@@ -1174,7 +1181,7 @@ func _gather_save_state(reason: String = "manual") -> Dictionary:
 	}
 
 func _save_game() -> void:
-	_combat_log = "저장 완료" if SaveStore.save_state(_gather_save_state("manual")) else "저장 실패"
+	_combat_log = "Game saved" if SaveStore.save_state(_gather_save_state("manual")) else "Save failed"
 
 func _notification(what: int) -> void:
 	if not _started or _player == null or _auto_quit:
@@ -1182,15 +1189,15 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_CLOSE_REQUEST:
 		SaveStore.save_state(_gather_save_state("lifecycle"))
 	elif what == NOTIFICATION_APPLICATION_RESUMED:
-		_combat_log = "플레이 재개 / 진행 자동 저장됨"
+		_combat_log = "Play resumed / Progress autosaved"
 
 func _load_game() -> void:
 	var state := SaveStore.load_state()
 	if state.is_empty():
-		_combat_log = "유효한 저장 없음"
+		_combat_log = "No valid save found"
 		return
 	if String(state["class"]) != _class:
-		_combat_log = "현재 클래스와 저장 클래스가 다름"
+		_combat_log = "Saved class does not match current class"
 		return
 	_player.level = int(state.get("level", 1))
 	_player.xp = int(state.get("xp", 0))
@@ -1230,7 +1237,7 @@ func _load_game() -> void:
 	_rebuild_inv()
 	_rebuild_char_panel()
 	_refresh_vendor()
-	_combat_log = "불러오기 완료 (Lv %d)" % _player.level
+	_combat_log = "Game loaded (Lv %d)" % _player.level
 
 # 생명 포션 소비: 최대 생명의 45% 회복(즉시). 벨트 1개 소모.
 func _quaff_health() -> void:
