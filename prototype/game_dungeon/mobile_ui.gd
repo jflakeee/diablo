@@ -2,11 +2,11 @@ extends RefCounted
 # Mobile-first HUD geometry in logical pixels. Visuals remain project-owned.
 
 const EDGE := 16.0
-const MENU_SIZE := Vector2(120, 56)
-const SKILL_SIZE := Vector2(132, 132)
-const JOYSTICK_SIZE := Vector2(320, 320)
-const POTION_SIZE := Vector2(96, 96)
-const MINIMAP_SIZE := Vector2(190, 190)
+const MENU_SIZE := Vector2(104, 48)
+const SKILL_SIZE := Vector2(112, 112)
+const JOYSTICK_SIZE := Vector2(240, 240)
+const POTION_SIZE := Vector2(80, 80)
+const MINIMAP_SIZE := Vector2(160, 160)
 const MIN_LOGICAL := Vector2(960, 540)
 
 static func effective_scale(requested: float, viewport: Vector2) -> float:
@@ -31,7 +31,7 @@ static func layout(viewport: Vector2, safe: Rect2 = Rect2()) -> Dictionary:
 	var minimap_x := (left + right - MINIMAP_SIZE.x) * 0.5 if area.size.y < 650.0 else right - MINIMAP_SIZE.x
 	return {
 		"hud": Vector2(left, top),
-		"char": Vector2(right - 380, top), "shop": Vector2(right - 250, top), "bag": Vector2(right - 120, top),
+		"char": Vector2(right - MENU_SIZE.x * 3.0 - 16, top), "shop": Vector2(right - MENU_SIZE.x * 2.0 - 8, top), "bag": Vector2(right - MENU_SIZE.x, top),
 		"minimap": Vector2(minimap_x, top + MENU_SIZE.y + 16),
 		"joystick": Vector2(left, bottom - JOYSTICK_SIZE.y),
 		"potion_hp": Vector2(left, bottom - JOYSTICK_SIZE.y - POTION_SIZE.y - 8),
@@ -78,4 +78,4 @@ static func selftest() -> bool:
 		var applied := effective_scale(requested, Vector2(1280, 720))
 		if applied > requested or (Vector2(1280, 720) / applied).x < MIN_LOGICAL.x:
 			return false
-	return SKILL_SIZE.x >= 72.0 and POTION_SIZE.x >= 48.0 and MENU_SIZE.y >= 48.0
+	return SKILL_SIZE.x >= 72.0 and POTION_SIZE.x >= 48.0 and MENU_SIZE.y >= 48.0 and JOYSTICK_SIZE.x <= 240.0

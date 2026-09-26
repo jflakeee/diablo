@@ -449,7 +449,7 @@ func _complete_act(boss: Node) -> void:
 		_auto_spend_points()
 	var bonus := 500 + _act * 300
 	_gold += bonus
-	_combat_log = "★ ACT %d 클리어! 출구 개방 · 유니크 · 스킬+2 · +%dg" % [_act, bonus]
+	_combat_log = "ACT %d 클리어! 출구 개방 / 고유 장비 / 스킬+2 / +%dg" % [_act, bonus]
 	_act += 1
 
 func _next_level() -> void:
@@ -477,7 +477,7 @@ func _next_level() -> void:
 	_spawn_dungeon_monsters()
 	if is_instance_valid(_cam):
 		_cam.position = _player.position
-	_combat_log = "▶ Dungeon Level %d" % _dlevel
+	_combat_log = "던전 레벨 %d" % _dlevel
 
 # A* 내비게이션: actor를 (tgx,tgy)로 경로 따라 이동 (경로 400ms 캐시)
 func _nav_toward(actor: ActorScript, tgx: float, tgy: float, delta: float) -> void:
@@ -648,8 +648,8 @@ func _show_class_select() -> void:
 	sub.add_theme_font_size_override("font_size", _accessibility.font_size(22))
 	sub.position = Vector2(vp.x * 0.5 - 160, vp.y * 0.2 + 60)
 	_menu_layer.add_child(sub)
-	_add_class_button("⚔  Iron Warden  — 근접 · 방어", Color(0.9, 0.75, 0.2), Vector2(vp.x * 0.5 - 220, vp.y * 0.42), "warden")
-	_add_class_button("✦  Arcanist  — 원거리 · 비전", Color(0.6, 0.5, 0.95), Vector2(vp.x * 0.5 - 220, vp.y * 0.42 + 90), "arcanist")
+	_add_class_button("Iron Warden / 근접 / 방어", Color(0.9, 0.75, 0.2), Vector2(vp.x * 0.5 - 220, vp.y * 0.42), "warden")
+	_add_class_button("Arcanist / 원거리 / 비전", Color(0.6, 0.5, 0.95), Vector2(vp.x * 0.5 - 220, vp.y * 0.42 + 90), "arcanist")
 	# 난이도 선택
 	_diff_label = Label.new()
 	_diff_label.add_theme_font_size_override("font_size", _accessibility.font_size(20))
@@ -803,9 +803,9 @@ func _start_game() -> void:
 	var bag := Button.new()
 	bag.text = "Bag"
 	bag.position = mobile_layout["bag"]
-	bag.custom_minimum_size = Vector2(120, 56)
-	bag.size = Vector2(120, 56)
-	bag.add_theme_font_size_override("font_size", _accessibility.font_size(24))
+	bag.custom_minimum_size = MobileUI.MENU_SIZE
+	bag.size = MobileUI.MENU_SIZE
+	bag.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	bag.pressed.connect(_toggle_bag)
 	ui.add_child(bag)
 
@@ -814,17 +814,21 @@ func _start_game() -> void:
 	_inv_panel.size = Vector2(360, 430)
 	_inv_panel.visible = false
 	ui.add_child(_inv_panel)
+	var inventory_scroll := ScrollContainer.new()
+	inventory_scroll.position = Vector2(8, 8)
+	inventory_scroll.size = Vector2(344, 414)
+	inventory_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_inv_panel.add_child(inventory_scroll)
 	_inv_vbox = VBoxContainer.new()
-	_inv_vbox.position = Vector2(10, 10)
-	_inv_vbox.custom_minimum_size = Vector2(340, 410)
-	_inv_panel.add_child(_inv_vbox)
+	_inv_vbox.custom_minimum_size = Vector2(326, 410)
+	inventory_scroll.add_child(_inv_vbox)
 
 	var shop := Button.new()
 	shop.text = "Shop"
 	shop.position = mobile_layout["shop"]
-	shop.custom_minimum_size = Vector2(120, 56)
-	shop.size = Vector2(120, 56)
-	shop.add_theme_font_size_override("font_size", _accessibility.font_size(24))
+	shop.custom_minimum_size = MobileUI.MENU_SIZE
+	shop.size = MobileUI.MENU_SIZE
+	shop.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	shop.pressed.connect(_toggle_vendor)
 	ui.add_child(shop)
 
@@ -838,9 +842,9 @@ func _start_game() -> void:
 	var charb := Button.new()
 	charb.text = "Char"
 	charb.position = mobile_layout["char"]
-	charb.custom_minimum_size = Vector2(120, 56)
-	charb.size = Vector2(120, 56)
-	charb.add_theme_font_size_override("font_size", _accessibility.font_size(24))
+	charb.custom_minimum_size = MobileUI.MENU_SIZE
+	charb.size = MobileUI.MENU_SIZE
+	charb.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	charb.pressed.connect(_toggle_char)
 	ui.add_child(charb)
 
@@ -852,7 +856,7 @@ func _start_game() -> void:
 	_build_char_panel()
 
 	var settings_button := Button.new()
-	settings_button.text = "⚙ UI"
+	settings_button.text = "UI"
 	settings_button.position = mobile_layout["settings"]
 	settings_button.custom_minimum_size = Vector2(96, 56)
 	settings_button.size = Vector2(96, 56)
@@ -876,12 +880,14 @@ func _start_game() -> void:
 
 	_hud = Label.new()
 	_hud.position = mobile_layout["hud"]
-	_hud.add_theme_font_size_override("font_size", _accessibility.font_size(24))
+	_hud.size = Vector2(500, 0)
+	_hud.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_hud.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	ui.add_child(_hud)
 
 	# 포션 벨트 버튼(모바일): 좌하단, 조이스틱 위. 빨강=생명 / 파랑=마나
-	_pot_hp_btn = _make_potion_button("♥", Color(0.75, 0.15, 0.15), mobile_layout["potion_hp"], _quaff_health)
-	_pot_mp_btn = _make_potion_button("✦", Color(0.15, 0.3, 0.8), mobile_layout["potion_mp"], _quaff_mana)
+	_pot_hp_btn = _make_potion_button("HP", Color(0.75, 0.15, 0.15), mobile_layout["potion_hp"], _quaff_health)
+	_pot_mp_btn = _make_potion_button("MP", Color(0.15, 0.3, 0.8), mobile_layout["potion_mp"], _quaff_mana)
 	ui.add_child(_pot_hp_btn)
 	ui.add_child(_pot_mp_btn)
 
@@ -1155,7 +1161,7 @@ func _quaff_health() -> void:
 	var heal := int(_player.max_life * POT_HEAL_PCT)
 	_player.life = mini(_player.max_life, _player.life + heal)
 	_player.queue_redraw()
-	_spawn_text(_player.position, "+%d ♥" % heal, Color(0.4, 0.9, 0.4))
+	_spawn_text(_player.position, "+%d HP" % heal, Color(0.4, 0.9, 0.4))
 
 func _quaff_mana() -> void:
 	if _belt_mp <= 0 or not _player.alive or _player.mana >= _player.max_mana:
@@ -1164,7 +1170,7 @@ func _quaff_mana() -> void:
 	_potions_quaffed += 1
 	var gain := int(_player.max_mana * POT_MANA_PCT)
 	_player.mana = mini(_player.max_mana, _player.mana + gain)
-	_spawn_text(_player.position, "+%d ✦" % gain, Color(0.4, 0.6, 1.0))
+	_spawn_text(_player.position, "+%d MP" % gain, Color(0.4, 0.6, 1.0))
 
 func _add_potion_to_belt(ptype: String) -> bool:
 	if ptype == "mana":
@@ -1238,7 +1244,7 @@ func _physics_process(delta: float) -> void:
 	# 출구 도달 → 다음 던전 레벨(워프). 보스 층은 보스 처치 전 잠금.
 	if Vector2(_player.gx, _player.gy).distance_to(Vector2(_exit_cell.x, _exit_cell.y)) < 1.3:
 		if _exit_locked:
-			_combat_log = "🔒 출구 봉인 — 보스를 처치하라!"
+			_combat_log = "출구 봉인: 보스를 처치하십시오"
 		else:
 			_next_level()
 			return
@@ -1594,7 +1600,7 @@ func _process(delta: float) -> void:
 	var wn := _equipped_label("weapon")
 	var an := _equipped_label("armor")
 	var elapsed := float(Time.get_ticks_msec() - _run_start) / 1000.0
-	_hud.text = "%s Lv%d  Life %d/%d  Mana %d/%d   골드 %d\nWpn: %s (%d-%d)  Arm: %s  Def %d\nkills %d  drops %d  bag %d  MF %d   벨트 ♥%d ✦%d\n%s" % [
+	_hud.text = "%s Lv%d  HP %d/%d  MP %d/%d  골드 %d\n무기 %s (%d-%d)  방어 %s / DEF %d\n처치 %d  드롭 %d  가방 %d  MF %d  벨트 HP%d MP%d\n%s" % [
 		_player.actor_name, _player.level, _player.life, _player.max_life, _player.mana, _player.max_mana, _gold,
 		wn, _player.dmg_min, _player.dmg_max, an, _player.defense,
 		_kills, _items_dropped, _inventory.size(), _player_mf, _belt_hp, _belt_mp, _combat_log]
@@ -1602,15 +1608,15 @@ func _process(delta: float) -> void:
 	if not _corpse_state.is_empty():
 		_hud.text += " · Corpse %dg · Deaths %d" % [int(_corpse_state.get("held_gold", 0)), _player_deaths]
 	if _pot_hp_btn:
-		_pot_hp_btn.text = "♥\n%d" % _belt_hp
+		_pot_hp_btn.text = "HP\n%d" % _belt_hp
 	if _pot_mp_btn:
-		_pot_mp_btn.text = "✦\n%d" % _belt_mp
+		_pot_mp_btn.text = "MP\n%d" % _belt_mp
 	if _merc != null:
-		var ms := ("♥%d/%d" % [_merc.life, _merc.max_life]) if _merc.alive else "쓰러짐"
+		var ms := ("HP %d/%d" % [_merc.life, _merc.max_life]) if _merc.alive else "쓰러짐"
 		_hud.text += "\n동료 Ember Scout %s  킬 %d" % [ms, _merc_kills]
 	if _stat_points > 0 or _player.skill_points > 0:
-		_hud.text += "  ▲포인트: 스탯%d 스킬%d (Char)" % [_stat_points, _player.skill_points]
-	var quest_gate := "🔒 보스 처치 필요" if _exit_locked else ("⚔ 보스 층" if _is_boss_level() else "탐험 중")
+		_hud.text += "  포인트: 스탯%d 스킬%d" % [_stat_points, _player.skill_points]
+	var quest_gate := "보스 처치 필요" if _exit_locked else ("보스 층" if _is_boss_level() else "탐험 중")
 	_hud.text += "\nACT %d · 층 %d/%d · %s (클리어 %d)\n퀘스트: %s · WP: %s" % [_act, _level_in_act(), ACT_LEN, quest_gate, _acts_cleared, Quest.objective_text(_quest_defs, _quest_state, _act), Waypoint.current_name(_waypoint_defs, _waypoint_state)]
 
 	if _auto_quit and elapsed >= 50.0 and not _quitting:
@@ -2267,7 +2273,7 @@ func _build_vendor() -> void:
 	vb.custom_minimum_size = Vector2(336, 280)
 	_vendor_panel.add_child(vb)
 	var head := Label.new()
-	head.text = "◆ 상인 (Vendor)"
+	head.text = "상인 / Vendor"
 	head.add_theme_font_size_override("font_size", _accessibility.font_size(20))
 	vb.add_child(head)
 	_vendor_gold_lbl = Label.new()
@@ -2278,7 +2284,7 @@ func _build_vendor() -> void:
 	_vendor_btn(vb, "장착 장비 모두 수리", func(): _repair_equipped())
 	_vendor_btn(vb, "웨이포인트 순환 이동", func(): _travel_waypoint(0))
 	_vendor_btn(vb, "인벤토리 전부 판매", func(): _sell_all())
-	_vendor_btn(vb, "🎲 도박 — 무작위 아이템", func(): _gamble())
+	_vendor_btn(vb, "도박 / 무작위 아이템", func(): _gamble())
 	_vendor_btn(vb, "자동 습득 등급 변경", func(): _cycle_automation("pickup_min"))
 	_vendor_btn(vb, "자동 장착 등급 변경", func(): _cycle_automation("equip_min"))
 	_vendor_btn(vb, "자동 경매 등급 변경", func(): _cycle_automation("auction_min"))
@@ -2356,25 +2362,25 @@ func _rebuild_char_panel() -> void:
 		c.queue_free()
 	var head := Label.new()
 	head.add_theme_font_size_override("font_size", _accessibility.font_size(20))
-	head.text = "◆ 캐릭터 Lv%d\n스탯 포인트: %d   스킬 포인트: %d" % [_player.level, _stat_points, _player.skill_points]
+	head.text = "캐릭터 Lv%d\n스탯 포인트: %d   스킬 포인트: %d" % [_player.level, _stat_points, _player.skill_points]
 	_char_vbox.add_child(head)
 	# 스탯 분배
 	for pair in [["str", "힘 %d" % _player.stat_str], ["dex", "민첩 %d" % _player.stat_dex], ["vit", "활력 %d" % _player.stat_vit], ["energy", "에너지 %d" % _player.stat_energy]]:
 		var sid: String = pair[0]
 		var b := Button.new()
-		b.text = "＋ %s" % pair[1]
+		b.text = "+ %s" % pair[1]
 		b.custom_minimum_size = Vector2(344, 44)
 		b.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 		b.disabled = _stat_points <= 0
 		b.pressed.connect(func(): _spend_stat(sid))
 		_char_vbox.add_child(b)
 	var sep := Label.new()
-	sep.text = "— 스킬 —"
+	sep.text = "스킬"
 	_char_vbox.add_child(sep)
 	for sk in _class_skill_ids():
 		var b2 := Button.new()
 		var required_level := int(Skills.DEFS[sk].get("required_level", 1))
-		b2.text = "＋ %s (Lv%d · 요구%d · 시너지+%.0f%%)" % [_skill_label(sk), _player.skill_level(sk), required_level, Skills.synergy_bonus_pct(sk, _player.skills)]
+		b2.text = "+ %s (Lv%d / 요구%d / 시너지+%.0f%%)" % [_skill_label(sk), _player.skill_level(sk), required_level, Skills.synergy_bonus_pct(sk, _player.skills)]
 		b2.custom_minimum_size = Vector2(344, 44)
 		b2.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 		b2.disabled = _player.skill_points <= 0 or not Skills.can_invest(sk, _player.skills, _player.level)
@@ -2426,7 +2432,7 @@ func _auto_spend_points() -> void:
 
 func _refresh_vendor() -> void:
 	if _vendor_gold_lbl:
-		_vendor_gold_lbl.text = "골드: %d    벨트 ♥%d ✦%d    가방 %d    수리비 %dg    도박비 %dg" % [_gold, _belt_hp, _belt_mp, _inventory.size(), _repair_equipped_cost(), _gamble_cost()]
+		_vendor_gold_lbl.text = "골드 %d / 벨트 HP%d MP%d / 가방 %d\n수리 %dg / 도박 %dg" % [_gold, _belt_hp, _belt_mp, _inventory.size(), _repair_equipped_cost(), _gamble_cost()]
 
 func _repair_equipped_cost() -> int:
 	var total := 0
@@ -2490,7 +2496,7 @@ func _gamble() -> void:
 		q = "rare"
 	var it := Item.generate(_rng, base, ilvl, q)
 	_inventory.append(it)
-	_combat_log = "🎲 도박(%dg): %s" % [cost, Item.display_name(it)]
+	_combat_log = "도박(%dg): %s" % [cost, Item.display_name(it)]
 	_rebuild_inv()
 	_refresh_vendor()
 
@@ -2529,42 +2535,50 @@ func _rebuild_inv() -> void:
 	var merc_weapon := Item.display_name(_merc_equipped["weapon"]) if not (_merc_equipped["weapon"] as Dictionary).is_empty() else "-"
 	var merc_armor := Item.display_name(_merc_equipped["armor"]) if not (_merc_equipped["armor"] as Dictionary).is_empty() else "-"
 	var head := Label.new()
-	head.text = "Weapon: %s\nArmor: %s\nRing L: %s\nRing R: %s\nAmulet: %s\nMerc Weapon: %s\nMerc Armor: %s\n가방 %d · 보관함 %d/%d · 재료 %d · 경매 %d · 분해재료 %d\n필터 습득≥%s 장착≥%s 경매≥%s" % [wn, an, rln, rrn, mn, merc_weapon, merc_armor, _inventory.size(), _stash.size(), Stash.CAPACITY, _automation.materials.size(), _automation.auctions.size(), _automation.salvage, _automation.pickup_min, _automation.equip_min, _automation.auction_min]
+	head.text = "무기: %s\n방어구: %s\n반지 좌: %s\n반지 우: %s\n목걸이: %s\n동료 무기: %s\n동료 방어구: %s\n가방 %d / 보관함 %d/%d / 재료 %d" % [wn, an, rln, rrn, mn, merc_weapon, merc_armor, _inventory.size(), _stash.size(), Stash.CAPACITY, _automation.materials.size()]
+	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_inv_vbox.add_child(head)
 	for it in _inventory:
-		var row := HBoxContainer.new()
+		var row := VBoxContainer.new()
 		var btn := Button.new()
-		btn.text = "%s  [%s]  %s" % [Item.display_name(it), Item.affix_text(it), Item.requirement_text(it)]
+		btn.text = "%s\n%s / %s" % [Item.display_name(it), Item.affix_text(it), Item.requirement_text(it)]
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.custom_minimum_size.y = 52
+		btn.add_theme_font_size_override("font_size", _accessibility.font_size(14))
 		btn.add_theme_color_override("font_color", Item.quality_color(String(it["quality"])))
 		btn.disabled = not Item.can_equip(it, _player.level, _player.stat_str, _player.stat_dex)
 		var captured: Dictionary = it
 		btn.pressed.connect(func(): _equip_from_inventory(captured))
 		row.add_child(btn)
+		var actions := HBoxContainer.new()
 		if String(it.get("slot", "")) in Mercenary.SLOTS:
 			var merc_btn := Button.new()
 			merc_btn.text = "동료"
 			merc_btn.tooltip_text = "Ember Scout에게 장착"
 			merc_btn.disabled = not Mercenary.can_equip(it, _merc.level if _merc != null else _player.level)
 			merc_btn.pressed.connect(func(): _equip_merc_from_inventory(captured))
-			row.add_child(merc_btn)
+			merc_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			actions.add_child(merc_btn)
 		var stash_btn := Button.new()
 		stash_btn.text = "보관"
 		stash_btn.tooltip_text = "개인 보관함으로 이동"
 		stash_btn.pressed.connect(func(): _deposit_to_stash(captured))
-		row.add_child(stash_btn)
+		stash_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		actions.add_child(stash_btn)
 		var protect := Button.new()
-		protect.text = "🔒" if bool(it.get("salvage_protected", false)) else "분해OK"
+		protect.text = "보호됨" if bool(it.get("salvage_protected", false)) else "분해 허용"
 		protect.tooltip_text = "경매 만료 시 자동 분해 금지 전환"
 		protect.pressed.connect(func():
 			captured["salvage_protected"] = not bool(captured.get("salvage_protected", false))
 			_rebuild_inv()
 		)
-		row.add_child(protect)
+		protect.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		actions.add_child(protect)
+		row.add_child(actions)
 		_inv_vbox.add_child(row)
 	if not _stash.is_empty():
 		var stash_header := Label.new()
-		stash_header.text = "— 개인 보관함 —"
+		stash_header.text = "개인 보관함"
 		stash_header.add_theme_color_override("font_color", Color(0.9, 0.75, 0.35))
 		_inv_vbox.add_child(stash_header)
 	for stored in _stash:
