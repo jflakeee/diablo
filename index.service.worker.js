@@ -1,10 +1,13 @@
+// ASHEN_IMMEDIATE_UPDATE
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim().then(() => self.clients.matchAll({type: 'window'})).then((clients) => Promise.all(clients.map((client) => client.navigate(client.url))))));
 // This service worker is required to expose an exported Godot project as a
 // Progressive Web App. It provides an offline fallback page telling the user
 // that they need an Internet connection to run the project if desired.
 // Incrementing CACHE_VERSION will kick off the install event and force
 // previously cached resources to be updated from the network.
 /** @type {string} */
-const CACHE_VERSION = '1790426477|7587548';
+const CACHE_VERSION = '1790427611|13768165';
 /** @type {string} */
 const CACHE_PREFIX = 'Ashen Depths-sw-cache-';
 const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
