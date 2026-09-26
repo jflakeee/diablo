@@ -31,7 +31,7 @@ const Mercenary := preload("res://mercenary.gd")
 const Stamina := preload("res://stamina.gd")
 const DeathSystem := preload("res://death_system.gd")
 const Stash := preload("res://stash.gd")
-const DEPLOYED_AT_KST := "2026-09-26 13:19 KST"
+const DEPLOYED_AT_KST := "2026-09-26 13:35 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -645,13 +645,13 @@ func _show_class_select() -> void:
 	title.position = Vector2(vp.x * 0.5 - 240, vp.y * 0.2)
 	_menu_layer.add_child(title)
 	var sub := Label.new()
-	sub.text = "클래스 선택 / Choose your class"
+	sub.text = "CHOOSE YOUR CLASS"
 	sub.add_theme_font_size_override("font_size", _accessibility.font_size(22))
 	sub.position = Vector2(vp.x * 0.5 - 160, vp.y * 0.2 + 60)
 	_menu_layer.add_child(sub)
-	_add_class_button("Iron Warden / 근접 / 방어", Color(0.9, 0.75, 0.2), Vector2(vp.x * 0.5 - 220, vp.y * 0.42), "warden")
-	_add_class_button("Arcanist / 원거리 / 비전", Color(0.6, 0.5, 0.95), Vector2(vp.x * 0.5 - 220, vp.y * 0.42 + 90), "arcanist")
-	# 난이도 선택
+	_add_class_button("Iron Warden / Melee / Defense", Color(0.9, 0.75, 0.2), Vector2(vp.x * 0.5 - 220, vp.y * 0.42), "warden")
+	_add_class_button("Arcanist / Ranged / Arcane", Color(0.6, 0.5, 0.95), Vector2(vp.x * 0.5 - 220, vp.y * 0.42 + 90), "arcanist")
+	# Difficulty selection.
 	_diff_label = Label.new()
 	_diff_label.add_theme_font_size_override("font_size", _accessibility.font_size(20))
 	_diff_label.position = Vector2(vp.x * 0.5 - 220, vp.y * 0.42 + 200)
@@ -676,8 +676,8 @@ func _set_difficulty(d: int) -> void:
 
 func _update_diff_label() -> void:
 	if _diff_label:
-		var dn: String = ["Normal", "Nightmare(어려움)", "Hell(극악)"][_difficulty]
-		_diff_label.text = "난이도: %s / 아래에서 변경 후 위 클래스로 시작" % dn
+		var dn: String = ["Normal", "Nightmare", "Hell"][_difficulty]
+		_diff_label.text = "Difficulty: %s / Select below, then choose a class" % dn
 
 func _add_class_button(text: String, col: Color, pos: Vector2, cls: String) -> void:
 	var btn := Button.new()
@@ -787,25 +787,28 @@ func _start_game() -> void:
 	var vp := physical_vp / ui_scale
 	var safe := MobileUI.logical_safe_area(physical_vp)
 	safe = Rect2(safe.position / ui_scale, safe.size / ui_scale)
-	var mobile_layout := MobileUI.layout(vp, safe)
+	var mobile_profile := MobileUI.prefer_mobile(physical_vp)
+	var mobile_layout := MobileUI.layout(vp, safe, mobile_profile)
 	_joy = JoystickScript.new()
+	_joy.control_size = MobileUI.JOYSTICK_SIZE
 	_joy.position = mobile_layout["joystick"]
+	_joy.visible = mobile_profile
 	ui.add_child(_joy)
 	# 스킬 버튼(확대): 우하단 2개 + 위 1개
 	if _class == "arcanist":
-		_add_skill_button(ui, "ember_bolt", "Ember", Color.ORANGE_RED, mobile_layout["skill_primary"])
-		_add_skill_button(ui, "frost_shard", "Frost", Color.SKY_BLUE, mobile_layout["skill_secondary"])
-		_add_skill_button(ui, "storm_lance", "Storm", Color.YELLOW, mobile_layout["skill_utility"])
+		_add_skill_button(ui, "ember_bolt", "Ember", Color.ORANGE_RED, mobile_layout["skill_primary"], mobile_layout["skill_size"])
+		_add_skill_button(ui, "frost_shard", "Frost", Color.SKY_BLUE, mobile_layout["skill_secondary"], mobile_layout["skill_size"])
+		_add_skill_button(ui, "storm_lance", "Storm", Color.YELLOW, mobile_layout["skill_utility"], mobile_layout["skill_size"])
 	else:
-		_add_skill_button(ui, "sundering_strike", "Sunder", Color.ORANGE_RED, mobile_layout["skill_primary"])
-		_add_skill_button(ui, "void_fury", "Fury", Color.CRIMSON, mobile_layout["skill_secondary"])
-		_add_skill_button(ui, "iron_chant", "Chant", Color.GOLD, mobile_layout["skill_utility"])
+		_add_skill_button(ui, "sundering_strike", "Sunder", Color.ORANGE_RED, mobile_layout["skill_primary"], mobile_layout["skill_size"])
+		_add_skill_button(ui, "void_fury", "Fury", Color.CRIMSON, mobile_layout["skill_secondary"], mobile_layout["skill_size"])
+		_add_skill_button(ui, "iron_chant", "Chant", Color.GOLD, mobile_layout["skill_utility"], mobile_layout["skill_size"])
 
 	var bag := Button.new()
 	bag.text = "Bag"
 	bag.position = mobile_layout["bag"]
-	bag.custom_minimum_size = MobileUI.MENU_SIZE
-	bag.size = MobileUI.MENU_SIZE
+	bag.custom_minimum_size = mobile_layout["menu_size"]
+	bag.size = mobile_layout["menu_size"]
 	bag.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	bag.pressed.connect(_toggle_bag)
 	ui.add_child(bag)
@@ -827,8 +830,8 @@ func _start_game() -> void:
 	var shop := Button.new()
 	shop.text = "Shop"
 	shop.position = mobile_layout["shop"]
-	shop.custom_minimum_size = MobileUI.MENU_SIZE
-	shop.size = MobileUI.MENU_SIZE
+	shop.custom_minimum_size = mobile_layout["menu_size"]
+	shop.size = mobile_layout["menu_size"]
 	shop.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	shop.pressed.connect(_toggle_vendor)
 	ui.add_child(shop)
@@ -843,8 +846,8 @@ func _start_game() -> void:
 	var charb := Button.new()
 	charb.text = "Char"
 	charb.position = mobile_layout["char"]
-	charb.custom_minimum_size = MobileUI.MENU_SIZE
-	charb.size = MobileUI.MENU_SIZE
+	charb.custom_minimum_size = mobile_layout["menu_size"]
+	charb.size = mobile_layout["menu_size"]
 	charb.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	charb.pressed.connect(_toggle_char)
 	ui.add_child(charb)
@@ -859,15 +862,15 @@ func _start_game() -> void:
 	var settings_button := Button.new()
 	settings_button.text = "UI"
 	settings_button.position = mobile_layout["settings"]
-	settings_button.custom_minimum_size = Vector2(96, 56)
-	settings_button.size = Vector2(96, 56)
+	settings_button.custom_minimum_size = Vector2(96, 56) if mobile_profile else Vector2(76, 42)
+	settings_button.size = settings_button.custom_minimum_size
 	settings_button.add_theme_font_size_override("font_size", _accessibility.font_size(20))
 	settings_button.pressed.connect(_toggle_settings)
 	ui.add_child(settings_button)
 
 	var deploy_stamp := Label.new()
 	deploy_stamp.text = "배포 %s" % DEPLOYED_AT_KST
-	deploy_stamp.position = Vector2(mobile_layout["bag"].x - 224, mobile_layout["bag"].y + MobileUI.MENU_SIZE.y + 2)
+	deploy_stamp.position = Vector2(mobile_layout["bag"].x - 224, mobile_layout["bag"].y + (mobile_layout["menu_size"] as Vector2).y + 2)
 	deploy_stamp.size = Vector2(328, 22)
 	deploy_stamp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	deploy_stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -884,7 +887,7 @@ func _start_game() -> void:
 
 	# 자동 지도(미니맵) — 좌하단(조이스틱 위쪽 여백)
 	_minimap = MinimapScript.new()
-	_minimap.size = Vector2(190, 190)
+	_minimap.size = mobile_layout["minimap_size"]
 	_minimap.position = mobile_layout["minimap"]
 	ui.add_child(_minimap)
 	_build_minimap_tex()
@@ -897,8 +900,8 @@ func _start_game() -> void:
 	ui.add_child(_hud)
 
 	# 포션 벨트 버튼(모바일): 좌하단, 조이스틱 위. 빨강=생명 / 파랑=마나
-	_pot_hp_btn = _make_potion_button("HP", Color(0.75, 0.15, 0.15), mobile_layout["potion_hp"], _quaff_health)
-	_pot_mp_btn = _make_potion_button("MP", Color(0.15, 0.3, 0.8), mobile_layout["potion_mp"], _quaff_mana)
+	_pot_hp_btn = _make_potion_button("HP", Color(0.75, 0.15, 0.15), mobile_layout["potion_hp"], _quaff_health, mobile_layout["potion_size"])
+	_pot_mp_btn = _make_potion_button("MP", Color(0.15, 0.3, 0.8), mobile_layout["potion_mp"], _quaff_mana, mobile_layout["potion_size"])
 	ui.add_child(_pot_hp_btn)
 	ui.add_child(_pot_mp_btn)
 
@@ -998,11 +1001,12 @@ func _craft_selftest() -> void:
 
 	print("[P4][RESULT] craft_selftest verdict=", ("PASS" if (t1 and t2 and t3 and t4) else "FAIL"))
 
-func _add_skill_button(ui: CanvasLayer, id: String, label: String, col: Color, pos: Vector2) -> void:
+func _add_skill_button(ui: CanvasLayer, id: String, label: String, col: Color, pos: Vector2, control_size: Vector2) -> void:
 	var b := SkillButtonScript.new()
 	b.skill_id = id
 	b.label_text = label
 	b.color = col
+	b.control_size = control_size
 	b.position = pos
 	b.used.connect(_on_skill_used)
 	ui.add_child(b)
@@ -1020,16 +1024,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_F9:
 			_load_game()
 
-func _make_potion_button(glyph: String, col: Color, pos: Vector2, cb: Callable) -> Button:
+func _make_potion_button(glyph: String, col: Color, pos: Vector2, cb: Callable, control_size: Vector2) -> Button:
 	var b := Button.new()
 	b.text = glyph
 	b.position = pos
-	b.custom_minimum_size = MobileUI.POTION_SIZE
-	b.size = MobileUI.POTION_SIZE
-	b.add_theme_font_size_override("font_size", _accessibility.font_size(24))
+	b.custom_minimum_size = control_size
+	b.size = control_size
+	b.add_theme_font_size_override("font_size", _accessibility.font_size(24 if control_size.x >= 80 else 19))
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = col
-	sb.set_corner_radius_all(roundi(MobileUI.POTION_SIZE.x * 0.5))
+	sb.set_corner_radius_all(roundi(control_size.x * 0.5))
 	b.add_theme_stylebox_override("normal", sb)
 	b.pressed.connect(cb)
 	return b

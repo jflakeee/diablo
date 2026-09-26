@@ -2,18 +2,23 @@ extends Control
 # 가상 조이스틱: 눌린 지점 기준 드래그로 방향 벡터(value, -1..1) 산출.
 
 var value: Vector2 = Vector2.ZERO
-var _radius := 135.0
-var _knob := 58.0
+var control_size := Vector2(240, 240)
+var _radius := 102.0
+var _knob := 44.0
 var _touch_id := -1
 var _center := Vector2.ZERO
 var _knob_pos := Vector2.ZERO
 
 func _ready() -> void:
-	size = Vector2(320, 320)
+	size = control_size
+	_radius = minf(size.x, size.y) * 0.425
+	_knob = minf(size.x, size.y) * 0.183
 	_center = size * 0.5
 	_knob_pos = _center
 
 func _input(e: InputEvent) -> void:
+	if not visible:
+		return
 	if e is InputEventScreenTouch:
 		if e.pressed:
 			if get_global_rect().has_point(e.position):

@@ -7,7 +7,14 @@ const SKILL_SIZE := Vector2(112, 112)
 const JOYSTICK_SIZE := Vector2(240, 240)
 const POTION_SIZE := Vector2(80, 80)
 const MINIMAP_SIZE := Vector2(160, 160)
+const DESKTOP_MENU_SIZE := Vector2(92, 42)
+const DESKTOP_SKILL_SIZE := Vector2(88, 88)
+const DESKTOP_POTION_SIZE := Vector2(64, 64)
+const DESKTOP_MINIMAP_SIZE := Vector2(180, 180)
 const MIN_LOGICAL := Vector2(960, 540)
+
+static func prefer_mobile(viewport: Vector2) -> bool:
+	return DisplayServer.is_touchscreen_available() or viewport.x < 1000.0
 
 static func effective_scale(requested: float, viewport: Vector2) -> float:
 	return minf(requested, minf(viewport.x / MIN_LOGICAL.x, viewport.y / MIN_LOGICAL.y))
@@ -20,7 +27,7 @@ static func logical_safe_area(viewport: Vector2) -> Rect2:
 	var scale := Vector2(viewport.x / window_size.x, viewport.y / window_size.y)
 	return Rect2(physical.position * scale, physical.size * scale)
 
-static func layout(viewport: Vector2, safe: Rect2 = Rect2()) -> Dictionary:
+static func layout(viewport: Vector2, safe: Rect2 = Rect2(), mobile: bool = true) -> Dictionary:
 	var area := safe
 	if area.size.x <= 0.0 or area.size.y <= 0.0:
 		area = Rect2(Vector2.ZERO, viewport)
@@ -28,41 +35,55 @@ static func layout(viewport: Vector2, safe: Rect2 = Rect2()) -> Dictionary:
 	var top := area.position.y + EDGE
 	var right := area.end.x - EDGE
 	var bottom := area.end.y - EDGE
-	var minimap_x := (left + right - MINIMAP_SIZE.x) * 0.5 if area.size.y < 650.0 else right - MINIMAP_SIZE.x
+	var menu_size := MENU_SIZE if mobile else DESKTOP_MENU_SIZE
+	var skill_size := SKILL_SIZE if mobile else DESKTOP_SKILL_SIZE
+	var potion_size := POTION_SIZE if mobile else DESKTOP_POTION_SIZE
+	var minimap_size := MINIMAP_SIZE if mobile else DESKTOP_MINIMAP_SIZE
+	var minimap_x := (left + right - minimap_size.x) * 0.5 if mobile and area.size.y < 650.0 else right - minimap_size.x
+	var skill_primary := Vector2(right - skill_size.x, bottom - skill_size.y)
+	var skill_secondary := Vector2(right - skill_size.x * 2.0 - 8, bottom - skill_size.y)
+	var skill_utility := Vector2(right - skill_size.x * 1.5 - 4, bottom - skill_size.y * 2.0 - 8)
+	if not mobile:
+		skill_utility = Vector2(right - skill_size.x * 3.0 - 16, bottom - skill_size.y)
 	return {
+		"mobile": mobile, "menu_size": menu_size, "skill_size": skill_size, "potion_size": potion_size, "minimap_size": minimap_size,
 		"hud": Vector2(left, top),
-		"char": Vector2(right - MENU_SIZE.x * 3.0 - 16, top), "shop": Vector2(right - MENU_SIZE.x * 2.0 - 8, top), "bag": Vector2(right - MENU_SIZE.x, top),
-		"minimap": Vector2(minimap_x, top + MENU_SIZE.y + 16),
+		"char": Vector2(right - menu_size.x * 3.0 - 16, top), "shop": Vector2(right - menu_size.x * 2.0 - 8, top), "bag": Vector2(right - menu_size.x, top),
+		"minimap": Vector2(minimap_x, top + menu_size.y + 16),
 		"joystick": Vector2(left, bottom - JOYSTICK_SIZE.y),
-		"potion_hp": Vector2(left, bottom - JOYSTICK_SIZE.y - POTION_SIZE.y - 8),
-		"potion_mp": Vector2(left + POTION_SIZE.x + 14, bottom - JOYSTICK_SIZE.y - POTION_SIZE.y - 8),
-		"skill_primary": Vector2(right - SKILL_SIZE.x, bottom - SKILL_SIZE.y),
-		"skill_secondary": Vector2(right - SKILL_SIZE.x * 2.0 - 8, bottom - SKILL_SIZE.y),
-		"skill_utility": Vector2(right - SKILL_SIZE.x * 1.5 - 4, bottom - SKILL_SIZE.y * 2.0 - 8),
-		"panel": Vector2(right - 360, top + MENU_SIZE.y + 8),
-		"settings": Vector2((left + right - 96) * 0.5, bottom - 56),
+		"potion_hp": Vector2(left, bottom - (JOYSTICK_SIZE.y + potion_size.y + 8 if mobile else potion_size.y)),
+		"potion_mp": Vector2(left + potion_size.x + 14, bottom - (JOYSTICK_SIZE.y + potion_size.y + 8 if mobile else potion_size.y)),
+		"skill_primary": skill_primary,
+		"skill_secondary": skill_secondary,
+		"skill_utility": skill_utility,
+		"panel": Vector2(right - 360, top + menu_size.y + 8),
+		"settings": Vector2((left + right - 96) * 0.5, bottom - (56 if mobile else 42)),
 		"settings_panel": Vector2((left + right - 360) * 0.5, (top + bottom - 250) * 0.5),
 	}
 
 static func _inside(rect: Rect2, bounds: Rect2) -> bool:
 	return bounds.encloses(rect)
 
-static func validate(viewport: Vector2) -> Dictionary:
-	var positions := layout(viewport)
+static func validate(viewport: Vector2, mobile: bool = true) -> Dictionary:
+	var positions := layout(viewport, Rect2(), mobile)
 	var bounds := Rect2(Vector2(EDGE, EDGE), viewport - Vector2(EDGE * 2.0, EDGE * 2.0))
+	var skill_size: Vector2 = positions["skill_size"]
+	var potion_size: Vector2 = positions["potion_size"]
+	var minimap_size: Vector2 = positions["minimap_size"]
 	var rects := {
-		"joystick": Rect2(positions["joystick"], JOYSTICK_SIZE),
-		"potion_hp": Rect2(positions["potion_hp"], POTION_SIZE),
-		"potion_mp": Rect2(positions["potion_mp"], POTION_SIZE),
-		"skill_primary": Rect2(positions["skill_primary"], SKILL_SIZE),
-		"skill_secondary": Rect2(positions["skill_secondary"], SKILL_SIZE),
-		"skill_utility": Rect2(positions["skill_utility"], SKILL_SIZE),
-		"minimap": Rect2(positions["minimap"], MINIMAP_SIZE),
+		"potion_hp": Rect2(positions["potion_hp"], potion_size),
+		"potion_mp": Rect2(positions["potion_mp"], potion_size),
+		"skill_primary": Rect2(positions["skill_primary"], skill_size),
+		"skill_secondary": Rect2(positions["skill_secondary"], skill_size),
+		"skill_utility": Rect2(positions["skill_utility"], skill_size),
+		"minimap": Rect2(positions["minimap"], minimap_size),
 	}
+	if mobile:
+		rects["joystick"] = Rect2(positions["joystick"], JOYSTICK_SIZE)
 	var failures: Array = []
 	for id in rects:
 		if not _inside(rects[id], bounds): failures.append(id + " outside safe margin")
-	var combat_ids := ["joystick", "potion_hp", "potion_mp", "skill_primary", "skill_secondary", "skill_utility", "minimap"]
+	var combat_ids := rects.keys()
 	for i in combat_ids.size():
 		for j in range(i + 1, combat_ids.size()):
 			if (rects[combat_ids[i]] as Rect2).intersects(rects[combat_ids[j]]):
@@ -71,11 +92,13 @@ static func validate(viewport: Vector2) -> Dictionary:
 
 static func selftest() -> bool:
 	for viewport in [Vector2(960, 540), Vector2(960, 720), Vector2(1280, 720), Vector2(1600, 720)]:
-		if not bool(validate(viewport)["ok"]):
-			push_error("Mobile UI layout failed %s: %s" % [str(viewport), str(validate(viewport)["failures"])])
-			return false
+		for mobile in [true, false]:
+			if not bool(validate(viewport, mobile)["ok"]):
+				push_error("Responsive UI layout failed %s mobile=%s: %s" % [str(viewport), str(mobile), str(validate(viewport, mobile)["failures"])])
+				return false
 	for requested in [0.8, 1.0, 1.2, 1.4]:
 		var applied := effective_scale(requested, Vector2(1280, 720))
 		if applied > requested or (Vector2(1280, 720) / applied).x < MIN_LOGICAL.x:
 			return false
-	return SKILL_SIZE.x >= 72.0 and POTION_SIZE.x >= 48.0 and MENU_SIZE.y >= 48.0 and JOYSTICK_SIZE.x <= 240.0
+	return SKILL_SIZE.x >= 72.0 and POTION_SIZE.x >= 48.0 and MENU_SIZE.y >= 48.0 and JOYSTICK_SIZE.x <= 240.0 \
+		and DESKTOP_SKILL_SIZE.x < SKILL_SIZE.x and DESKTOP_POTION_SIZE.x < POTION_SIZE.x

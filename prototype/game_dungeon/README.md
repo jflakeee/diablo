@@ -128,6 +128,15 @@ scale while retaining 48px-or-larger touch targets. The Bag uses vertical
 scrolling and two-row item actions so long names and requirements stay inside
 the panel. User-facing emoji/symbol glyphs were replaced with HP/MP and plain
 text labels to prevent missing-font square characters in Web/mobile builds.
+
+### Responsive mobile and desktop HUD
+
+The runtime selects a touch-first mobile profile when a touchscreen is
+available and a compact desktop profile otherwise. Mobile keeps the virtual
+joystick and large combat targets. Desktop hides the virtual joystick, uses
+smaller menu, potion, and skill controls, and accepts mouse clicks on skills.
+Both profiles are checked at 960x540 through 1600x720 by the UI self-test.
+
 → 두 클래스 모두 **다층 던전 클리어→워프** 동작, 런타임 에러 0.
 
 ## 정식화
