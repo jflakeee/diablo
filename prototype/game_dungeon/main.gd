@@ -1013,12 +1013,12 @@ func _make_potion_button(glyph: String, col: Color, pos: Vector2, cb: Callable) 
 	var b := Button.new()
 	b.text = glyph
 	b.position = pos
-	b.custom_minimum_size = Vector2(96, 96)
-	b.size = Vector2(96, 96)
-	b.add_theme_font_size_override("font_size", _accessibility.font_size(34))
+	b.custom_minimum_size = MobileUI.POTION_SIZE
+	b.size = MobileUI.POTION_SIZE
+	b.add_theme_font_size_override("font_size", _accessibility.font_size(24))
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = col
-	sb.set_corner_radius_all(48)
+	sb.set_corner_radius_all(roundi(MobileUI.POTION_SIZE.x * 0.5))
 	b.add_theme_stylebox_override("normal", sb)
 	b.pressed.connect(cb)
 	return b
@@ -1625,7 +1625,7 @@ func _process(delta: float) -> void:
 		var dn: String = ["Normal", "NM", "Hell"][_difficulty]
 		print("[GD][RESULT] class=%s diff=%s dungeon_level=%d cleared=%d kills=%d life=%d/%d res_fire=%d champs=%d uniques=%d" % [
 			_class, dn, _dlevel, _levels_cleared, _kills, _player.life, _player.max_life, _player.res_fire, _champs, _uniques])
-		print("[POT] quaffed=%d belt(♥%d ✦%d)" % [_potions_quaffed, _belt_hp, _belt_mp])
+		print("[POT] quaffed=%d belt(HP%d MP%d)" % [_potions_quaffed, _belt_hp, _belt_mp])
 		var mstate := ("alive %d/%d" % [_merc.life, _merc.max_life]) if (_merc != null and _merc.alive) else "down"
 		print("[MERC] kills=%d state=%s" % [_merc_kills, mstate])
 		print("[GOLD] gold=%d sold_total=%d gambles=%d" % [_gold, _gold_sold, _gambles])
