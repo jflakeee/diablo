@@ -34,6 +34,7 @@ The current system suite reports 53 checks.
 | 제작 | 각인 순서, 역순 거부, 승급 | `system_tests.gd`, `[P4][RESULT]` | PASS |
 | 던전 | 27×27, 9방/8문, 결정성, 연결성 | `system_tests.gd`: BFS 및 동일 시드 | PASS |
 | 반응형 UI | 모바일 safe area·48px 이상 터치 타깃·가상 조이스틱, PC 소형 조작부·조이스틱 숨김·마우스 스킬 입력 | `[MOBILE_UI]` 모바일/PC 각 4개 화면비 및 겹침 검사 | PASS |
+| PC 입력 | WASD·방향키 정규화 이동, 스킬 1~4, 물약 5/6, 전체화면 F11·설정 버튼 | `[PC_INPUT]` 슬롯·축·대각선 검사 및 시각 검증 | PASS |
 | 글리프 호환 | 화면 이모지 제거, HP/MP·일반 텍스트 대체, 한글/ASCII 중심 레이블 | 양 클래스 Web export 및 런타임 렌더 경로 | PASS |
 | 접근성 | UI 80~140%, 큰 글씨, 설정 영속화 | `[ACCESS]` | PASS |
 | 에셋 | 28 정적, 24 애니메이션 품질·결정성 | 에셋 컴파일러 및 런타임 카탈로그 | PASS |

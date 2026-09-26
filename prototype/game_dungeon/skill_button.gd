@@ -25,4 +25,4 @@ func _draw() -> void:
 	draw_circle(c, r, base)
 	draw_arc(c, r, 0.0, TAU, 40, color, 3.0)
 	var f := ThemeDB.fallback_font
-	draw_string(f, c + Vector2(-r + 8, 6), label_text, HORIZONTAL_ALIGNMENT_CENTER, 2 * r - 16, 18 if size.x < 100 else 22, Color.WHITE)
+	draw_string(f, c + Vector2(-r + 6, 5), label_text, HORIZONTAL_ALIGNMENT_CENTER, 2 * r - 12, 14 if size.x < 100 else 20, Color.WHITE)

@@ -31,7 +31,7 @@ const Mercenary := preload("res://mercenary.gd")
 const Stamina := preload("res://stamina.gd")
 const DeathSystem := preload("res://death_system.gd")
 const Stash := preload("res://stash.gd")
-const DEPLOYED_AT_KST := "2026-09-26 13:46 KST"
+const DEPLOYED_AT_KST := "2026-09-26 20:00 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -119,6 +119,7 @@ var _char_vbox: VBoxContainer
 var _settings_panel: Panel
 var _settings_scale_button: Button
 var _settings_text_button: Button
+var _settings_fullscreen_button: Button
 var _minimap: Control
 var _inv_panel: Panel
 var _inv_vbox: VBoxContainer
@@ -798,13 +799,15 @@ func _start_game() -> void:
 	ui.add_child(_joy)
 	# 스킬 버튼(확대): 우하단 2개 + 위 1개
 	if _class == "arcanist":
-		_add_skill_button(ui, "ember_bolt", "Ember", Color.ORANGE_RED, mobile_layout["skill_primary"], mobile_layout["skill_size"])
-		_add_skill_button(ui, "frost_shard", "Frost", Color.SKY_BLUE, mobile_layout["skill_secondary"], mobile_layout["skill_size"])
-		_add_skill_button(ui, "storm_lance", "Storm", Color.YELLOW, mobile_layout["skill_utility"], mobile_layout["skill_size"])
+		_add_skill_button(ui, "ember_bolt", "1 Ember", Color.ORANGE_RED, mobile_layout["skill_primary"], mobile_layout["skill_size"])
+		_add_skill_button(ui, "frost_shard", "2 Frost", Color.SKY_BLUE, mobile_layout["skill_secondary"], mobile_layout["skill_size"])
+		_add_skill_button(ui, "storm_lance", "3 Storm", Color.YELLOW, mobile_layout["skill_utility"], mobile_layout["skill_size"])
+		_add_skill_button(ui, "phase_step", "4 Phase", Color.MEDIUM_PURPLE, mobile_layout["skill_quaternary"], mobile_layout["skill_size"])
 	else:
-		_add_skill_button(ui, "sundering_strike", "Sunder", Color.ORANGE_RED, mobile_layout["skill_primary"], mobile_layout["skill_size"])
-		_add_skill_button(ui, "void_fury", "Fury", Color.CRIMSON, mobile_layout["skill_secondary"], mobile_layout["skill_size"])
-		_add_skill_button(ui, "iron_chant", "Chant", Color.GOLD, mobile_layout["skill_utility"], mobile_layout["skill_size"])
+		_add_skill_button(ui, "sundering_strike", "1 Sunder", Color.ORANGE_RED, mobile_layout["skill_primary"], mobile_layout["skill_size"])
+		_add_skill_button(ui, "void_fury", "2 Fury", Color.CRIMSON, mobile_layout["skill_secondary"], mobile_layout["skill_size"])
+		_add_skill_button(ui, "iron_chant", "3 Chant", Color.GOLD, mobile_layout["skill_utility"], mobile_layout["skill_size"])
+		_add_skill_button(ui, "weapon_discipline", "4 Passive", Color.STEEL_BLUE, mobile_layout["skill_quaternary"], mobile_layout["skill_size"])
 
 	var bag := Button.new()
 	bag.text = "Bag"
@@ -882,7 +885,7 @@ func _start_game() -> void:
 
 	_settings_panel = Panel.new()
 	_settings_panel.position = mobile_layout["settings_panel"]
-	_settings_panel.size = Vector2(360, 370)
+	_settings_panel.size = Vector2(360, 430)
 	_settings_panel.visible = false
 	ui.add_child(_settings_panel)
 	_build_settings_panel()
@@ -913,6 +916,7 @@ func _start_game() -> void:
 		_recompute_player()
 
 	_data_selftest()
+	_pc_input_selftest()
 	if _auto_quit:
 		_craft_selftest()
 		_act_reward_selftest()
@@ -1017,14 +1021,45 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not _started or _auto_quit:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_1:
+		if event.keycode >= KEY_1 and event.keycode <= KEY_4:
+			_on_skill_used(_skill_slot_ids()[event.keycode - KEY_1])
+		elif event.keycode == KEY_5:
 			_quaff_health()
-		elif event.keycode == KEY_2:
+		elif event.keycode == KEY_6:
 			_quaff_mana()
 		elif event.keycode == KEY_F5:
 			_save_game()
 		elif event.keycode == KEY_F9:
 			_load_game()
+		elif event.keycode == KEY_F11:
+			_toggle_fullscreen()
+		elif event.keycode == KEY_ESCAPE and DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN:
+			_toggle_fullscreen()
+
+func _skill_slot_ids() -> Array[String]:
+	if _class == "arcanist":
+		return ["ember_bolt", "frost_shard", "storm_lance", "phase_step"]
+	return ["sundering_strike", "void_fury", "iron_chant", "weapon_discipline"]
+
+func _keyboard_move_vector() -> Vector2:
+	var left := Input.is_key_pressed(KEY_LEFT) or Input.is_physical_key_pressed(KEY_A)
+	var right := Input.is_key_pressed(KEY_RIGHT) or Input.is_physical_key_pressed(KEY_D)
+	var up := Input.is_key_pressed(KEY_UP) or Input.is_physical_key_pressed(KEY_W)
+	var down := Input.is_key_pressed(KEY_DOWN) or Input.is_physical_key_pressed(KEY_S)
+	return _movement_vector_from_flags(left, right, up, down)
+
+func _movement_vector_from_flags(left: bool, right: bool, up: bool, down: bool) -> Vector2:
+	return Vector2(float(int(right) - int(left)), float(int(down) - int(up))).normalized()
+
+func _pc_input_selftest() -> void:
+	var slots_ok := _skill_slot_ids().size() == 4
+	var left_ok := _movement_vector_from_flags(true, false, false, false) == Vector2.LEFT
+	var diagonal := _movement_vector_from_flags(false, true, true, false)
+	var diagonal_ok := diagonal.x > 0.0 and diagonal.y < 0.0 and is_equal_approx(diagonal.length(), 1.0)
+	var ok := slots_ok and left_ok and diagonal_ok
+	print("[PC_INPUT] wasd=true arrows=true skill_keys=1/2/3/4 fullscreen=F11 verdict=", "PASS" if ok else "FAIL")
+	if not ok:
+		push_error("PC input self-test failed")
 
 func _make_potion_button(glyph: String, col: Color, pos: Vector2, cb: Callable, control_size: Vector2) -> Button:
 	var b := Button.new()
@@ -1043,7 +1078,7 @@ func _make_potion_button(glyph: String, col: Color, pos: Vector2, cb: Callable, 
 func _build_settings_panel() -> void:
 	var box := VBoxContainer.new()
 	box.position = Vector2(12, 12)
-	box.custom_minimum_size = Vector2(336, 346)
+	box.custom_minimum_size = Vector2(336, 406)
 	_settings_panel.add_child(box)
 	var title := Label.new()
 	title.text = "접근성 / UI 설정"
@@ -1057,6 +1092,10 @@ func _build_settings_panel() -> void:
 	_settings_text_button.custom_minimum_size = Vector2(336, 52)
 	_settings_text_button.pressed.connect(_cycle_text_scale)
 	box.add_child(_settings_text_button)
+	_settings_fullscreen_button = Button.new()
+	_settings_fullscreen_button.custom_minimum_size = Vector2(336, 52)
+	_settings_fullscreen_button.pressed.connect(_toggle_fullscreen)
+	box.add_child(_settings_fullscreen_button)
 	var save_button := Button.new()
 	save_button.text = "게임 저장"
 	save_button.custom_minimum_size = Vector2(336, 52)
@@ -1078,6 +1117,14 @@ func _refresh_settings_labels() -> void:
 		_settings_scale_button.text = "UI 배율: %d%%" % roundi(_accessibility.ui_scale * 100.0)
 	if _settings_text_button:
 		_settings_text_button.text = "본문 텍스트: %s" % ("크게" if _accessibility.text_scale > 1.0 else "보통")
+	if _settings_fullscreen_button:
+		var fullscreen := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
+		_settings_fullscreen_button.text = "전체화면 종료 (F11)" if fullscreen else "전체화면 (F11)"
+
+func _toggle_fullscreen() -> void:
+	var fullscreen := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if fullscreen else DisplayServer.WINDOW_MODE_FULLSCREEN)
+	_refresh_settings_labels()
 
 func _cycle_ui_scale() -> void:
 	_accessibility.cycle_ui_scale()
@@ -1251,7 +1298,10 @@ func _physics_process(delta: float) -> void:
 	if _auto_quit:
 		_auto_play(delta)
 	else:
-		var dir := _screen_dir_to_grid(_joy.value if _joy else Vector2.ZERO)
+		var move_input := _keyboard_move_vector()
+		if move_input == Vector2.ZERO and _joy:
+			move_input = _joy.value
+		var dir := _screen_dir_to_grid(move_input)
 		if dir != Vector2.ZERO:
 			_walk_toward(_player.gx + dir.x, _player.gy + dir.y, delta)
 
@@ -1699,6 +1749,9 @@ func _nearest_ground() -> Node:
 func _on_skill_used(id: String) -> void:
 	if _player.skill_level(id) <= 0:
 		_combat_log = "아직 배우지 않은 스킬"
+		return
+	if id == "weapon_discipline":
+		_combat_log = "Weapon Discipline: passive skill"
 		return
 	if id == "iron_chant":
 		_cast_iron_chant()

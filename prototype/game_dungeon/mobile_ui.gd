@@ -49,9 +49,11 @@ static func layout(viewport: Vector2, safe: Rect2 = Rect2(), mobile: bool = true
 	var minimap_x := (left + right - minimap_size.x) * 0.5 if mobile and area.size.y < 650.0 else right - minimap_size.x
 	var skill_primary := Vector2(right - skill_size.x, bottom - skill_size.y)
 	var skill_secondary := Vector2(right - skill_size.x * 2.0 - 8, bottom - skill_size.y)
-	var skill_utility := Vector2(right - skill_size.x * 1.5 - 4, bottom - skill_size.y * 2.0 - 8)
+	var skill_utility := Vector2(right - skill_size.x, bottom - skill_size.y * 2.0 - 8)
+	var skill_quaternary := Vector2(right - skill_size.x * 2.0 - 8, bottom - skill_size.y * 2.0 - 8)
 	if not mobile:
 		skill_utility = Vector2(right - skill_size.x * 3.0 - 16, bottom - skill_size.y)
+		skill_quaternary = Vector2(right - skill_size.x * 4.0 - 24, bottom - skill_size.y)
 	return {
 		"mobile": mobile, "menu_size": menu_size, "skill_size": skill_size, "potion_size": potion_size, "minimap_size": minimap_size,
 		"hud": Vector2(left, top),
@@ -63,6 +65,7 @@ static func layout(viewport: Vector2, safe: Rect2 = Rect2(), mobile: bool = true
 		"skill_primary": skill_primary,
 		"skill_secondary": skill_secondary,
 		"skill_utility": skill_utility,
+		"skill_quaternary": skill_quaternary,
 		"panel": Vector2(right - 360, top + menu_size.y + 8),
 		"settings": Vector2((left + right - 96) * 0.5, bottom - (56 if mobile else 42)),
 		"settings_panel": Vector2((left + right - 360) * 0.5, (top + bottom - 250) * 0.5),
@@ -83,6 +86,7 @@ static func validate(viewport: Vector2, mobile: bool = true) -> Dictionary:
 		"skill_primary": Rect2(positions["skill_primary"], skill_size),
 		"skill_secondary": Rect2(positions["skill_secondary"], skill_size),
 		"skill_utility": Rect2(positions["skill_utility"], skill_size),
+		"skill_quaternary": Rect2(positions["skill_quaternary"], skill_size),
 		"minimap": Rect2(positions["minimap"], minimap_size),
 	}
 	if mobile:
