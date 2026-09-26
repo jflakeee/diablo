@@ -14,7 +14,14 @@ const DESKTOP_MINIMAP_SIZE := Vector2(180, 180)
 const MIN_LOGICAL := Vector2(960, 540)
 
 static func prefer_mobile(viewport: Vector2) -> bool:
-	return DisplayServer.is_touchscreen_available() or viewport.x < 1000.0
+	if OS.get_name() in ["Android", "iOS"]:
+		return true
+	if OS.has_feature("web"):
+		var user_agent := String(JavaScriptBridge.eval("navigator.userAgent", true)).to_lower()
+		for marker in ["android", "iphone", "ipad", "ipod", "mobile"]:
+			if user_agent.contains(marker):
+				return true
+	return viewport.x < 1000.0
 
 static func effective_scale(requested: float, viewport: Vector2) -> float:
 	return minf(requested, minf(viewport.x / MIN_LOGICAL.x, viewport.y / MIN_LOGICAL.y))

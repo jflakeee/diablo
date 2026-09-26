@@ -31,7 +31,7 @@ const Mercenary := preload("res://mercenary.gd")
 const Stamina := preload("res://stamina.gd")
 const DeathSystem := preload("res://death_system.gd")
 const Stash := preload("res://stash.gd")
-const DEPLOYED_AT_KST := "2026-09-26 13:35 KST"
+const DEPLOYED_AT_KST := "2026-09-26 13:46 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -785,9 +785,11 @@ func _start_game() -> void:
 	ui.transform = Transform2D.IDENTITY.scaled(Vector2(ui_scale, ui_scale))
 	add_child(ui)
 	var vp := physical_vp / ui_scale
-	var safe := MobileUI.logical_safe_area(physical_vp)
-	safe = Rect2(safe.position / ui_scale, safe.size / ui_scale)
 	var mobile_profile := MobileUI.prefer_mobile(physical_vp)
+	var safe := Rect2(Vector2.ZERO, vp)
+	if mobile_profile:
+		safe = MobileUI.logical_safe_area(physical_vp)
+		safe = Rect2(safe.position / ui_scale, safe.size / ui_scale)
 	var mobile_layout := MobileUI.layout(vp, safe, mobile_profile)
 	_joy = JoystickScript.new()
 	_joy.control_size = MobileUI.JOYSTICK_SIZE
