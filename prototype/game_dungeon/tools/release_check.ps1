@@ -46,6 +46,17 @@ if ($exportExitCode -ne 0 -or $failureText) {
     Stop-ReleaseCheck "godot_export_failed exit_code=$exportExitCode"
 }
 
+# Activate each newly deployed PWA worker immediately. Without this, mobile
+# Safari can keep the previous worker (and its old index.pck) alive until every
+# tab using the site has been closed.
+$serviceWorkerPath = Join-Path $outputPath "index.service.worker.js"
+if (Test-Path -LiteralPath $serviceWorkerPath) {
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    $serviceWorker = [IO.File]::ReadAllText($serviceWorkerPath)
+    $activation = "// ASHEN_IMMEDIATE_UPDATE`nself.addEventListener('install', () => self.skipWaiting());`nself.addEventListener('activate', (event) => event.waitUntil(self.clients.claim().then(() => self.clients.matchAll({type: 'window'})).then((clients) => Promise.all(clients.map((client) => client.navigate(client.url))))));`n"
+    [IO.File]::WriteAllText($serviceWorkerPath, $activation + $serviceWorker, $utf8NoBom)
+}
+
 $requiredFiles = @(
     "index.html",
     "index.wasm",
@@ -64,6 +75,10 @@ foreach ($requiredFile in $requiredFiles) {
     if ((Get-Item -LiteralPath $requiredPath).Length -le 0) {
         Stop-ReleaseCheck "empty_artifact file=$requiredFile"
     }
+}
+
+if (-not (Select-String -LiteralPath $serviceWorkerPath -SimpleMatch "ASHEN_IMMEDIATE_UPDATE" -Quiet)) {
+    Stop-ReleaseCheck "service_worker_immediate_update_missing"
 }
 
 $pckPath = Join-Path $outputPath "index.pck"

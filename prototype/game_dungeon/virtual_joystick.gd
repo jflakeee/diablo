@@ -21,16 +21,17 @@ func _input(e: InputEvent) -> void:
 		return
 	if e is InputEventScreenTouch:
 		if e.pressed:
-			if get_global_rect().has_point(e.position):
+			var local_pos: Vector2 = get_global_transform_with_canvas().affine_inverse() * e.position
+			if Rect2(Vector2.ZERO, size).has_point(local_pos):
 				_touch_id = e.index
-				_update(e.position)
+				_update_local(local_pos)
 		elif e.index == _touch_id:
 			_reset()
 	elif e is InputEventScreenDrag and e.index == _touch_id:
-		_update(e.position)
+		_update_local(get_global_transform_with_canvas().affine_inverse() * e.position)
 
-func _update(global_pos: Vector2) -> void:
-	var off := (global_pos - global_position) - _center
+func _update_local(local_pos: Vector2) -> void:
+	var off := local_pos - _center
 	if off.length() > _radius:
 		off = off.normalized() * _radius
 	_knob_pos = _center + off

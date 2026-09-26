@@ -31,7 +31,7 @@ const Mercenary := preload("res://mercenary.gd")
 const Stamina := preload("res://stamina.gd")
 const DeathSystem := preload("res://death_system.gd")
 const Stash := preload("res://stash.gd")
-const DEPLOYED_AT_KST := "2026-09-26 21:39 KST"
+const DEPLOYED_AT_KST := "2026-09-26 21:59 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -672,9 +672,9 @@ func _show_class_select() -> void:
 		_menu_layer.add_child(db)
 	var deploy_stamp := Label.new()
 	deploy_stamp.text = "DEPLOYED %s" % DEPLOYED_AT_KST
-	deploy_stamp.position = Vector2(vp.x - 340, vp.y - 38)
-	deploy_stamp.size = Vector2(320, 22)
-	deploy_stamp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	deploy_stamp.position = Vector2(vp.x * 0.5 - 220, vp.y * 0.2 + 92)
+	deploy_stamp.size = Vector2(440, 22)
+	deploy_stamp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	deploy_stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	deploy_stamp.add_theme_font_size_override("font_size", _accessibility.font_size(13))
 	deploy_stamp.add_theme_color_override("font_color", Color(0.62, 0.62, 0.62, 0.9))
@@ -883,7 +883,7 @@ func _start_game() -> void:
 	ui.add_child(settings_button)
 
 	var deploy_stamp := Label.new()
-	deploy_stamp.text = "배포 %s" % DEPLOYED_AT_KST
+	deploy_stamp.text = "DEPLOYED %s" % DEPLOYED_AT_KST
 	deploy_stamp.position = Vector2(mobile_layout["bag"].x - 224, mobile_layout["bag"].y + (mobile_layout["menu_size"] as Vector2).y + 2)
 	deploy_stamp.size = Vector2(328, 22)
 	deploy_stamp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -1676,7 +1676,7 @@ func _process(delta: float) -> void:
 	var wn := _equipped_label("weapon")
 	var an := _equipped_label("armor")
 	var elapsed := float(Time.get_ticks_msec() - _run_start) / 1000.0
-	_hud.text = "%s Lv%d  HP %d/%d  MP %d/%d  골드 %d\n무기 %s (%d-%d)  방어 %s / DEF %d\n처치 %d  드롭 %d  가방 %d  MF %d  벨트 HP%d MP%d\n%s" % [
+	_hud.text = "%s Lv%d  HP %d/%d  MP %d/%d  Gold %d\nWeapon %s (%d-%d)  Armor %s / DEF %d\nKills %d  Drops %d  Bag %d  MF %d  Belt HP%d MP%d\n%s" % [
 		_player.actor_name, _player.level, _player.life, _player.max_life, _player.mana, _player.max_mana, _gold,
 		wn, _player.dmg_min, _player.dmg_max, an, _player.defense,
 		_kills, _items_dropped, _inventory.size(), _player_mf, _belt_hp, _belt_mp, _combat_log]
@@ -1688,12 +1688,12 @@ func _process(delta: float) -> void:
 	if _pot_mp_btn:
 		_pot_mp_btn.text = "MP\n%d" % _belt_mp
 	if _merc != null:
-		var ms := ("HP %d/%d" % [_merc.life, _merc.max_life]) if _merc.alive else "쓰러짐"
-		_hud.text += "\n동료 Ember Scout %s  킬 %d" % [ms, _merc_kills]
+		var ms := ("HP %d/%d" % [_merc.life, _merc.max_life]) if _merc.alive else "DOWN"
+		_hud.text += "\nMerc Ember Scout %s  Kills %d" % [ms, _merc_kills]
 	if _stat_points > 0 or _player.skill_points > 0:
-		_hud.text += "  포인트: 스탯%d 스킬%d" % [_stat_points, _player.skill_points]
-	var quest_gate := "보스 처치 필요" if _exit_locked else ("보스 층" if _is_boss_level() else "탐험 중")
-	_hud.text += "\nACT %d / 층 %d/%d / %s (클리어 %d)\n퀘스트: %s / WP: %s" % [_act, _level_in_act(), ACT_LEN, quest_gate, _acts_cleared, Quest.objective_text(_quest_defs, _quest_state, _act), Waypoint.current_name(_waypoint_defs, _waypoint_state)]
+		_hud.text += "  Points: Stat %d Skill %d" % [_stat_points, _player.skill_points]
+	var quest_gate := "DEFEAT BOSS" if _exit_locked else ("BOSS FLOOR" if _is_boss_level() else "EXPLORING")
+	_hud.text += "\nACT %d / Floor %d/%d / %s (Clears %d)\nQuest: %s / WP: %s" % [_act, _level_in_act(), ACT_LEN, quest_gate, _acts_cleared, Quest.objective_text(_quest_defs, _quest_state, _act), Waypoint.current_name(_waypoint_defs, _waypoint_state)]
 
 	if _auto_quit and elapsed >= 50.0 and not _quitting:
 		_quitting = true
