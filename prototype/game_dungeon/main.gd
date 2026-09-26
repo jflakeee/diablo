@@ -31,7 +31,7 @@ const Mercenary := preload("res://mercenary.gd")
 const Stamina := preload("res://stamina.gd")
 const DeathSystem := preload("res://death_system.gd")
 const Stash := preload("res://stash.gd")
-const DEPLOYED_AT_KST := "2026-09-26 22:19 KST"
+const DEPLOYED_AT_KST := "2026-09-26 22:44 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -636,32 +636,40 @@ func _show_class_select() -> void:
 	_menu_layer = CanvasLayer.new()
 	add_child(_menu_layer)
 	var vp := get_viewport_rect().size
+	var mobile_profile := MobileUI.prefer_mobile(vp)
+	var title_font := 56 if mobile_profile else 44
+	var subtitle_font := 30 if mobile_profile else 22
+	var menu_font := 30 if mobile_profile else 26
+	var detail_font := 26 if mobile_profile else 20
+	var heading_y := vp.y * (0.16 if mobile_profile else 0.2)
 	var bg := ColorRect.new()
 	bg.color = Color(0.05, 0.04, 0.08, 1.0)
 	bg.size = vp
 	_menu_layer.add_child(bg)
 	var title := Label.new()
 	title.text = "ASHEN DEPTHS"
-	title.add_theme_font_size_override("font_size", _accessibility.font_size(44))
-	title.position = Vector2(vp.x * 0.5 - 240, vp.y * 0.2)
+	title.add_theme_font_size_override("font_size", _accessibility.font_size(title_font))
+	title.position = Vector2(vp.x * 0.5 - 240, heading_y)
+	title.size = Vector2(480, 70)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_menu_layer.add_child(title)
 	var sub := Label.new()
 	# Keep the build stamp in the same control as the heading. On narrow mobile
 	# canvases a separate small label can disappear after browser viewport scaling.
 	sub.text = "CHOOSE YOUR CLASS\nDEPLOYED %s" % DEPLOYED_AT_KST
-	sub.add_theme_font_size_override("font_size", _accessibility.font_size(22))
+	sub.add_theme_font_size_override("font_size", _accessibility.font_size(subtitle_font))
 	sub.add_theme_color_override("font_color", Color(0.88, 0.88, 0.88, 1.0))
-	sub.position = Vector2(vp.x * 0.5 - 220, vp.y * 0.2 + 56)
-	sub.size = Vector2(440, 64)
+	sub.position = Vector2(vp.x * 0.5 - 220, heading_y + 72)
+	sub.size = Vector2(440, 88)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_menu_layer.add_child(sub)
-	_add_class_button("Iron Warden / Melee / Defense", Color(0.9, 0.75, 0.2), Vector2(vp.x * 0.5 - 220, vp.y * 0.42), "warden")
-	_add_class_button("Arcanist / Ranged / Arcane", Color(0.6, 0.5, 0.95), Vector2(vp.x * 0.5 - 220, vp.y * 0.42 + 90), "arcanist")
+	_add_class_button("Iron Warden / Melee / Defense", Color(0.9, 0.75, 0.2), Vector2(vp.x * 0.5 - 220, vp.y * 0.42), "warden", menu_font)
+	_add_class_button("Arcanist / Ranged / Arcane", Color(0.6, 0.5, 0.95), Vector2(vp.x * 0.5 - 220, vp.y * 0.42 + 90), "arcanist", menu_font)
 	# Difficulty selection.
 	_diff_label = Label.new()
-	_diff_label.add_theme_font_size_override("font_size", _accessibility.font_size(20))
+	_diff_label.add_theme_font_size_override("font_size", _accessibility.font_size(detail_font))
 	_diff_label.position = Vector2(vp.x * 0.5 - 220, vp.y * 0.42 + 200)
 	_menu_layer.add_child(_diff_label)
 	_update_diff_label()
@@ -673,7 +681,7 @@ func _show_class_select() -> void:
 		db.position = Vector2(vp.x * 0.5 - 220 + i * 150, vp.y * 0.42 + 240)
 		db.custom_minimum_size = Vector2(140, 50)
 		db.size = Vector2(140, 50)
-		db.add_theme_font_size_override("font_size", _accessibility.font_size(20))
+		db.add_theme_font_size_override("font_size", _accessibility.font_size(detail_font))
 		db.add_theme_color_override("font_color", dcols[i])
 		db.pressed.connect(_set_difficulty.bind(i))
 		_menu_layer.add_child(db)
@@ -686,13 +694,13 @@ func _update_diff_label() -> void:
 		var dn: String = ["Normal", "Nightmare", "Hell"][_difficulty]
 		_diff_label.text = "Difficulty: %s / Select below, then choose a class" % dn
 
-func _add_class_button(text: String, col: Color, pos: Vector2, cls: String) -> void:
+func _add_class_button(text: String, col: Color, pos: Vector2, cls: String, font_px: int = 26) -> void:
 	var btn := Button.new()
 	btn.text = text
 	btn.position = pos
 	btn.custom_minimum_size = Vector2(440, 74)
 	btn.size = Vector2(440, 74)
-	btn.add_theme_font_size_override("font_size", _accessibility.font_size(26))
+	btn.add_theme_font_size_override("font_size", _accessibility.font_size(font_px))
 	btn.add_theme_color_override("font_color", col)
 	btn.pressed.connect(_choose_class.bind(cls))
 	_menu_layer.add_child(btn)
@@ -780,19 +788,21 @@ func _start_game() -> void:
 	_attack_line.default_color = Color(1, 1, 0.4, 0.9)
 	_world.add_child(_attack_line)
 
+	var physical_vp := get_viewport_rect().size
+	var mobile_profile := MobileUI.prefer_mobile(physical_vp)
 	_cam = Camera2D.new()
 	_cam.position = _player.position
-	_cam.zoom = Vector2(1.1, 1.1)
+	var world_zoom := 1.38 if mobile_profile else 1.1
+	_cam.zoom = Vector2(world_zoom, world_zoom)
 	_world.add_child(_cam)
 	_cam.make_current()
 
 	var ui := CanvasLayer.new()
-	var physical_vp := get_viewport_rect().size
-	var ui_scale := MobileUI.effective_scale(_accessibility.ui_scale, physical_vp)
+	var requested_ui_scale := maxf(_accessibility.ui_scale, 1.2) if mobile_profile else _accessibility.ui_scale
+	var ui_scale := MobileUI.effective_scale(requested_ui_scale, physical_vp)
 	ui.transform = Transform2D.IDENTITY.scaled(Vector2(ui_scale, ui_scale))
 	add_child(ui)
 	var vp := physical_vp / ui_scale
-	var mobile_profile := MobileUI.prefer_mobile(physical_vp)
 	var safe := Rect2(Vector2.ZERO, vp)
 	if mobile_profile:
 		safe = MobileUI.logical_safe_area(physical_vp)
@@ -882,11 +892,11 @@ func _start_game() -> void:
 	var deploy_stamp := Label.new()
 	deploy_stamp.text = "DEPLOYED %s" % DEPLOYED_AT_KST
 	deploy_stamp.position = Vector2(mobile_layout["bag"].x - 224, mobile_layout["bag"].y + (mobile_layout["menu_size"] as Vector2).y + 2)
-	deploy_stamp.size = Vector2(328, 22)
+	deploy_stamp.size = Vector2(328, 30)
 	deploy_stamp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	deploy_stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	deploy_stamp.add_theme_font_size_override("font_size", _accessibility.font_size(13))
-	deploy_stamp.add_theme_color_override("font_color", Color(0.72, 0.72, 0.72, 0.9))
+	deploy_stamp.add_theme_font_size_override("font_size", _accessibility.font_size(20 if mobile_profile else 16))
+	deploy_stamp.add_theme_color_override("font_color", Color(0.92, 0.92, 0.92, 1.0))
 	ui.add_child(deploy_stamp)
 
 	_settings_panel = Panel.new()

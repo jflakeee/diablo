@@ -31,7 +31,10 @@ func cycle_text_scale() -> void:
 	save_settings()
 
 func font_size(base: int) -> int:
-	return maxi(12, roundi(float(base) * text_scale))
+	# Browser text smaller than 16 logical pixels becomes difficult to read once
+	# the game canvas is fitted into a narrow mobile viewport.
+	return maxi(16, roundi(float(base) * text_scale))
 
 static func selftest() -> bool:
-	return UI_SCALES == [0.8, 1.0, 1.2, 1.4] and TEXT_SCALES == [1.0, 1.25]
+	var access := new()
+	return UI_SCALES == [0.8, 1.0, 1.2, 1.4] and TEXT_SCALES == [1.0, 1.25] and access.font_size(10) == 16
