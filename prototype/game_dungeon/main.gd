@@ -31,7 +31,7 @@ const Mercenary := preload("res://mercenary.gd")
 const Stamina := preload("res://stamina.gd")
 const DeathSystem := preload("res://death_system.gd")
 const Stash := preload("res://stash.gd")
-const DEPLOYED_AT_KST := "2026-09-26 20:00 KST"
+const DEPLOYED_AT_KST := "2026-09-26 21:39 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -670,6 +670,15 @@ func _show_class_select() -> void:
 		db.add_theme_color_override("font_color", dcols[i])
 		db.pressed.connect(_set_difficulty.bind(i))
 		_menu_layer.add_child(db)
+	var deploy_stamp := Label.new()
+	deploy_stamp.text = "DEPLOYED %s" % DEPLOYED_AT_KST
+	deploy_stamp.position = Vector2(vp.x - 340, vp.y - 38)
+	deploy_stamp.size = Vector2(320, 22)
+	deploy_stamp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	deploy_stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	deploy_stamp.add_theme_font_size_override("font_size", _accessibility.font_size(13))
+	deploy_stamp.add_theme_color_override("font_color", Color(0.62, 0.62, 0.62, 0.9))
+	_menu_layer.add_child(deploy_stamp)
 
 func _set_difficulty(d: int) -> void:
 	_difficulty = d
