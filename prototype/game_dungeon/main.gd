@@ -31,6 +31,7 @@ const Mercenary := preload("res://mercenary.gd")
 const Stamina := preload("res://stamina.gd")
 const DeathSystem := preload("res://death_system.gd")
 const Stash := preload("res://stash.gd")
+const DEPLOYED_AT_KST := "2026-09-26 13:14 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -863,6 +864,16 @@ func _start_game() -> void:
 	settings_button.add_theme_font_size_override("font_size", _accessibility.font_size(20))
 	settings_button.pressed.connect(_toggle_settings)
 	ui.add_child(settings_button)
+
+	var deploy_stamp := Label.new()
+	deploy_stamp.text = "배포 %s" % DEPLOYED_AT_KST
+	deploy_stamp.position = Vector2(mobile_layout["bag"].x - 224, mobile_layout["bag"].y + MobileUI.MENU_SIZE.y + 2)
+	deploy_stamp.size = Vector2(328, 22)
+	deploy_stamp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	deploy_stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	deploy_stamp.add_theme_font_size_override("font_size", _accessibility.font_size(13))
+	deploy_stamp.add_theme_color_override("font_color", Color(0.72, 0.72, 0.72, 0.9))
+	ui.add_child(deploy_stamp)
 
 	_settings_panel = Panel.new()
 	_settings_panel.position = mobile_layout["settings_panel"]
