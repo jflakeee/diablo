@@ -34,7 +34,7 @@ const Stash := preload("res://stash.gd")
 const CollectionBook := preload("res://collection_book.gd")
 const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
-const DEPLOYED_AT_KST := "2026-09-27 18:29 KST"
+const DEPLOYED_AT_KST := "2026-09-27 18:32 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -1343,6 +1343,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_quaff_health()
 		elif event.keycode == KEY_6:
 			_quaff_mana()
+		elif event.keycode == KEY_7:
+			_throw_arc_flask()
 		elif event.keycode == KEY_F5:
 			_save_game()
 		elif event.keycode == KEY_F9:
@@ -1373,7 +1375,7 @@ func _pc_input_selftest() -> void:
 	var diagonal := _movement_vector_from_flags(false, true, true, false)
 	var diagonal_ok := diagonal.x > 0.0 and diagonal.y < 0.0 and is_equal_approx(diagonal.length(), 1.0)
 	var ok := slots_ok and left_ok and diagonal_ok
-	print("[PC_INPUT] wasd=true arrows=true skill_keys=1/2/3/4 fullscreen=F11 verdict=", "PASS" if ok else "FAIL")
+	print("[PC_INPUT] wasd=true arrows=true skill_keys=1/2/3/4 arc_skill=7 fullscreen=F11 verdict=", "PASS" if ok else "FAIL")
 	if not ok:
 		push_error("PC input self-test failed")
 
@@ -3349,7 +3351,7 @@ func _rebuild_inv() -> void:
 	travel_row.add_child(town_button)
 	_inv_vbox.add_child(travel_row)
 	var flask_button := Button.new()
-	flask_button.text = "Throw Skyfire Flask (%d)" % _arc_flasks
+	flask_button.text = "7 Skyfire Toss (%d)" % _arc_flasks
 	flask_button.disabled = _arc_flasks <= 0
 	flask_button.pressed.connect(_throw_arc_flask)
 	_inv_vbox.add_child(flask_button)
