@@ -31,7 +31,8 @@ const Mercenary := preload("res://mercenary.gd")
 const Stamina := preload("res://stamina.gd")
 const DeathSystem := preload("res://death_system.gd")
 const Stash := preload("res://stash.gd")
-const DEPLOYED_AT_KST := "2026-09-27 13:52 KST"
+const CollectionBook := preload("res://collection_book.gd")
+const DEPLOYED_AT_KST := "2026-09-27 14:18 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -125,6 +126,7 @@ var _settings_fullscreen_button: Button
 var _minimap: Control
 var _inv_panel: Panel
 var _inv_vbox: VBoxContainer
+var _inventory_view := "bag"
 var _rng := RandomNumberGenerator.new()
 var _combat_log := "-"
 var _stamina := 100.0
@@ -144,6 +146,7 @@ var _equipped := {"weapon": {}, "armor": {}, "ring_left": {}, "ring_right": {}, 
 var _eq := {"str": 0, "dex": 0, "ar": 0, "ed": 0, "life": 0, "mana": 0, "def": 0, "res_all": 0}
 var _player_mf := 50
 var _automation := Automation.new()
+var _collection := CollectionBook.new()
 var _accessibility := Accessibility.new()
 var _automation_last_expire := 0
 var _assets := AssetCatalog.new()
@@ -593,6 +596,7 @@ func _ready() -> void:
 		_difficulty = 1
 	if _auto_quit:
 		print("[AUTO] selftest verdict=", "PASS" if _automation.selftest() else "FAIL")
+		print("[COLLECTION] selftest verdict=", "PASS" if _collection.selftest() else "FAIL")
 		print("[ANIM] selftest verdict=", "PASS" if ActorScript.animation_selftest() else "FAIL")
 		_ui_selftest_ok = MobileUI.selftest()
 		print("[MOBILE_UI] ratios=4 targets>=48 primary>=72 safe_margin=16 verdict=", "PASS" if _ui_selftest_ok else "FAIL")
@@ -615,6 +619,7 @@ func _ready() -> void:
 		print("[PERF] budget_selftest verdict=", "PASS" if PerformanceBudget.selftest() else "FAIL")
 		print("[ASSET] atlas=%s entries=%d selftest=%s" % [str(_assets.available()), _assets.entry_count(), "PASS" if _assets.selftest() else "FAIL"])
 		_automation = Automation.new() # 셀프테스트 상태를 실제 플레이와 분리
+		_collection = CollectionBook.new()
 		var uq := Item.generate(_rng, Item.WEAPON_BASES[1], 20, "unique")
 		print("[UNIQ] ", Item.display_name(uq), " affixes=", uq["affixes"], " color=", Item.quality_color("unique"))
 		var sok := 0
@@ -951,6 +956,8 @@ func _start_game() -> void:
 		_run_economy_conversion_test.call_deferred()
 	elif OS.get_cmdline_user_args().has("auto_equip_sell_test"):
 		_run_auto_equip_sell_test.call_deferred()
+	elif OS.get_cmdline_user_args().has("collection_book_test"):
+		_run_collection_book_test.call_deferred()
 
 func _run_skill_visual_test() -> void:
 	await get_tree().create_timer(0.75).timeout
@@ -1061,6 +1068,24 @@ func _run_auto_equip_sell_test() -> void:
 	var ok: bool = empty_equipped and upgraded and lower_sold and future_kept and protected_kept
 	print("[AUTO_EQUIP_SELL] empty=%s upgrade=%s replaced_sold=%s lower_sold=%s future_kept=%s protected=%s verdict=%s" % [str(empty_equipped), str(upgraded), str(_gold_sold > 0), str(lower_sold), str(future_kept), str(protected_kept), "PASS" if ok else "FAIL"])
 	await get_tree().create_timer(1.0).timeout
+	get_tree().quit()
+
+func _run_collection_book_test() -> void:
+	await get_tree().create_timer(0.5).timeout
+	var unique := Item.generate(_rng, Item.WEAPON_BASES[0], 10, "unique")
+	_collection.register(unique, _item_combat_power(unique))
+	_inventory.append(unique)
+	_store_in_collection(unique)
+	var stored_ok := _collection.stored.has(unique) and not _inventory.has(unique) and bool(unique.get("salvage_protected", false))
+	var records_ok := _collection.records.size() == 1 and _collection.rankings().size() == 1 and not _collection.option_leaders().is_empty()
+	_gold = 10000
+	_buy_collection_page()
+	var page_ok := _collection.pages == 2 and _gold == 0
+	_equip_from_collection(unique)
+	var equip_ok: bool = _equipped["weapon"] == unique and not _collection.stored.has(unique)
+	var ok: bool = stored_ok and records_ok and page_ok and equip_ok
+	print("[COLLECTION] stored=%s records=%s page=%s equip=%s verdict=%s" % [str(stored_ok), str(records_ok), str(page_ok), str(equip_ok), "PASS" if ok else "FAIL"])
+	await get_tree().create_timer(0.5).timeout
 	get_tree().quit()
 
 # 액트 보상 경로(_complete_act) 결정론적 검증 — 더미 보스로 직접 실행
@@ -1310,6 +1335,7 @@ func _gather_save_state(reason: String = "manual") -> Dictionary:
 		"stamina": _stamina,
 		"corpse_state": _corpse_state.duplicate(true), "player_deaths": _player_deaths,
 		"automation": _automation.snapshot(),
+		"collection_book": _collection.snapshot(),
 	}
 
 func _save_game() -> void:
@@ -1368,6 +1394,7 @@ func _load_game() -> void:
 	_corpse_state = DeathSystem.normalize_corpse(state.get("corpse_state", {}))
 	_player_deaths = maxi(0, int(state.get("player_deaths", 0)))
 	_automation.restore(state.get("automation", {}))
+	_collection.restore(state.get("collection_book", {}))
 	_spawn_corpse_marker()
 	if _merc != null:
 		_merc_scale_stats()
@@ -2473,6 +2500,10 @@ func _pickup(n: Node) -> void:
 		return
 	_inventory.append(it)
 	_items_picked += 1
+	if _collection.accepts(it):
+		var newly_discovered := _collection.register(it, _item_combat_power(it))
+		if newly_discovered:
+			_combat_log = "COLLECTION DISCOVERED: %s" % Item.display_name(it)
 	_spawn_text(_player.position, "+" + Item.display_name(it), Item.quality_color(String(it["quality"])))
 	var equip_result := _auto_equip(it)
 	if equip_result in ["KEPT_LOWER_POWER", "KEPT_REQUIREMENT_LOCKED"]:
@@ -2898,11 +2929,115 @@ func _equipped_label(slot: String) -> String:
 		return "%s (Indestructible)" % Item.display_name(it)
 	return "%s (%d/%d)%s" % [Item.display_name(it), Item.durability(it), Item.durability_max(it), " Broken" if Item.is_broken(it) else ""]
 
+func _store_in_collection(it: Dictionary) -> void:
+	if not _inventory.has(it):
+		return
+	if not _collection.store(it):
+		_combat_log = "Collection storage full or unsupported"
+		return
+	_inventory.erase(it)
+	_combat_log = "STORED IN COLLECTION: %s" % Item.display_name(it)
+	_rebuild_inv()
+
+func _equip_from_collection(it: Dictionary) -> void:
+	if not _collection.stored.has(it):
+		return
+	var failures := Item.requirement_failures(it, _player.level, _player.stat_str, _player.stat_dex)
+	if not failures.is_empty():
+		_combat_log = "Cannot equip: %s" % ", ".join(failures)
+		return
+	var slot := _equipment_slot_for_item(it)
+	var old: Dictionary = _equipped[slot]
+	if not _collection.take(it):
+		return
+	if not old.is_empty() and old != it:
+		old["salvage_protected"] = true
+		_inventory.append(old)
+	_equip(it, slot)
+	_combat_log = "COLLECTION EQUIPPED: %s" % Item.display_name(it)
+	_rebuild_inv()
+
+func _buy_collection_page() -> void:
+	var cost := _collection.buy_page(_gold)
+	if cost < 0:
+		_combat_log = "Need %dg for the next collection page" % _collection.next_page_cost()
+		return
+	_gold -= cost
+	_combat_log = "COLLECTION PAGE %d UNLOCKED / -%dg" % [_collection.pages, cost]
+	_rebuild_inv()
+
+func _show_collection() -> void:
+	_inventory_view = "collection"
+	_rebuild_inv()
+
+func _show_bag() -> void:
+	_inventory_view = "bag"
+	_rebuild_inv()
+
+func _rebuild_collection() -> void:
+	var nav := Button.new()
+	nav.text = "Back to Bag"
+	nav.pressed.connect(_show_bag)
+	_inv_vbox.add_child(nav)
+	var title := Label.new()
+	title.text = "COLLECTION & RANKING BOOK\nDiscovered %d / Stored %d/%d / Pages %d" % [_collection.records.size(), _collection.stored.size(), _collection.capacity(), _collection.pages]
+	title.add_theme_font_size_override("font_size", _accessibility.font_size(18))
+	title.add_theme_color_override("font_color", Color(0.95, 0.78, 0.3))
+	_inv_vbox.add_child(title)
+	var buy := Button.new()
+	buy.text = "Buy Page +%d Slots (%dg)" % [CollectionBook.SLOTS_PER_PAGE, _collection.next_page_cost()]
+	buy.pressed.connect(_buy_collection_page)
+	_inv_vbox.add_child(buy)
+	var rank_title := Label.new()
+	rank_title.text = "COMBAT POWER RANKING"
+	_inv_vbox.add_child(rank_title)
+	var rank := 1
+	for record in _collection.rankings():
+		var line := Label.new()
+		var option_parts: Array = []
+		for stat in (record.get("option_bests", {}) as Dictionary):
+			option_parts.append("%s +%d" % [String(stat).to_upper(), int(record["option_bests"][stat])])
+		option_parts.sort()
+		line.text = "%d. %s  Power %.0f  Found %d\nBest: %s" % [rank, String(record.get("name", "")), float(record.get("best_power", 0.0)), int(record.get("found", 0)), ", ".join(option_parts)]
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		line.add_theme_color_override("font_color", Item.quality_color(String(record.get("quality", "normal"))))
+		_inv_vbox.add_child(line)
+		rank += 1
+	var option_title := Label.new()
+	option_title.text = "OPTION RECORDS"
+	_inv_vbox.add_child(option_title)
+	var leaders := _collection.option_leaders()
+	var stats: Array = leaders.keys()
+	stats.sort()
+	for stat in stats:
+		var leader: Dictionary = leaders[stat]
+		var line := Label.new()
+		line.text = "%s +%d — %s" % [String(stat).to_upper(), int(leader.get("value", 0)), String(leader.get("name", ""))]
+		_inv_vbox.add_child(line)
+	if not _collection.stored.is_empty():
+		var storage_title := Label.new()
+		storage_title.text = "STORED ITEMS (physical copies)"
+		_inv_vbox.add_child(storage_title)
+	for stored_item in _collection.stored:
+		var equip := Button.new()
+		equip.text = "%s\nPower %.0f / %s" % [Item.display_name(stored_item), _item_combat_power(stored_item), Item.affix_text(stored_item)]
+		equip.disabled = not Item.can_equip(stored_item, _player.level, _player.stat_str, _player.stat_dex)
+		var captured: Dictionary = stored_item
+		equip.pressed.connect(func(): _equip_from_collection(captured))
+		_inv_vbox.add_child(equip)
+
 func _rebuild_inv() -> void:
 	if _inv_vbox == null:
 		return
 	for c in _inv_vbox.get_children():
 		c.queue_free()
+	if _inventory_view == "collection":
+		_rebuild_collection()
+		return
+	var collection_button := Button.new()
+	collection_button.text = "Collection & Ranking Book (%d)" % _collection.records.size()
+	collection_button.pressed.connect(_show_collection)
+	_inv_vbox.add_child(collection_button)
 	var wn := _equipped_label("weapon")
 	var an := _equipped_label("armor")
 	var rln := _equipped_label("ring_left")
@@ -2927,6 +3062,14 @@ func _rebuild_inv() -> void:
 		btn.pressed.connect(func(): _equip_from_inventory(captured))
 		row.add_child(btn)
 		var actions := HBoxContainer.new()
+		if _collection.accepts(it):
+			var collection_store := Button.new()
+			collection_store.text = "Keep"
+			collection_store.tooltip_text = "Protect and move this physical item into the collection book"
+			collection_store.disabled = _collection.stored.size() >= _collection.capacity()
+			collection_store.pressed.connect(func(): _store_in_collection(captured))
+			collection_store.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			actions.add_child(collection_store)
 		if String(it.get("slot", "")) in Mercenary.SLOTS:
 			var merc_btn := Button.new()
 			merc_btn.text = "Merc"

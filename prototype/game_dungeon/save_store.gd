@@ -1,6 +1,6 @@
 extends RefCounted
 
-const CURRENT_VERSION := 9
+const CURRENT_VERSION := 10
 const DEFAULT_PATH := "user://ashen_depths_save.json"
 
 static func _migrate(raw: Dictionary) -> Dictionary:
@@ -44,6 +44,9 @@ static func _migrate(raw: Dictionary) -> Dictionary:
 		equipped.erase("ring")
 		state["equipped"] = equipped
 		version = 9
+	if version == 9:
+		state["collection_book"] = state.get("collection_book", {})
+		version = 10
 	state["schema_version"] = version
 	return state
 
@@ -166,6 +169,10 @@ static func selftest() -> Dictionary:
 	v8["equipped"] = {"weapon": {}, "armor": {}, "ring": {"name": "legacy ring", "slot": "ring"}, "amulet": {}}
 	var migrated_v8 := _migrate(v8)
 	if int(migrated_v8.get("schema_version", 0)) != CURRENT_VERSION or String((migrated_v8["equipped"]["ring_left"] as Dictionary).get("name", "")) != "legacy ring" or not (migrated_v8["equipped"]["ring_right"] as Dictionary).is_empty(): failures.append("v8 dual ring migration")
+	var v9 := state.duplicate(true)
+	v9["schema_version"] = 9
+	var migrated_v9 := _migrate(v9)
+	if int(migrated_v9.get("schema_version", 0)) != CURRENT_VERSION or not migrated_v9.get("collection_book", null) is Dictionary: failures.append("v9 collection migration")
 	var corrupt_path := "user://save_store_corrupt_%s.json" % suffix
 	var corrupt := FileAccess.open(corrupt_path, FileAccess.WRITE)
 	if corrupt != null:
@@ -175,4 +182,4 @@ static func selftest() -> Dictionary:
 	for cleanup in [path, path + ".tmp", path + ".bak", corrupt_path]:
 		var absolute := ProjectSettings.globalize_path(cleanup)
 		if FileAccess.file_exists(absolute): DirAccess.remove_absolute(absolute)
-	return {"ok": failures.is_empty(), "checks": 14, "failures": failures}
+	return {"ok": failures.is_empty(), "checks": 15, "failures": failures}
