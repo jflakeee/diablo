@@ -31,7 +31,7 @@ const Mercenary := preload("res://mercenary.gd")
 const Stamina := preload("res://stamina.gd")
 const DeathSystem := preload("res://death_system.gd")
 const Stash := preload("res://stash.gd")
-const DEPLOYED_AT_KST := "2026-09-27 10:23 KST"
+const DEPLOYED_AT_KST := "2026-09-27 13:52 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -111,6 +111,7 @@ var _gold := 0
 const COST_HP_POT := 45
 const COST_MP_POT := 35
 var _vendor_panel: Panel
+var _auto_sell_button: Button
 var _gold_sold := 0
 var _gambles := 0
 # ── 스탯/스킬 포인트 분배(성장) ──
@@ -948,6 +949,8 @@ func _start_game() -> void:
 		_run_skill_book_visual_test.call_deferred()
 	elif OS.get_cmdline_user_args().has("economy_conversion_test"):
 		_run_economy_conversion_test.call_deferred()
+	elif OS.get_cmdline_user_args().has("auto_equip_sell_test"):
+		_run_auto_equip_sell_test.call_deferred()
 
 func _run_skill_visual_test() -> void:
 	await get_tree().create_timer(0.75).timeout
@@ -1027,6 +1030,36 @@ func _run_economy_conversion_test() -> void:
 	var gamble_ok := gold_before_gamble >= gamble_cost and _gold == gold_before_gamble - gamble_cost and _inventory.size() == bag_before_gamble + 1
 	var ok := item_sale_ok and protected_ok and duplicate_ok and gamble_ok
 	print("[ECONOMY] item_sale=%s protected=%s duplicate_book=%s(+%dg) gamble=%s(cost=%dg) verdict=%s" % [str(item_sale_ok), str(protected_ok), str(duplicate_ok), book_value, str(gamble_ok), gamble_cost, "PASS" if ok else "FAIL"])
+	await get_tree().create_timer(1.0).timeout
+	get_tree().quit()
+
+func _run_auto_equip_sell_test() -> void:
+	await get_tree().create_timer(0.75).timeout
+	_inv_panel.visible = true
+	var weak := Item.generate(_rng, Item.ARMOR_BASES[0], 1, "normal")
+	var strong := Item.generate(_rng, Item.ARMOR_BASES[0], 10, "rare")
+	strong["affixes"] = {"def": 25, "life": 20, "res_all": 8}
+	var worse := Item.generate(_rng, Item.ARMOR_BASES[0], 1, "normal")
+	var locked := Item.generate(_rng, Item.ARMOR_BASES[2], 10, "rare")
+	var protected := Item.generate(_rng, Item.ARMOR_BASES[0], 1, "normal")
+	protected["salvage_protected"] = true
+	var pickup_test_item := func(test_item: Dictionary) -> void:
+		_spawn_ground(test_item, _player.gx + 2.0, _player.gy)
+		_pickup(_ground.back() as Node)
+	pickup_test_item.call(weak)
+	var empty_equipped: bool = _equipped["armor"] == weak
+	var gold_before_replace := _gold
+	pickup_test_item.call(strong)
+	var upgraded: bool = _equipped["armor"] == strong and _gold > gold_before_replace
+	var gold_before_worse := _gold
+	pickup_test_item.call(worse)
+	var lower_sold: bool = _equipped["armor"] == strong and _gold > gold_before_worse and not _inventory.has(worse)
+	pickup_test_item.call(locked)
+	var future_kept: bool = _inventory.has(locked)
+	pickup_test_item.call(protected)
+	var protected_kept: bool = _inventory.has(protected)
+	var ok: bool = empty_equipped and upgraded and lower_sold and future_kept and protected_kept
+	print("[AUTO_EQUIP_SELL] empty=%s upgrade=%s replaced_sold=%s lower_sold=%s future_kept=%s protected=%s verdict=%s" % [str(empty_equipped), str(upgraded), str(_gold_sold > 0), str(lower_sold), str(future_kept), str(protected_kept), "PASS" if ok else "FAIL"])
 	await get_tree().create_timer(1.0).timeout
 	get_tree().quit()
 
@@ -1276,6 +1309,7 @@ func _gather_save_state(reason: String = "manual") -> Dictionary:
 		"merc_equipped": _merc_equipped.duplicate(true),
 		"stamina": _stamina,
 		"corpse_state": _corpse_state.duplicate(true), "player_deaths": _player_deaths,
+		"automation": _automation.snapshot(),
 	}
 
 func _save_game() -> void:
@@ -1333,6 +1367,7 @@ func _load_game() -> void:
 	_stamina = _stamina_max if saved_stamina < 0.0 else clampf(saved_stamina, 0.0, _stamina_max)
 	_corpse_state = DeathSystem.normalize_corpse(state.get("corpse_state", {}))
 	_player_deaths = maxi(0, int(state.get("player_deaths", 0)))
+	_automation.restore(state.get("automation", {}))
 	_spawn_corpse_marker()
 	if _merc != null:
 		_merc_scale_stats()
@@ -2439,19 +2474,79 @@ func _pickup(n: Node) -> void:
 	_inventory.append(it)
 	_items_picked += 1
 	_spawn_text(_player.position, "+" + Item.display_name(it), Item.quality_color(String(it["quality"])))
-	_auto_equip(it)
+	var equip_result := _auto_equip(it)
+	if equip_result in ["KEPT_LOWER_POWER", "KEPT_REQUIREMENT_LOCKED"]:
+		var requirement_locked := equip_result == "KEPT_REQUIREMENT_LOCKED"
+		if _automation.should_auto_sell(it, _item_value(it), requirement_locked):
+			var sale_value := _item_value(it)
+			_inventory.erase(it)
+			_gold += sale_value
+			_gold_sold += sale_value
+			_combat_log = "AUTO SOLD: %s / +%dg" % [Item.display_name(it), sale_value]
+			_spawn_text(_player.position + Vector2(0, -42), "+%dg AUTO SELL" % sale_value, Color(1.0, 0.85, 0.25))
 	_rebuild_inv()
 
-func _auto_equip(it: Dictionary) -> void:
+func _affix_power(affixes: Dictionary) -> float:
+	var mana_weight := 1.2 if _class == "arcanist" else 0.45
+	var strength_weight := 0.8 if _class == "arcanist" else 2.2
+	var dexterity_weight := 1.2 if _class == "arcanist" else 1.7
+	return float(affixes.get("life", 0)) * 1.5 + float(affixes.get("mana", 0)) * mana_weight \
+		+ float(affixes.get("str", 0)) * strength_weight + float(affixes.get("dex", 0)) * dexterity_weight \
+		+ float(affixes.get("ar", 0)) * 0.2 + float(affixes.get("res_all", 0)) * 6.0 \
+		+ (float(affixes.get("res_fire", 0)) + float(affixes.get("res_cold", 0)) + float(affixes.get("res_light", 0)) + float(affixes.get("res_poison", 0))) * 1.5 \
+		+ (float(affixes.get("fdmg", 0)) + float(affixes.get("cdmg", 0)) + float(affixes.get("ldmg", 0))) * 8.0
+
+func _item_combat_power(it: Dictionary) -> float:
+	if it.is_empty() or Item.is_broken(it):
+		return 0.0
+	var affixes := Item.effective_affixes(it)
+	var power := _affix_power(affixes)
+	if String(it.get("slot", "")) == "weapon":
+		var average_damage := (float(it.get("dmin", 0)) + float(it.get("dmax", 0))) * 0.5
+		power += average_damage * (1.0 + float(affixes.get("ed", 0)) / 100.0) * 12.0
+	else:
+		power += (float(it.get("defense", 0)) + float(affixes.get("def", 0))) * 2.0
+	return power
+
+func _loadout_combat_power(loadout: Dictionary) -> float:
+	var items: Array = []
+	var power := 0.0
+	for slot in EQUIPMENT_SLOTS:
+		var equipped_item: Dictionary = loadout.get(slot, {})
+		items.append(equipped_item)
+		power += _item_combat_power(equipped_item)
+	power += _affix_power(Item.equipped_set_bonus(items))
+	return power
+
+func _power_with_item(it: Dictionary, slot: String) -> float:
+	var candidate := _equipped.duplicate(true)
+	candidate[slot] = it
+	return _loadout_combat_power(candidate)
+
+func _auto_equip(it: Dictionary) -> String:
+	if not Item.can_equip(it, _player.level, _player.stat_str, _player.stat_dex):
+		return "KEPT_REQUIREMENT_LOCKED"
 	var slot := _equipment_slot_for_item(it)
-	var cur: Dictionary = _equipped[slot]
-	if Item.can_equip(it, _player.level, _player.stat_str, _player.stat_dex) and _automation.should_equip(it, cur):
-		if not cur.is_empty():
-			_inventory.erase(cur)
-			if not _automation.list_auction(cur, int(Time.get_ticks_msec() / 1000)):
-				_inventory.append(cur)
-		_equip(it, slot)
-		_inventory.erase(it)
+	if not _equipped.has(slot):
+		return "KEPT_LOWER_POWER"
+	var current: Dictionary = _equipped[slot]
+	var before_power := _loadout_combat_power(_equipped)
+	var after_power := _power_with_item(it, slot)
+	var improves := current.is_empty() or after_power > before_power + maxf(1.0, before_power * 0.01)
+	if not improves:
+		return "KEPT_LOWER_POWER"
+	_inventory.erase(it)
+	if not current.is_empty():
+		if _automation.sell_replaced_gear and _automation.should_auto_sell(current, _item_value(current), false):
+			var old_value := _item_value(current)
+			_gold += old_value
+			_gold_sold += old_value
+			_combat_log = "AUTO REPLACED / SOLD %s +%dg" % [Item.display_name(current), old_value]
+		else:
+			_inventory.append(current)
+	_equip(it, slot)
+	_combat_log = "AUTO EQUIPPED: %s / Power %.0f -> %.0f" % [Item.display_name(it), before_power, after_power]
+	return "EQUIPPED_EMPTY" if current.is_empty() else "EQUIPPED_UPGRADE"
 
 func _equip_from_inventory(it: Dictionary) -> void:
 	var requirement_failures := Item.requirement_failures(it, _player.level, _player.stat_str, _player.stat_dex)
@@ -2474,7 +2569,9 @@ func _equipment_slot_for_item(it: Dictionary) -> String:
 		return "ring_left"
 	if (_equipped["ring_right"] as Dictionary).is_empty():
 		return "ring_right"
-	return "ring_left" if _automation.item_score(_equipped["ring_left"]) <= _automation.item_score(_equipped["ring_right"]) else "ring_right"
+	var left_power := _power_with_item(it, "ring_left")
+	var right_power := _power_with_item(it, "ring_right")
+	return "ring_left" if left_power >= right_power else "ring_right"
 
 func _equip(it: Dictionary, target_slot: String = "") -> void:
 	var slot := target_slot if not target_slot.is_empty() else _equipment_slot_for_item(it)
@@ -2537,6 +2634,8 @@ func _build_vendor() -> void:
 	_vendor_btn(vb, "Cycle Auto Pickup", func(): _cycle_automation("pickup_min"))
 	_vendor_btn(vb, "Cycle Auto Equip", func(): _cycle_automation("equip_min"))
 	_vendor_btn(vb, "Cycle Auto Auction", func(): _cycle_automation("auction_min"))
+	_auto_sell_button = _vendor_btn(vb, "", _toggle_auto_sell)
+	_refresh_vendor()
 
 func _cycle_automation(key: String) -> void:
 	var levels := ["normal", "magic", "rare", "set", "unique"]
@@ -2545,13 +2644,19 @@ func _cycle_automation(key: String) -> void:
 	_combat_log = "%s / %s" % [key, String(_automation.get(key))]
 	_rebuild_inv()
 
-func _vendor_btn(vb: VBoxContainer, text: String, cb: Callable) -> void:
+func _vendor_btn(vb: VBoxContainer, text: String, cb: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(320, 48)
+	b.custom_minimum_size = Vector2(320, 42)
 	b.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	b.pressed.connect(cb)
 	vb.add_child(b)
+	return b
+
+func _toggle_auto_sell() -> void:
+	_automation.auto_sell = not _automation.auto_sell
+	_combat_log = "Auto Sell: %s" % ("ON" if _automation.auto_sell else "OFF")
+	_refresh_vendor()
 
 func _toggle_vendor() -> void:
 	_vendor_panel.visible = not _vendor_panel.visible
@@ -2681,7 +2786,9 @@ func _auto_spend_points() -> void:
 
 func _refresh_vendor() -> void:
 	if _vendor_gold_lbl:
-		_vendor_gold_lbl.text = "Gold %d / Belt HP%d MP%d / Bag %d\nRepair %dg / Gamble %dg" % [_gold, _belt_hp, _belt_mp, _inventory.size(), _repair_equipped_cost(), _gamble_cost()]
+		_vendor_gold_lbl.text = "Gold %d / Belt HP%d MP%d / Bag %d\nRepair %dg / Gamble %dg / Auto Sold %dg" % [_gold, _belt_hp, _belt_mp, _inventory.size(), _repair_equipped_cost(), _gamble_cost(), _gold_sold]
+	if _auto_sell_button:
+		_auto_sell_button.text = "Auto Sell: %s / Replaced: ON" % ("ON" if _automation.auto_sell else "OFF")
 
 func _repair_equipped_cost() -> int:
 	var total := 0
@@ -2810,7 +2917,7 @@ func _rebuild_inv() -> void:
 	for it in _inventory:
 		var row := VBoxContainer.new()
 		var btn := Button.new()
-		btn.text = "%s\n%s / %s" % [Item.display_name(it), Item.affix_text(it), Item.requirement_text(it)]
+		btn.text = "%s\nPower %.0f / %s / %s" % [Item.display_name(it), _item_combat_power(it), Item.affix_text(it), Item.requirement_text(it)]
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		btn.custom_minimum_size.y = 52
 		btn.add_theme_font_size_override("font_size", _accessibility.font_size(14))
