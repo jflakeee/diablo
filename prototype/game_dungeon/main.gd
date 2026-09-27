@@ -31,7 +31,7 @@ const Mercenary := preload("res://mercenary.gd")
 const Stamina := preload("res://stamina.gd")
 const DeathSystem := preload("res://death_system.gd")
 const Stash := preload("res://stash.gd")
-const DEPLOYED_AT_KST := "2026-09-27 08:02 KST"
+const DEPLOYED_AT_KST := "2026-09-27 08:18 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -88,6 +88,7 @@ var _attack_ttl := 0.0
 
 var _joy: JoystickScript
 var _hud: Label
+var _skill_buttons: Dictionary = {}
 # ── 포션 & 벨트 (P6 생존) ──
 const BELT_MAX := 8
 const POT_HEAL_PCT := 0.45   # 생명 포션: 최대 생명의 45% 회복
@@ -740,7 +741,7 @@ func _start_game() -> void:
 		_player.max_life = 40 + 2 * _player.stat_vit + 1  # Part 1 §2
 		_player.max_mana = 35 + 2 * _player.stat_energy + 2
 		_player.speed = 5.5
-		_player.skills = {"ember_bolt": 1, "frost_shard": 1, "storm_lance": 1, "phase_step": 1}
+		_player.skills = {"ember_bolt": 1, "frost_shard": 0, "storm_lance": 0, "phase_step": 0}
 		_base_res_fire = 30      # 소서리스 화염 기본 저항
 		_player.leech_pct = 8    # 스펠 생명 흡혈 8%
 	else:
@@ -752,7 +753,7 @@ func _start_game() -> void:
 		_player.max_life = CombatLib.warden_max_life(25, 1)
 		_player.max_mana = CombatLib.warden_max_mana(15, 1)
 		_player.speed = 6.0
-		_player.skills = {"sundering_strike": 1, "void_fury": 1, "iron_chant": 1, "weapon_discipline": 1}
+		_player.skills = {"sundering_strike": 1, "void_fury": 0, "iron_chant": 0, "weapon_discipline": 0}
 		_player.block_val = 30   # 방패 블록
 		_player.leech_pct = 6    # 물리 생명 흡혈 6%
 	# 종단 검증은 모든 스킬 실행 경로와 기존 50초 층 클리어 기준을 함께 검사한다.
@@ -943,9 +944,14 @@ func _start_game() -> void:
 		_class, _player.max_life, _gw, _gh, _ent_cell.x, _ent_cell.y, _exit_cell.x, _exit_cell.y])
 	if OS.get_cmdline_user_args().has("skill_visual_test"):
 		_run_skill_visual_test.call_deferred()
+	elif OS.get_cmdline_user_args().has("skill_book_visual_test"):
+		_run_skill_book_visual_test.call_deferred()
 
 func _run_skill_visual_test() -> void:
 	await get_tree().create_timer(0.75).timeout
+	for skill_id in _skill_slot_ids():
+		_player.skills[skill_id] = 1
+	_refresh_skill_buttons()
 	var all_worked := true
 	for skill_id in _skill_slot_ids():
 		_player.attack_cd = 0.0
@@ -958,6 +964,34 @@ func _run_skill_visual_test() -> void:
 		print("[SKILL_VISUAL] id=%s worked=%s casts=%d log=%s" % [skill_id, str(worked), _spells_cast, _combat_log])
 		await get_tree().create_timer(1.25).timeout
 	print("[SKILL_VISUAL] slots=4 verdict=", "PASS" if all_worked else "FAIL")
+	await get_tree().create_timer(0.75).timeout
+	get_tree().quit()
+
+func _run_skill_book_visual_test() -> void:
+	await get_tree().create_timer(0.75).timeout
+	var initial_visible := 0
+	for button in _skill_buttons.values():
+		if (button as Control).visible:
+			initial_visible += 1
+	var all_worked := initial_visible == 1
+	print("[SKILL_BOOK] initial_visible=%d expected=1" % initial_visible)
+	for expected_visible in range(2, 5):
+		var skill_id := _next_skill_book_drop()
+		var book := _make_skill_book(skill_id)
+		_spawn_ground(book, _player.gx + 2.0, _player.gy)
+		var book_node := _ground.back() as Node
+		_combat_log = "DROPPED: %s" % String(book["name"])
+		await get_tree().create_timer(0.9).timeout
+		_pickup(book_node)
+		await get_tree().create_timer(0.9).timeout
+		var visible_count := 0
+		for button in _skill_buttons.values():
+			if (button as Control).visible:
+				visible_count += 1
+		var worked := _player.skill_level(skill_id) == 1 and visible_count == expected_visible
+		all_worked = all_worked and worked
+		print("[SKILL_BOOK] id=%s unlocked=%s visible=%d" % [skill_id, str(worked), visible_count])
+	print("[SKILL_BOOK] drops=3 buttons=4 verdict=", "PASS" if all_worked else "FAIL")
 	await get_tree().create_timer(0.75).timeout
 	get_tree().quit()
 
@@ -1053,6 +1087,16 @@ func _add_skill_button(ui: CanvasLayer, id: String, label: String, col: Color, p
 	b.position = pos
 	b.used.connect(_on_skill_used)
 	ui.add_child(b)
+	_skill_buttons[id] = b
+	b.visible = _player.skill_level(id) > 0
+
+func _refresh_skill_buttons() -> void:
+	if _player == null:
+		return
+	for skill_id in _skill_buttons:
+		var button := _skill_buttons[skill_id] as Control
+		if is_instance_valid(button):
+			button.visible = _player.skill_level(String(skill_id)) > 0
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not _started or _auto_quit:
@@ -1227,6 +1271,10 @@ func _load_game() -> void:
 	_player.stat_vit = int(state.get("stat_vit", _player.stat_vit))
 	_player.stat_energy = int(state.get("stat_energy", _player.stat_energy))
 	_player.skills = (state.get("skills", {}) as Dictionary).duplicate(true)
+	for skill_id in _skill_slot_ids():
+		if not _player.skills.has(skill_id):
+			_player.skills[skill_id] = 0
+	_refresh_skill_buttons()
 	_inventory = (state.get("inventory", []) as Array).duplicate(true)
 	_stash = Stash.normalize(state.get("stash", []))
 	var equipped: Dictionary = state.get("equipped", {})
@@ -2198,6 +2246,13 @@ func _on_monster_died(m: Node) -> void:
 	if _rng.randf() < 0.12 + pot_bonus:
 		var gems := ["ruby", "sapphire", "topaz", "emerald"]
 		_spawn_ground(_make_material(String(gems[_rng.randi_range(0, gems.size() - 1)])), m.gx, m.gy)
+	# Skill progression is item-driven. The first kill guarantees a book, then
+	# champions/uniques and every fourth kill provide reliable advancement.
+	var book_skill := _next_skill_book_drop()
+	if not book_skill.is_empty() and (_kills == 1 or _kills % 4 == 0 or rank in ["champion", "unique"] or _rng.randf() < 0.18):
+		_spawn_ground(_make_skill_book(book_skill), m.gx + 0.25, m.gy - 0.25)
+		_items_dropped += 1
+		_combat_log = "Skill Book dropped: %s" % _skill_label(book_skill)
 	# 골드 드롭(몬스터 레벨·등급 스케일)
 	if _rng.randf() < 0.7:
 		var rank_mult := 1.0
@@ -2226,16 +2281,48 @@ func _make_potion(ptype: String, tier: int = 1) -> Dictionary:
 func _make_material(id: String, amount: int = 1) -> Dictionary:
 	return {"name": id.capitalize(), "id": id, "amount": amount, "slot": "material", "quality": "normal", "affixes": {}, "prefix": "", "suffix": ""}
 
+func _make_skill_book(skill_id: String) -> Dictionary:
+	return {"name": "Skill Book: %s" % _skill_label(skill_id), "skill_id": skill_id, "slot": "skill_book", "quality": "unique", "affixes": {}, "prefix": "", "suffix": ""}
+
+func _next_skill_book_drop() -> String:
+	for skill_id in _skill_slot_ids():
+		if _player.skill_level(skill_id) > 0:
+			continue
+		var already_dropped := false
+		for ground_node in _ground:
+			if not is_instance_valid(ground_node):
+				continue
+			var ground_item: Dictionary = ground_node.get_meta("item", {})
+			if String(ground_item.get("slot", "")) == "skill_book" and String(ground_item.get("skill_id", "")) == skill_id:
+				already_dropped = true
+				break
+		if not already_dropped:
+			return skill_id
+	return ""
+
+func _unlock_skill_from_book(skill_id: String) -> bool:
+	if not _skill_slot_ids().has(skill_id) or _player.skill_level(skill_id) > 0:
+		return false
+	_player.skills[skill_id] = 1
+	_refresh_skill_buttons()
+	_rebuild_char_panel()
+	_combat_log = "SKILL UNLOCKED: %s" % _skill_label(skill_id)
+	_spawn_text(_player.position + Vector2(0, -56), "SKILL UNLOCKED", Color(0.9, 0.65, 1.0))
+	return true
+
 func _spawn_ground(it: Dictionary, gx: float, gy: float) -> void:
 	var n := Node2D.new()
 	var slot := String(it["slot"])
 	var is_pot := slot == "potion"
 	var is_gold := slot == "gold"
+	var is_skill_book := slot == "skill_book"
 	var col: Color = Item.quality_color(String(it["quality"]))
 	if is_pot:
 		col = Color(0.85, 0.2, 0.2) if String(it["ptype"]) == "health" else Color(0.3, 0.45, 0.95)
 	elif is_gold:
 		col = Color(1.0, 0.85, 0.25)
+	elif is_skill_book:
+		col = Color(0.9, 0.55, 1.0)
 	var spr := Sprite2D.new()
 	var icon_kind := "shield"
 	var icon_seed := 0
@@ -2248,6 +2335,7 @@ func _spawn_ground(it: Dictionary, gx: float, gy: float) -> void:
 			icon_kind = "rune" if material_id.begins_with("rune_") else "gem"
 			var gem_ids := ["ruby", "sapphire", "topaz", "emerald"]
 			icon_seed = maxi(0, gem_ids.find(material_id))
+		"skill_book": icon_kind = "rune"
 	var atlas_id := icon_kind
 	if icon_kind == "gem":
 		atlas_id = String(it.get("id", "ruby"))
@@ -2280,6 +2368,10 @@ func _pickup(n: Node) -> void:
 	_play_sfx("pickup")
 	_ground.erase(n)
 	n.queue_free()
+	if String(it["slot"]) == "skill_book":
+		if _unlock_skill_from_book(String(it.get("skill_id", ""))):
+			_items_picked += 1
+		return
 	# 골드 → 지갑
 	if String(it["slot"]) == "gold":
 		_gold += int(it["amount"])
@@ -2496,7 +2588,7 @@ func _rebuild_char_panel() -> void:
 		b2.text = "+ %s (Lv%d / Req %d / Synergy +%.0f%%)" % [_skill_label(sk), _player.skill_level(sk), required_level, Skills.synergy_bonus_pct(sk, _player.skills)]
 		b2.custom_minimum_size = Vector2(344, 44)
 		b2.add_theme_font_size_override("font_size", _accessibility.font_size(18))
-		b2.disabled = _player.skill_points <= 0 or not Skills.can_invest(sk, _player.skills, _player.level)
+		b2.disabled = _player.skill_level(sk) <= 0 or _player.skill_points <= 0 or not Skills.can_invest(sk, _player.skills, _player.level)
 		b2.pressed.connect(func(): _spend_skill(sk))
 		_char_vbox.add_child(b2)
 
@@ -2518,7 +2610,7 @@ func _spend_stat(stat: String) -> void:
 	_rebuild_char_panel()
 
 func _spend_skill(id: String) -> void:
-	if _player.skill_points <= 0 or not Skills.can_invest(id, _player.skills, _player.level):
+	if _player.skill_level(id) <= 0 or _player.skill_points <= 0 or not Skills.can_invest(id, _player.skills, _player.level):
 		return
 	_player.skill_points -= 1
 	_player.skills[id] = _player.skill_level(id) + 1

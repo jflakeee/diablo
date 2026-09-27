@@ -16,7 +16,7 @@ func rank(quality: String) -> int:
 
 func accepts(it: Dictionary) -> bool:
 	var slot := String(it.get("slot", ""))
-	return slot in ["gold", "potion", "material"] or rank(String(it.get("quality", "normal"))) >= rank(pickup_min)
+	return slot in ["gold", "potion", "material", "skill_book"] or rank(String(it.get("quality", "normal"))) >= rank(pickup_min)
 
 func add_material(it: Dictionary) -> void:
 	var id := String(it.get("id", it.get("name", "unknown")))

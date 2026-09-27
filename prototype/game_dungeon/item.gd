@@ -189,6 +189,8 @@ static func roll_drop(rng: RandomNumberGenerator, monster_level: int, magic_find
 	return generate(rng, base, ilvl, quality)
 
 static func display_name(it: Dictionary) -> String:
+	if String(it.get("slot", "")) == "skill_book":
+		return String(it.get("name", "Skill Book"))
 	var q := String(it["quality"])
 	if q == "normal":
 		return String(it["name"])
