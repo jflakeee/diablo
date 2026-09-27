@@ -34,7 +34,7 @@ const Stash := preload("res://stash.gd")
 const CollectionBook := preload("res://collection_book.gd")
 const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
-const DEPLOYED_AT_KST := "2026-09-27 22:27 KST"
+const DEPLOYED_AT_KST := "2026-09-27 22:36 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -244,6 +244,16 @@ func _style_modal_panel(panel: Panel) -> void:
 	style.set_border_width_all(3)
 	style.set_corner_radius_all(10)
 	panel.add_theme_stylebox_override("panel", style)
+
+func _add_modal_close_button(panel: Panel) -> void:
+	var close_button := Button.new()
+	close_button.text = "CLOSE"
+	close_button.position = Vector2(panel.size.x - 148, 12)
+	close_button.size = Vector2(132, 48)
+	close_button.z_index = 20
+	close_button.add_theme_font_size_override("font_size", _accessibility.font_size(20))
+	close_button.pressed.connect(_hide_modal_panels)
+	panel.add_child(close_button)
 
 func _tex_diamond(w: int, h: int, col: Color) -> Texture2D:
 	var img := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
@@ -973,6 +983,7 @@ func _start_game() -> void:
 	_inv_vbox.custom_minimum_size = Vector2(inventory_scroll.size.x - 20, inventory_scroll.size.y)
 	_inv_vbox.add_theme_font_size_override("font_size", _accessibility.font_size(22))
 	inventory_scroll.add_child(_inv_vbox)
+	_add_modal_close_button(_inv_panel)
 
 	var shop := Button.new()
 	shop.text = "Shop"
@@ -991,6 +1002,7 @@ func _start_game() -> void:
 	_vendor_panel.visible = false
 	ui.add_child(_vendor_panel)
 	_build_vendor()
+	_add_modal_close_button(_vendor_panel)
 
 	var charb := Button.new()
 	charb.text = "Char"
@@ -1009,6 +1021,7 @@ func _start_game() -> void:
 	_char_panel.visible = false
 	ui.add_child(_char_panel)
 	_build_char_panel()
+	_add_modal_close_button(_char_panel)
 
 	var settings_button := Button.new()
 	settings_button.text = "UI"
@@ -1037,6 +1050,7 @@ func _start_game() -> void:
 	_settings_panel.visible = false
 	ui.add_child(_settings_panel)
 	_build_settings_panel()
+	_add_modal_close_button(_settings_panel)
 
 	# 자동 지도(미니맵) — 좌하단(조이스틱 위쪽 여백)
 	_minimap = MinimapScript.new()
