@@ -34,7 +34,7 @@ const Stash := preload("res://stash.gd")
 const CollectionBook := preload("res://collection_book.gd")
 const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
-const DEPLOYED_AT_KST := "2026-09-27 22:36 KST"
+const DEPLOYED_AT_KST := "2026-09-27 22:44 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -3473,6 +3473,7 @@ func _rebuild_inv() -> void:
 		c.queue_free()
 	if _inventory_view == "collection":
 		_rebuild_collection()
+		_apply_large_panel_text(_inv_vbox)
 		return
 	var collection_button := Button.new()
 	collection_button.text = "Collection & Ranking Book (%d)" % _collection.records.size()
@@ -3578,6 +3579,17 @@ func _rebuild_inv() -> void:
 		withdraw.pressed.connect(func(): _withdraw_from_stash(captured_stored))
 		stash_row.add_child(withdraw)
 		_inv_vbox.add_child(stash_row)
+	_apply_large_panel_text(_inv_vbox)
+
+func _apply_large_panel_text(root: Node) -> void:
+	for child in root.get_children():
+		if child is Label:
+			(child as Label).add_theme_font_size_override("font_size", _accessibility.font_size(20))
+		elif child is Button:
+			var button := child as Button
+			button.add_theme_font_size_override("font_size", _accessibility.font_size(20))
+			button.custom_minimum_size.y = maxf(button.custom_minimum_size.y, 54.0)
+		_apply_large_panel_text(child)
 
 func _flash(from: Vector2, to: Vector2) -> void:
 	_attack_line.clear_points()
