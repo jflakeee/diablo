@@ -7,6 +7,8 @@ var gw := 45
 var gh := 45
 var player_cell := Vector2.ZERO
 var exit_cell := Vector2.ZERO
+var visible_cells := {}
+var explored_cells := {}
 var monster_cells: Array = []   # Array[Vector2]
 var merc_cell = null            # Vector2 또는 null
 
@@ -17,6 +19,13 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.03, 0.05, 0.6))
 	if tex != null:
 		draw_texture_rect(tex, Rect2(Vector2.ZERO, size), false)
+	var cell_size := Vector2(size.x / float(maxi(gw, 1)), size.y / float(maxi(gh, 1)))
+	for y in gh:
+		for x in gw:
+			var id := "%d,%d" % [x, y]
+			if visible_cells.has(id): continue
+			var alpha := 0.58 if explored_cells.has(id) else 0.98
+			draw_rect(Rect2(Vector2(x, y) * cell_size, cell_size + Vector2.ONE), Color(0.01, 0.01, 0.02, alpha))
 	# 테두리
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.6, 0.55, 0.4, 0.7), false, 2.0)
 	for c in monster_cells:

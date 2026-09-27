@@ -32,7 +32,9 @@ const Stamina := preload("res://stamina.gd")
 const DeathSystem := preload("res://death_system.gd")
 const Stash := preload("res://stash.gd")
 const CollectionBook := preload("res://collection_book.gd")
-const DEPLOYED_AT_KST := "2026-09-27 14:18 KST"
+const Visibility := preload("res://visibility.gd")
+const FogOverlay := preload("res://fog_overlay.gd")
+const DEPLOYED_AT_KST := "2026-09-27 14:42 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -84,6 +86,11 @@ var _player: ActorScript
 var _monsters: Array = []
 var _ground: Array = []
 var _blocked := {}
+var _fog: Node2D
+var _visible_cells := {}
+var _explored_by_floor := {}
+var _last_visibility_cell := Vector2i(-999, -999)
+const SIGHT_RADIUS := 8
 var _attack_line: Line2D
 var _attack_ttl := 0.0
 
@@ -189,6 +196,31 @@ func _screen_dir_to_grid(v: Vector2) -> Vector2:
 	var gy := (v.y / (TILE_H * 0.5) - v.x / (TILE_W * 0.5)) * 0.5
 	return Vector2(gx, gy).normalized()
 
+func _world_to_grid(v: Vector2) -> Vector2:
+	return Vector2((v.x / (TILE_W * 0.5) + v.y / (TILE_H * 0.5)) * 0.5, (v.y / (TILE_H * 0.5) - v.x / (TILE_W * 0.5)) * 0.5)
+
+func _has_los(from: Vector2, to: Vector2) -> bool:
+	return Visibility.is_clear(_grid, from, to)
+
+func _floor_explored() -> Dictionary:
+	var floor_id := str(_dlevel)
+	if not _explored_by_floor.has(floor_id): _explored_by_floor[floor_id] = {}
+	return _explored_by_floor[floor_id]
+
+func _update_visibility(force: bool = false) -> void:
+	if _player == null or _grid.is_empty(): return
+	var cell := Vector2i(roundi(_player.gx), roundi(_player.gy))
+	if not force and cell == _last_visibility_cell: return
+	_last_visibility_cell = cell
+	_visible_cells = Visibility.visible_cells(_grid, Vector2(_player.gx, _player.gy), SIGHT_RADIUS)
+	var explored := _floor_explored()
+	for id in _visible_cells: explored[id] = true
+	if is_instance_valid(_fog): _fog.configure(_grid, _visible_cells, explored)
+	for m in _monsters:
+		m.visible = _visible_cells.has(Visibility.key(Vector2i(roundi(m.gx), roundi(m.gy))))
+	for n in _ground:
+		if is_instance_valid(n): n.visible = _visible_cells.has(Visibility.key(Vector2i(roundi(float(n.get_meta("gx"))), roundi(float(n.get_meta("gy"))))))
+
 func _tex_rect(w: int, h: int, col: Color) -> Texture2D:
 	var img := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
 	img.fill(col)
@@ -236,10 +268,13 @@ func _update_minimap() -> void:
 	if _minimap == null:
 		return
 	_minimap.player_cell = Vector2(_player.gx, _player.gy)
-	_minimap.exit_cell = Vector2(_exit_cell.x, _exit_cell.y)
+	_minimap.visible_cells = _visible_cells
+	_minimap.explored_cells = _floor_explored()
+	var exit_id := Visibility.key(_exit_cell)
+	_minimap.exit_cell = Vector2(_exit_cell.x, _exit_cell.y) if _floor_explored().has(exit_id) else Vector2(-99, -99)
 	var mc: Array = []
 	for m in _monsters:
-		if m.alive:
+		if m.alive and _visible_cells.has(Visibility.key(Vector2i(roundi(m.gx), roundi(m.gy)))):
 			mc.append(Vector2(m.gx, m.gy))
 	_minimap.monster_cells = mc
 	_minimap.merc_cell = (Vector2(_merc.gx, _merc.gy) if (_merc != null and _merc.alive) else null)
@@ -482,6 +517,8 @@ func _next_level() -> void:
 			_merc.gy = _player.gy
 			_merc.position = _iso(_merc.gx, _merc.gy)
 	_spawn_dungeon_monsters()
+	_last_visibility_cell = Vector2i(-999, -999)
+	_update_visibility(true)
 	if is_instance_valid(_cam):
 		_cam.position = _player.position
 	_combat_log = "던전 레벨 %d" % _dlevel
@@ -597,6 +634,7 @@ func _ready() -> void:
 	if _auto_quit:
 		print("[AUTO] selftest verdict=", "PASS" if _automation.selftest() else "FAIL")
 		print("[COLLECTION] selftest verdict=", "PASS" if _collection.selftest() else "FAIL")
+		print("[VISIBILITY] selftest verdict=", "PASS" if Visibility.selftest() else "FAIL")
 		print("[ANIM] selftest verdict=", "PASS" if ActorScript.animation_selftest() else "FAIL")
 		_ui_selftest_ok = MobileUI.selftest()
 		print("[MOBILE_UI] ratios=4 targets>=48 primary>=72 safe_margin=16 verdict=", "PASS" if _ui_selftest_ok else "FAIL")
@@ -794,6 +832,10 @@ func _start_game() -> void:
 	_attack_line.width = 3.0
 	_attack_line.default_color = Color(1, 1, 0.4, 0.9)
 	_world.add_child(_attack_line)
+	_fog = FogOverlay.new()
+	_fog.z_index = 80
+	_world.add_child(_fog)
+	_update_visibility(true)
 
 	var physical_vp := get_viewport_rect().size
 	var mobile_profile := MobileUI.prefer_mobile(physical_vp)
@@ -1336,6 +1378,7 @@ func _gather_save_state(reason: String = "manual") -> Dictionary:
 		"corpse_state": _corpse_state.duplicate(true), "player_deaths": _player_deaths,
 		"automation": _automation.snapshot(),
 		"collection_book": _collection.snapshot(),
+		"explored_by_floor": _explored_by_floor.duplicate(true),
 	}
 
 func _save_game() -> void:
@@ -1395,6 +1438,9 @@ func _load_game() -> void:
 	_player_deaths = maxi(0, int(state.get("player_deaths", 0)))
 	_automation.restore(state.get("automation", {}))
 	_collection.restore(state.get("collection_book", {}))
+	_explored_by_floor = (state.get("explored_by_floor", {}) as Dictionary).duplicate(true)
+	_last_visibility_cell = Vector2i(-999, -999)
+	_update_visibility(true)
 	_spawn_corpse_marker()
 	if _merc != null:
 		_merc_scale_stats()
@@ -1586,6 +1632,8 @@ func _merc_ai(delta: float) -> void:
 		_nav_toward(_merc, _player.gx, _player.gy, delta)
 
 func _merc_fire(tgt: ActorScript) -> void:
+	if not _has_los(Vector2(_merc.gx, _merc.gy), Vector2(tgt.gx, tgt.gy)):
+		return
 	_merc.play_attack(Vector2(tgt.gx - _merc.gx, tgt.gy - _merc.gy))
 	if CombatLib.roll_hit(_rng, _merc.attack_rating, tgt.defense, _merc.level, tgt.level):
 		var phys := CombatLib.physical_damage(_rng, _merc.dmg_min, _merc.dmg_max, 0.0)
@@ -1680,13 +1728,13 @@ func _approach(m: ActorScript, delta: float, stop_dist: float) -> float:
 
 func _melee_ai(m: ActorScript, delta: float) -> void:
 	var d := _approach(m, delta, ATTACK_RANGE)
-	if d <= ATTACK_RANGE and m.attack_cd <= 0.0:
+	if d <= ATTACK_RANGE and m.attack_cd <= 0.0 and _has_los(Vector2(m.gx, m.gy), Vector2(_player.gx, _player.gy)):
 		_monster_attack(m)
 		m.attack_cd = MONSTER_ATTACK_CD
 
 func _ranged_ai(m: ActorScript, delta: float) -> void:
 	var d := _approach(m, delta, RANGED_RANGE)
-	if d <= RANGED_RANGE + 0.5 and m.attack_cd <= 0.0:
+	if d <= RANGED_RANGE + 0.5 and m.attack_cd <= 0.0 and _has_los(Vector2(m.gx, m.gy), Vector2(_player.gx, _player.gy)):
 		_attacks += 1
 		_flash(m.position, _player.position)
 		if CombatLib.roll_hit(_rng, m.attack_rating, _player.defense, m.level, _player.level):
@@ -1729,7 +1777,7 @@ func _boss_melee(m: ActorScript) -> void:
 func _boss_nova(m: ActorScript) -> void:
 	_boss_nova_cnt += 1
 	_spawn_text(m.position, "POISON NOVA", Color(0.4, 0.9, 0.3))
-	if Vector2(_player.gx - m.gx, _player.gy - m.gy).length() <= NOVA_RADIUS:
+	if Vector2(_player.gx - m.gx, _player.gy - m.gy).length() <= NOVA_RADIUS and _has_los(Vector2(m.gx, m.gy), Vector2(_player.gx, _player.gy)):
 		var raw := CombatLib.physical_damage(_rng, m.dmg_min, m.dmg_max, 30.0)
 		var dmg := CombatLib.apply_resistance(raw, _player.res_poison)  # 독 → 플레이어 독저항
 		_player.take_damage(dmg)
@@ -1741,6 +1789,8 @@ func _boss_nova(m: ActorScript) -> void:
 		_spawn_text(_merc.position, "%d POISON" % md, Color(0.4, 0.9, 0.3))
 
 func _boss_spray(m: ActorScript) -> void:
+	if not _has_los(Vector2(m.gx, m.gy), Vector2(_player.gx, _player.gy)):
+		return
 	_boss_spray_cnt += 1
 	_flash(m.position, _player.position)
 	_spawn_text(m.position, "poison spray", Color(0.5, 0.8, 0.4))
@@ -1828,6 +1878,7 @@ func _process(delta: float) -> void:
 	_perf_peak_active = maxi(_perf_peak_active, _monsters.size() + _ground.size() + _projectiles.size() + 2)
 	if _cam:
 		_cam.position = _cam.position.lerp(_player.position, clampf(delta * 8.0, 0.0, 1.0))
+	_update_visibility()
 	# 애니메이션(걷기 bob·방향·팝)
 	_player.animate(delta)
 	_update_minimap()
@@ -1913,7 +1964,7 @@ func _nearest_monster() -> ActorScript:
 	var best: ActorScript = null
 	var bestd := 1.0e9
 	for m in _monsters:
-		if not m.alive:
+		if not m.alive or not _has_los(Vector2(_player.gx, _player.gy), Vector2(m.gx, m.gy)):
 			continue
 		var d := Vector2(_player.gx, _player.gy).distance_to(Vector2(m.gx, m.gy))
 		if d < bestd:
@@ -1974,6 +2025,9 @@ func _target_resist(t: ActorScript, element: String) -> int:
 func _cast_bolt(target: ActorScript, element: String, color: Color, base_min: int, base_max: int) -> void:
 	if target == null or not _player.alive or _player.attack_cd > 0.0:
 		return
+	if not _has_los(Vector2(_player.gx, _player.gy), Vector2(target.gx, target.gy)):
+		_combat_log = "Line of sight blocked"
+		return
 	var skill_id := "frost_shard" if element == "cold" else "ember_bolt"
 	if not _player.spend_mana(Skills.mana_cost(skill_id)):
 		_combat_log = "no mana"
@@ -2011,6 +2065,9 @@ func _cast_storm_lance(target: ActorScript) -> void:
 
 func _cast_phase_step(target: ActorScript) -> void:
 	if _player.skill_level("phase_step") <= 0:
+		return
+	if not _has_los(Vector2(_player.gx, _player.gy), Vector2(target.gx, target.gy)):
+		_combat_log = "Line of sight blocked"
 		return
 	if not _player.spend_mana(Skills.mana_cost("phase_step")):
 		return
@@ -2062,6 +2119,11 @@ func _update_projectiles(delta: float) -> void:
 			_projectiles.erase(p)
 			continue
 		n.position = n.position.move_toward(t.position, 420.0 * delta)
+		var projectile_cell := _world_to_grid(n.position)
+		if not _walkable(projectile_cell.x, projectile_cell.y):
+			n.queue_free()
+			_projectiles.erase(p)
+			continue
 		if n.position.distance_to(t.position) < 12.0:
 			# 스펠 속성 데미지 → 대상 해당 속성 저항/약점 적용 (Part 5 §2)
 			var element := String(p.get("element", "fire"))
@@ -2090,6 +2152,9 @@ func _update_projectiles(delta: float) -> void:
 
 func _player_attack(target: ActorScript, skill_id: String) -> void:
 	if target == null or not target.alive or not _player.alive or _player.attack_cd > 0.0:
+		return
+	if not _has_los(Vector2(_player.gx, _player.gy), Vector2(target.gx, target.gy)):
+		_combat_log = "Line of sight blocked"
 		return
 	var m_lvl := _player.skill_level("weapon_discipline")
 	var s_lvl := _player.skill_level(skill_id)
@@ -2719,6 +2784,8 @@ func _travel_waypoint(direction: int) -> void:
 		_merc.gy = _player.gy
 		_merc.position = _iso(_merc.gx, _merc.gy)
 	_spawn_dungeon_monsters()
+	_last_visibility_cell = Vector2i(-999, -999)
+	_update_visibility(true)
 	if is_instance_valid(_cam):
 		_cam.position = _player.position
 	_combat_log = "Waypoint: %s" % Waypoint.current_name(_waypoint_defs, _waypoint_state)
