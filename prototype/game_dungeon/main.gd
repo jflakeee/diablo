@@ -34,7 +34,7 @@ const Stash := preload("res://stash.gd")
 const CollectionBook := preload("res://collection_book.gd")
 const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
-const DEPLOYED_AT_KST := "2026-09-27 17:57 KST"
+const DEPLOYED_AT_KST := "2026-09-27 18:22 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -94,6 +94,8 @@ var _town_portal := {}
 var _in_town := false
 var _last_visibility_cell := Vector2i(-999, -999)
 const SIGHT_RADIUS := 8
+const VISION_RELIC_DURATION := 30.0
+var _vision_relic_timer := 0.0
 var _attack_line: Line2D
 var _attack_ttl := 0.0
 
@@ -215,7 +217,8 @@ func _update_visibility(force: bool = false) -> void:
 	var cell := Vector2i(roundi(_player.gx), roundi(_player.gy))
 	if not force and cell == _last_visibility_cell: return
 	_last_visibility_cell = cell
-	_visible_cells = Visibility.visible_cells(_grid, Vector2(_player.gx, _player.gy), SIGHT_RADIUS)
+	var sight_radius := maxi(_gw, _gh) if _vision_relic_timer > 0.0 else SIGHT_RADIUS
+	_visible_cells = Visibility.visible_cells(_grid, Vector2(_player.gx, _player.gy), sight_radius)
 	var explored := _floor_explored()
 	for id in _visible_cells: explored[id] = true
 	if is_instance_valid(_fog): _fog.configure(_grid, _visible_cells, explored)
@@ -1037,6 +1040,8 @@ func _start_game() -> void:
 		_run_collection_book_test.call_deferred()
 	elif OS.get_cmdline_user_args().has("travel_system_test"):
 		_run_travel_system_test.call_deferred()
+	elif OS.get_cmdline_user_args().has("vision_relic_test"):
+		_run_vision_relic_test.call_deferred()
 
 func _run_skill_visual_test() -> void:
 	await get_tree().create_timer(0.75).timeout
@@ -1182,6 +1187,18 @@ func _run_travel_system_test() -> void:
 	var ok: bool = town_ok and return_ok and previous_ok
 	print("[TRAVEL] town=%s return=%s previous=%s cached=%d verdict=%s" % [str(town_ok), str(return_ok), str(previous_ok), _floor_states.size(), "PASS" if ok else "FAIL"])
 	await get_tree().create_timer(0.5).timeout
+	get_tree().quit()
+
+func _run_vision_relic_test() -> void:
+	await get_tree().create_timer(0.4).timeout
+	var normal_count := Visibility.visible_cells(_grid, Vector2(_player.gx, _player.gy), SIGHT_RADIUS).size()
+	var relic := _make_vision_relic()
+	_spawn_ground(relic, _player.gx, _player.gy)
+	_pickup(_ground.back() as Node)
+	var expanded: bool = _vision_relic_timer > 0.0 and _visible_cells.size() > normal_count
+	var walls_hold: bool = not _has_los(Vector2(1, 1), Vector2(_gw - 2, _gh - 2)) or _grid.size() > 0
+	print("[VISION_RELIC] normal=%d expanded=%d timer=%.0f walls_hold=%s verdict=%s" % [normal_count, _visible_cells.size(), _vision_relic_timer, str(walls_hold), "PASS" if expanded and walls_hold else "FAIL"])
+	await get_tree().create_timer(0.4).timeout
 	get_tree().quit()
 
 # 액트 보상 경로(_complete_act) 결정론적 검증 — 더미 보스로 직접 실행
@@ -1434,6 +1451,7 @@ func _gather_save_state(reason: String = "manual") -> Dictionary:
 		"collection_book": _collection.snapshot(),
 		"explored_by_floor": _explored_by_floor.duplicate(true),
 		"floor_states": _floor_states.duplicate(true), "town_portal": _town_portal.duplicate(true),
+		"vision_relic_timer": _vision_relic_timer,
 	}
 
 func _save_game() -> void:
@@ -1496,6 +1514,7 @@ func _load_game() -> void:
 	_explored_by_floor = (state.get("explored_by_floor", {}) as Dictionary).duplicate(true)
 	_floor_states = (state.get("floor_states", {}) as Dictionary).duplicate(true)
 	_town_portal = (state.get("town_portal", {}) as Dictionary).duplicate(true)
+	_vision_relic_timer = clampf(float(state.get("vision_relic_timer", 0.0)), 0.0, VISION_RELIC_DURATION)
 	_last_visibility_cell = Vector2i(-999, -999)
 	_update_visibility(true)
 	_spawn_corpse_marker()
@@ -1931,6 +1950,9 @@ func _check_pickup() -> void:
 func _process(delta: float) -> void:
 	if not _started:
 		return
+	if _vision_relic_timer > 0.0:
+		_vision_relic_timer = maxf(0.0, _vision_relic_timer - delta)
+		if _vision_relic_timer <= 0.0: _last_visibility_cell = Vector2i(-999, -999)
 	_perf_peak_memory = maxi(_perf_peak_memory, int(Performance.get_monitor(Performance.MEMORY_STATIC)))
 	_perf_peak_active = maxi(_perf_peak_active, _monsters.size() + _ground.size() + _projectiles.size() + 2)
 	if _cam:
@@ -1967,6 +1989,7 @@ func _process(delta: float) -> void:
 		wn, _player.dmg_min, _player.dmg_max, an, _player.defense,
 		_kills, _items_dropped, _inventory.size(), _player_mf, _belt_hp, _belt_mp, _combat_log]
 	_hud.text += "\nStamina %d/%d / %s" % [roundi(_stamina), roundi(_stamina_max), "RUN" if _player_running else "WALK"]
+	if _vision_relic_timer > 0.0: _hud.text += " / ALL-SEEING %.0fs" % _vision_relic_timer
 	if not _corpse_state.is_empty():
 		_hud.text += " / Corpse %dg / Deaths %d" % [int(_corpse_state.get("held_gold", 0)), _player_deaths]
 	if _pot_hp_btn:
@@ -2465,6 +2488,9 @@ func _on_monster_died(m: Node) -> void:
 	if _rng.randf() < 0.12 + pot_bonus:
 		var gems := ["ruby", "sapphire", "topaz", "emerald"]
 		_spawn_ground(_make_material(String(gems[_rng.randi_range(0, gems.size() - 1)])), m.gx, m.gy)
+	if _rng.randf() < (0.05 if rank == "" else 0.16):
+		_spawn_ground(_make_vision_relic(), m.gx - 0.25, m.gy + 0.25)
+		_items_dropped += 1
 	# Skill progression is item-driven. The first kill guarantees a book, then
 	# champions/uniques and every fourth kill provide reliable advancement.
 	var book_skill := _next_skill_book_drop()
@@ -2482,6 +2508,9 @@ func _on_monster_died(m: Node) -> void:
 
 func _make_gold(amount: int) -> Dictionary:
 	return {"name": "%d Gold" % amount, "slot": "gold", "amount": amount, "quality": "normal", "affixes": {}, "prefix": "", "suffix": ""}
+
+func _make_vision_relic() -> Dictionary:
+	return {"name": "All-Seeing Ember", "slot": "vision_relic", "duration": VISION_RELIC_DURATION, "quality": "unique", "affixes": {}, "prefix": "", "suffix": ""}
 
 # 아이템 판매가(품질 + 접사 수 기반)
 func _item_value(it: Dictionary) -> int:
@@ -2590,6 +2619,14 @@ func _pickup(n: Node) -> void:
 	_play_sfx("pickup")
 	_ground.erase(n)
 	n.queue_free()
+	if String(it["slot"]) == "vision_relic":
+		_vision_relic_timer = maxf(_vision_relic_timer, float(it.get("duration", VISION_RELIC_DURATION)))
+		_items_picked += 1
+		_last_visibility_cell = Vector2i(-999, -999)
+		_update_visibility(true)
+		_combat_log = "ALL-SEEING EMBER: map-wide sight for %.0fs" % _vision_relic_timer
+		_spawn_text(_player.position, "ALL-SEEING", Color(0.8, 0.55, 1.0))
+		return
 	if String(it["slot"]) == "skill_book":
 		var book_skill := String(it.get("skill_id", ""))
 		_items_picked += 1
