@@ -67,7 +67,7 @@ static func current_name(definitions: Array, state: Dictionary) -> String:
 		var definition: Dictionary = raw
 		if String(definition.get("id", "")) == current:
 			return String(definition.get("name", current))
-	return "미해금"
+	return "Locked"
 
 static func cycle(definitions: Array, state: Dictionary, act: int) -> Dictionary:
 	var available := unlocked_for_act(definitions, state, act)

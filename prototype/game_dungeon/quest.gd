@@ -91,7 +91,7 @@ static func current(definitions: Array, state: Dictionary, act: int) -> Dictiona
 static func objective_text(definitions: Array, state: Dictionary, act: int) -> String:
 	var definition := current(definitions, state, act)
 	if definition.is_empty():
-		return "현재 액트 퀘스트 완료"
+		return "All quests in this act complete"
 	var id := String(definition.get("id", ""))
 	var entry: Dictionary = state.get(id, {})
 	var objective: Dictionary = definition.get("objective", {})

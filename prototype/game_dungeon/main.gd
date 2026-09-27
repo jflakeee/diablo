@@ -34,7 +34,7 @@ const Stash := preload("res://stash.gd")
 const CollectionBook := preload("res://collection_book.gd")
 const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
-const DEPLOYED_AT_KST := "2026-09-27 21:03 KST"
+const DEPLOYED_AT_KST := "2026-09-27 21:18 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -510,7 +510,7 @@ func _complete_act(boss: Node) -> void:
 		_auto_spend_points()
 	var bonus := 500 + _act * 300
 	_gold += bonus
-	_combat_log = "ACT %d 클리어! 출구 개방 / 고유 장비 / 스킬+2 / +%dg" % [_act, bonus]
+	_combat_log = "ACT %d CLEAR / EXIT OPEN / UNIQUE REWARD / SKILL +2 / +%dg" % [_act, bonus]
 	_act += 1
 
 func _next_level() -> void:
@@ -541,7 +541,7 @@ func _next_level() -> void:
 	_update_visibility(true)
 	if is_instance_valid(_cam):
 		_cam.position = _player.position
-	_combat_log = "던전 레벨 %d" % _dlevel
+	_combat_log = "DUNGEON LEVEL %d" % _dlevel
 
 # A* 내비게이션: actor를 (tgx,tgy)로 경로 따라 이동 (경로 400ms 캐시)
 func _capture_floor_state() -> void:
@@ -1317,7 +1317,7 @@ func _craft_selftest() -> void:
 	Item.socket_insert(wpn2, {"kind": "rune", "id": "Vey"})
 	Item.effective_affixes(wpn2)
 	var t3: bool = String(wpn2.get("runeword", "")) == ""
-	print("[P4] order: Ahn+Vey to sigilword='%s' (없어야 함) : %s" % [String(wpn2.get("runeword", "")), str(t3)])
+	print("[P4] order: Ahn+Vey must not create a sigilword ('%s'): %s" % [String(wpn2.get("runeword", "")), str(t3)])
 
 	# 4) 변환: Ahn×3 → Ahnor
 	var up := Craft.upgrade_rune("Ahn")
@@ -1695,7 +1695,7 @@ func _physics_process(delta: float) -> void:
 	# 출구 도달 → 다음 던전 레벨(워프). 보스 층은 보스 처치 전 잠금.
 	if Vector2(_player.gx, _player.gy).distance_to(Vector2(_exit_cell.x, _exit_cell.y)) < 1.3:
 		if _exit_locked:
-			_combat_log = "출구 봉인: 보스를 처치하십시오"
+			_combat_log = "EXIT SEALED: defeat the boss"
 		else:
 			_next_level()
 			return
@@ -1803,7 +1803,7 @@ func _merc_fire(tgt: ActorScript) -> void:
 
 func _on_merc_died(_a: Node) -> void:
 	_merc_revive_t = 8.0                    # 8초 후 부활
-	_combat_log = "용병 쓰러짐 (8초 후 부활)"
+	_combat_log = "MERCENARY DOWN / REVIVES IN 8 SECONDS"
 
 func _on_player_died(_actor: Node) -> void:
 	_player_deaths += 1
@@ -1815,7 +1815,7 @@ func _on_player_died(_actor: Node) -> void:
 	_corpse_state = DeathSystem.create_corpse(_player.gx, _player.gy, lost_gold + previous_gold)
 	_spawn_corpse_marker()
 	_death_respawn_t = DeathSystem.RESPAWN_DELAY
-	_combat_log = "쓰러짐 / 골드 %d, 경험치 %d 손실" % [lost_gold, lost_xp]
+	_combat_log = "DEFEATED / LOST %d GOLD AND %d XP" % [lost_gold, lost_xp]
 
 func _respawn_player() -> void:
 	_player.alive = true
@@ -1825,7 +1825,7 @@ func _respawn_player() -> void:
 	_player.gx = _ent_cell.x
 	_player.gy = _ent_cell.y
 	_player.position = _iso(_player.gx, _player.gy)
-	_combat_log = "체크포인트 부활 / 시체를 회수하십시오"
+	_combat_log = "CHECKPOINT REVIVAL / RECOVER YOUR CORPSE"
 
 func _spawn_corpse_marker() -> void:
 	if is_instance_valid(_corpse_marker):
@@ -1857,7 +1857,7 @@ func _check_corpse_recovery() -> void:
 	if is_instance_valid(_corpse_marker):
 		_corpse_marker.queue_free()
 	_corpse_marker = null
-	_combat_log = "시체 회수 / 골드 +%d" % recovered_gold
+	_combat_log = "CORPSE RECOVERED / +%d GOLD" % recovered_gold
 
 func _merc_revive() -> void:
 	if _merc == null:
@@ -1869,7 +1869,7 @@ func _merc_revive() -> void:
 	_merc.gx = _player.gx + 1
 	_merc.gy = _player.gy
 	_merc.position = _iso(_merc.gx, _merc.gy)
-	_combat_log = "용병 부활"
+	_combat_log = "MERCENARY REVIVED"
 
 func _approach(m: ActorScript, delta: float, stop_dist: float) -> float:
 	var d := Vector2(_player.gx - m.gx, _player.gy - m.gy).length()
@@ -2046,7 +2046,7 @@ func _process(delta: float) -> void:
 		_automation_last_expire = now
 		var mats := _automation.expire_auctions(now)
 		if mats > 0:
-			_combat_log = "경매 만료 자동 분해 / 재료 +%d" % mats
+			_combat_log = "AUCTION EXPIRED / SALVAGED +%d MATERIALS" % mats
 	if _attack_ttl > 0.0:
 		_attack_ttl -= delta
 		if _attack_ttl <= 0.0:
@@ -2144,7 +2144,7 @@ func _throw_arc_flask() -> void:
 		return
 	var target := _nearest_arc_target()
 	if target == null:
-		_combat_log = "No arc target — high wall or pillar blocks the throw"
+		_combat_log = "No arc target - high wall or pillar blocks the throw"
 		return
 	_arc_flasks -= 1
 	var impact := Vector2(target.gx, target.gy)
@@ -2330,7 +2330,7 @@ func _update_projectiles(delta: float) -> void:
 			var element_labels := {"fire": "FIRE", "cold": "COLD", "light": "LIGHT", "poison": "POISON"}
 			var txt := "%d %s" % [dmg, String(element_labels.get(element, ""))]
 			if tres < 0:
-				txt = "%d! 약점" % dmg
+				txt = "%d WEAK" % dmg
 			_spawn_text(t.position, txt, Color(1, 0.55, 0.15))
 			if not t.alive:
 				_grant_xp(t.level * 40)
@@ -2437,7 +2437,7 @@ func _monster_attack(m: ActorScript) -> void:
 func _damage_armor() -> void:
 	if Item.lose_durability(_equipped["armor"]):
 		_recompute_player()
-		_combat_log = "방어구 파손"
+		_combat_log = "ARMOR BROKEN"
 
 # 유니크 인챈트 원소 피해(피격 시) — 플레이어 저항 적용. 냉기는 슬로우.
 func _apply_enchant(m: ActorScript) -> void:
@@ -2548,7 +2548,7 @@ func _apply_quest_kill(target: String, rank: String) -> void:
 		_player.skill_points += reward_skills
 		if _auto_quit and reward_skills > 0:
 			_auto_spend_points()
-		_combat_log = "퀘스트 완료: %s (+%dg)" % [String(definition.get("name", id)), reward_gold]
+		_combat_log = "QUEST COMPLETE: %s (+%dg)" % [String(definition.get("name", id)), reward_gold]
 		_spawn_text(_player.position + Vector2(0, -48), "QUEST COMPLETE", Color(1.0, 0.82, 0.3))
 
 func _on_monster_died(m: Node) -> void:
@@ -2803,7 +2803,7 @@ func _pickup(n: Node) -> void:
 		var pt := String(it["ptype"])
 		var tier := int(it.get("tier", 1))
 		if _automation.potion_upgrade(pt, tier):
-			_spawn_text(_player.position, "%s 포션 등급 +%d" % [pt, tier], Color.LIME_GREEN)
+			_spawn_text(_player.position, "%s POTION TIER +%d" % [pt.to_upper(), tier], Color.LIME_GREEN)
 		if _add_potion_to_belt(pt):
 			var c := Color(0.85, 0.3, 0.3) if pt == "health" else Color(0.4, 0.6, 1.0)
 			_spawn_text(_player.position, "+" + String(it["name"]), c)
@@ -2897,7 +2897,7 @@ func _auto_equip(it: Dictionary) -> String:
 func _equip_from_inventory(it: Dictionary) -> void:
 	var requirement_failures := Item.requirement_failures(it, _player.level, _player.stat_str, _player.stat_dex)
 	if not requirement_failures.is_empty():
-		_combat_log = "장착 요구조건 부족: %s" % ", ".join(requirement_failures)
+		_combat_log = "EQUIP REQUIREMENTS NOT MET: %s" % ", ".join(requirement_failures)
 		return
 	var slot := _equipment_slot_for_item(it)
 	var old: Dictionary = _equipped[slot]
@@ -2928,7 +2928,7 @@ func _equip(it: Dictionary, target_slot: String = "") -> void:
 
 func _equip_merc_from_inventory(it: Dictionary) -> void:
 	if not Mercenary.can_equip(it, _merc.level if _merc != null else _player.level):
-		_combat_log = "동료 장착 요구조건 부족: %s" % Item.requirement_text(it)
+		_combat_log = "MERC EQUIP REQUIREMENTS NOT MET: %s" % Item.requirement_text(it)
 		return
 	var slot := String(it["slot"])
 	var old: Dictionary = _merc_equipped[slot]
@@ -2943,14 +2943,14 @@ func _equip_merc_from_inventory(it: Dictionary) -> void:
 
 func _deposit_to_stash(it: Dictionary) -> void:
 	if Stash.deposit(it, _inventory, _stash):
-		_combat_log = "보관함 이동: %s" % Item.display_name(it)
+		_combat_log = "MOVED TO STASH: %s" % Item.display_name(it)
 	else:
-		_combat_log = "보관함이 가득 찼습니다 (%d/%d)" % [_stash.size(), Stash.CAPACITY]
+		_combat_log = "STASH FULL (%d/%d)" % [_stash.size(), Stash.CAPACITY]
 	_rebuild_inv()
 
 func _withdraw_from_stash(it: Dictionary) -> void:
 	if Stash.withdraw(it, _inventory, _stash):
-		_combat_log = "가방 이동: %s" % Item.display_name(it)
+		_combat_log = "MOVED TO BAG: %s" % Item.display_name(it)
 	_rebuild_inv()
 
 func _toggle_bag() -> void:
@@ -3098,7 +3098,7 @@ func _toggle_town_portal() -> void:
 	_monsters.clear()
 	_in_town = true
 	_player.gx = _ent_cell.x; _player.gy = _ent_cell.y; _player.position = _iso(_player.gx, _player.gy)
-	_combat_log = "HOMETOWN — Return Portal is open"
+	_combat_log = "HOMETOWN - RETURN PORTAL OPEN"
 	_rebuild_inv()
 
 # ── 캐릭터 성장 패널 ──
@@ -3389,7 +3389,7 @@ func _rebuild_collection() -> void:
 	for stat in stats:
 		var leader: Dictionary = leaders[stat]
 		var line := Label.new()
-		line.text = "%s +%d — %s" % [String(stat).to_upper(), int(leader.get("value", 0)), String(leader.get("name", ""))]
+		line.text = "%s +%d - %s" % [String(stat).to_upper(), int(leader.get("value", 0)), String(leader.get("name", ""))]
 		_inv_vbox.add_child(line)
 	if not _collection.stored.is_empty():
 		var storage_title := Label.new()
@@ -3525,9 +3525,13 @@ func _flash(from: Vector2, to: Vector2) -> void:
 func _spawn_text(pos: Vector2, text: String, col: Color) -> void:
 	var lbl := Label.new()
 	lbl.text = text
-	lbl.position = pos + Vector2(-8, -46)
+	lbl.position = pos + Vector2(-90, -46)
+	lbl.size = Vector2(180, 28)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.z_index = 100
 	lbl.add_theme_color_override("font_color", col)
+	lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.95))
+	lbl.add_theme_constant_override("outline_size", 3)
 	lbl.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	_world.add_child(lbl)
 	var tw := create_tween()
