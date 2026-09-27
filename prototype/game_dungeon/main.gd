@@ -34,7 +34,7 @@ const Stash := preload("res://stash.gd")
 const CollectionBook := preload("res://collection_book.gd")
 const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
-const DEPLOYED_AT_KST := "2026-09-27 22:44 KST"
+const DEPLOYED_AT_KST := "2026-09-27 23:11 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -228,7 +228,10 @@ func _update_visibility(force: bool = false) -> void:
 	for id in _visible_cells: explored[id] = true
 	if is_instance_valid(_fog): _fog.configure(_grid, _visible_cells, explored)
 	for m in _monsters:
-		m.visible = _visible_cells.has(Visibility.key(Vector2i(roundi(m.gx), roundi(m.gy))))
+		var witnessed := _visible_cells.has(Visibility.key(Vector2i(roundi(m.gx), roundi(m.gy))))
+		m.visible = witnessed
+		if witnessed:
+			m.set_meta("witnessed", true)
 	for n in _ground:
 		if is_instance_valid(n): n.visible = _visible_cells.has(Visibility.key(Vector2i(roundi(float(n.get_meta("gx"))), roundi(float(n.get_meta("gy"))))))
 
@@ -567,7 +570,7 @@ func _capture_floor_state() -> void:
 	var monster_states: Array = []
 	for m in _monsters:
 		if not is_instance_valid(m) or not m.alive: continue
-		monster_states.append({"name": m.actor_name, "level": m.level, "life": m.life, "max_life": m.max_life, "ar": m.attack_rating, "def": m.defense, "dmin": m.dmg_min, "dmax": m.dmg_max, "speed": m.speed, "gx": m.gx, "gy": m.gy, "kind": String(m.get_meta("kind", "melee")), "res_fire": m.res_fire, "res_cold": m.res_cold, "res_light": m.res_light, "res_poison": m.res_poison})
+		monster_states.append({"name": m.actor_name, "level": m.level, "life": m.life, "max_life": m.max_life, "ar": m.attack_rating, "def": m.defense, "dmin": m.dmg_min, "dmax": m.dmg_max, "speed": m.speed, "gx": m.gx, "gy": m.gy, "kind": String(m.get_meta("kind", "melee")), "witnessed": bool(m.get_meta("witnessed", false)), "res_fire": m.res_fire, "res_cold": m.res_cold, "res_light": m.res_light, "res_poison": m.res_poison})
 	var ground_states: Array = []
 	for n in _ground:
 		if is_instance_valid(n): ground_states.append({"item": (n.get_meta("item") as Dictionary).duplicate(true), "gx": float(n.get_meta("gx")), "gy": float(n.get_meta("gy"))})
@@ -587,6 +590,7 @@ func _restore_or_spawn_floor() -> void:
 		var m := _spawn_monster(String(s["name"]), Color(0.65, 0.25, 0.2), 24, 32, int(s["level"]), int(s["max_life"]), int(s["ar"]), int(s["def"]), int(s["dmin"]), int(s["dmax"]), float(s["speed"]), roundi(float(s["gx"])), roundi(float(s["gy"])))
 		m.life = int(s["life"]); m.gx = float(s["gx"]); m.gy = float(s["gy"]); m.position = _iso(m.gx, m.gy)
 		m.set_meta("kind", String(s.get("kind", "melee")))
+		m.set_meta("witnessed", bool(s.get("witnessed", false)))
 		m.res_fire = int(s.get("res_fire", 0)); m.res_cold = int(s.get("res_cold", 0)); m.res_light = int(s.get("res_light", 0)); m.res_poison = int(s.get("res_poison", 0))
 		if String(s.get("kind", "")) == "boss": _boss = m
 	for raw in state.get("ground", []):
@@ -1690,6 +1694,7 @@ func _spawn_monster(nm: String, col: Color, w: int, h: int, lvl: int, hp: int, a
 	m.gx = gx
 	m.gy = gy
 	m.position = _iso(gx, gy)
+	m.set_meta("witnessed", false)
 	m.died.connect(_on_monster_died)
 	_monsters.append(m)
 	return m
@@ -1747,6 +1752,10 @@ func _physics_process(delta: float) -> void:
 
 	for m in _monsters:
 		if not m.alive:
+			continue
+		# Monsters remain completely dormant behind fog/occluding walls until the
+		# player has actually seen their cell at least once.
+		if not bool(m.get_meta("witnessed", false)):
 			continue
 		m.attack_cd = maxf(0.0, m.attack_cd - delta)
 		var kind := String(m.get_meta("kind", "melee"))
@@ -2083,7 +2092,7 @@ func _process(delta: float) -> void:
 	_update_minimap()
 	_merc_ai(delta)
 	for am in _monsters:
-		if am.alive:
+		if am.alive and bool(am.get_meta("witnessed", false)):
 			am.animate(delta)
 	_update_projectiles(delta)
 	var now := int(Time.get_ticks_msec() / 1000)
@@ -2165,7 +2174,7 @@ func _nearest_monster() -> ActorScript:
 	var best: ActorScript = null
 	var bestd := 1.0e9
 	for m in _monsters:
-		if not m.alive or not _has_los(Vector2(_player.gx, _player.gy), Vector2(m.gx, m.gy)):
+		if not m.alive or not bool(m.get_meta("witnessed", false)) or not _has_los(Vector2(_player.gx, _player.gy), Vector2(m.gx, m.gy)):
 			continue
 		var d := Vector2(_player.gx, _player.gy).distance_to(Vector2(m.gx, m.gy))
 		if d < bestd:
@@ -2177,7 +2186,7 @@ func _nearest_arc_target() -> ActorScript:
 	var best: ActorScript = null
 	var best_distance := 7.01
 	for m in _monsters:
-		if not m.alive: continue
+		if not m.alive or not bool(m.get_meta("witnessed", false)): continue
 		var distance := Vector2(_player.gx, _player.gy).distance_to(Vector2(m.gx, m.gy))
 		if distance < best_distance and Visibility.is_arc_clear(_grid, Vector2(_player.gx, _player.gy), Vector2(m.gx, m.gy)):
 			best = m; best_distance = distance
