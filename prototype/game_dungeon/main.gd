@@ -34,7 +34,7 @@ const Stash := preload("res://stash.gd")
 const CollectionBook := preload("res://collection_book.gd")
 const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
-const DEPLOYED_AT_KST := "2026-09-27 21:18 KST"
+const DEPLOYED_AT_KST := "2026-09-27 22:27 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -236,6 +236,14 @@ func _tex_rect(w: int, h: int, col: Color) -> Texture2D:
 	var img := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
 	img.fill(col)
 	return ImageTexture.create_from_image(img)
+
+func _style_modal_panel(panel: Panel) -> void:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.045, 0.04, 0.055, 0.97)
+	style.border_color = Color(0.48, 0.39, 0.23, 1.0)
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(10)
+	panel.add_theme_stylebox_override("panel", style)
 
 func _tex_diamond(w: int, h: int, col: Color) -> Texture2D:
 	var img := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
@@ -921,6 +929,8 @@ func _start_game() -> void:
 		safe = MobileUI.logical_safe_area(physical_vp)
 		safe = Rect2(safe.position / ui_scale, safe.size / ui_scale)
 	var mobile_layout := MobileUI.layout(vp, safe, mobile_profile)
+	var modal_size := Vector2(minf(vp.x - 64.0, 1100.0), minf(vp.y - 140.0, 650.0))
+	var modal_position := Vector2((vp.x - modal_size.x) * 0.5, (vp.y - modal_size.y) * 0.5)
 	_joy = JoystickScript.new()
 	_joy.control_size = MobileUI.JOYSTICK_SIZE
 	_joy.position = mobile_layout["joystick"]
@@ -948,17 +958,20 @@ func _start_game() -> void:
 	ui.add_child(bag)
 
 	_inv_panel = Panel.new()
-	_inv_panel.position = mobile_layout["panel"]
-	_inv_panel.size = Vector2(360, 430)
+	_inv_panel.position = modal_position
+	_inv_panel.size = modal_size
+	_inv_panel.z_index = 200
+	_style_modal_panel(_inv_panel)
 	_inv_panel.visible = false
 	ui.add_child(_inv_panel)
 	var inventory_scroll := ScrollContainer.new()
-	inventory_scroll.position = Vector2(8, 8)
-	inventory_scroll.size = Vector2(344, 414)
+	inventory_scroll.position = Vector2(20, 20)
+	inventory_scroll.size = modal_size - Vector2(40, 40)
 	inventory_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_inv_panel.add_child(inventory_scroll)
 	_inv_vbox = VBoxContainer.new()
-	_inv_vbox.custom_minimum_size = Vector2(326, 410)
+	_inv_vbox.custom_minimum_size = Vector2(inventory_scroll.size.x - 20, inventory_scroll.size.y)
+	_inv_vbox.add_theme_font_size_override("font_size", _accessibility.font_size(22))
 	inventory_scroll.add_child(_inv_vbox)
 
 	var shop := Button.new()
@@ -971,8 +984,10 @@ func _start_game() -> void:
 	ui.add_child(shop)
 
 	_vendor_panel = Panel.new()
-	_vendor_panel.position = mobile_layout["panel"]
-	_vendor_panel.size = Vector2(360, 500)
+	_vendor_panel.position = modal_position
+	_vendor_panel.size = modal_size
+	_vendor_panel.z_index = 200
+	_style_modal_panel(_vendor_panel)
 	_vendor_panel.visible = false
 	ui.add_child(_vendor_panel)
 	_build_vendor()
@@ -987,8 +1002,10 @@ func _start_game() -> void:
 	ui.add_child(charb)
 
 	_char_panel = Panel.new()
-	_char_panel.position = mobile_layout["panel"]
-	_char_panel.size = Vector2(360, 480)
+	_char_panel.position = modal_position
+	_char_panel.size = modal_size
+	_char_panel.z_index = 200
+	_style_modal_panel(_char_panel)
 	_char_panel.visible = false
 	ui.add_child(_char_panel)
 	_build_char_panel()
@@ -1013,8 +1030,10 @@ func _start_game() -> void:
 	ui.add_child(deploy_stamp)
 
 	_settings_panel = Panel.new()
-	_settings_panel.position = mobile_layout["settings_panel"]
-	_settings_panel.size = Vector2(360, 430)
+	_settings_panel.position = modal_position
+	_settings_panel.size = modal_size
+	_settings_panel.z_index = 200
+	_style_modal_panel(_settings_panel)
 	_settings_panel.visible = false
 	ui.add_child(_settings_panel)
 	_build_settings_panel()
@@ -1407,51 +1426,56 @@ func _make_potion_button(glyph: String, col: Color, pos: Vector2, cb: Callable, 
 	return b
 
 func _build_settings_panel() -> void:
+	var scroll := ScrollContainer.new()
+	scroll.position = Vector2(20, 20)
+	scroll.size = _settings_panel.size - Vector2(40, 40)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_settings_panel.add_child(scroll)
 	var box := VBoxContainer.new()
-	box.position = Vector2(12, 12)
-	box.custom_minimum_size = Vector2(336, 406)
-	_settings_panel.add_child(box)
+	box.custom_minimum_size = Vector2(scroll.size.x - 20, scroll.size.y)
+	box.add_theme_font_size_override("font_size", _accessibility.font_size(22))
+	scroll.add_child(box)
 	var title := Label.new()
 	title.text = "UI SETTINGS"
-	title.add_theme_font_size_override("font_size", _accessibility.font_size(22))
+	title.add_theme_font_size_override("font_size", _accessibility.font_size(28))
 	box.add_child(title)
 	_settings_scale_button = Button.new()
-	_settings_scale_button.custom_minimum_size = Vector2(336, 52)
-	_settings_scale_button.add_theme_font_size_override("font_size", _accessibility.font_size(18))
+	_settings_scale_button.custom_minimum_size = Vector2(0, 60)
+	_settings_scale_button.add_theme_font_size_override("font_size", _accessibility.font_size(22))
 	_settings_scale_button.pressed.connect(_cycle_ui_scale)
 	box.add_child(_settings_scale_button)
 	_settings_text_button = Button.new()
-	_settings_text_button.custom_minimum_size = Vector2(336, 52)
-	_settings_text_button.add_theme_font_size_override("font_size", _accessibility.font_size(18))
+	_settings_text_button.custom_minimum_size = Vector2(0, 60)
+	_settings_text_button.add_theme_font_size_override("font_size", _accessibility.font_size(22))
 	_settings_text_button.pressed.connect(_cycle_text_scale)
 	box.add_child(_settings_text_button)
 	_settings_fullscreen_button = Button.new()
-	_settings_fullscreen_button.custom_minimum_size = Vector2(336, 52)
-	_settings_fullscreen_button.add_theme_font_size_override("font_size", _accessibility.font_size(18))
+	_settings_fullscreen_button.custom_minimum_size = Vector2(0, 60)
+	_settings_fullscreen_button.add_theme_font_size_override("font_size", _accessibility.font_size(22))
 	_settings_fullscreen_button.pressed.connect(_toggle_fullscreen)
 	box.add_child(_settings_fullscreen_button)
 	var save_button := Button.new()
 	save_button.text = "SAVE GAME"
-	save_button.custom_minimum_size = Vector2(336, 52)
-	save_button.add_theme_font_size_override("font_size", _accessibility.font_size(18))
+	save_button.custom_minimum_size = Vector2(0, 60)
+	save_button.add_theme_font_size_override("font_size", _accessibility.font_size(22))
 	save_button.pressed.connect(_save_game)
 	box.add_child(save_button)
 	var load_button := Button.new()
 	load_button.text = "LOAD GAME"
-	load_button.custom_minimum_size = Vector2(336, 52)
-	load_button.add_theme_font_size_override("font_size", _accessibility.font_size(18))
+	load_button.custom_minimum_size = Vector2(0, 60)
+	load_button.add_theme_font_size_override("font_size", _accessibility.font_size(22))
 	load_button.pressed.connect(_load_game)
 	box.add_child(load_button)
 	if OS.has_feature("web"):
 		var update_button := Button.new()
 		update_button.text = "FORCE LATEST UPDATE"
-		update_button.custom_minimum_size = Vector2(336, 52)
-		update_button.add_theme_font_size_override("font_size", _accessibility.font_size(18))
+		update_button.custom_minimum_size = Vector2(0, 60)
+		update_button.add_theme_font_size_override("font_size", _accessibility.font_size(22))
 		update_button.pressed.connect(_force_latest_update)
 		box.add_child(update_button)
 	var note := Label.new()
 	note.text = "UI changes apply when the combat HUD is rebuilt."
-	note.add_theme_font_size_override("font_size", _accessibility.font_size(14))
+	note.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	box.add_child(note)
 	_refresh_settings_labels()
 
@@ -1478,7 +1502,14 @@ func _cycle_text_scale() -> void:
 	_refresh_settings_labels()
 
 func _toggle_settings() -> void:
-	_settings_panel.visible = not _settings_panel.visible
+	var opening := not _settings_panel.visible
+	_hide_modal_panels()
+	_settings_panel.visible = opening
+
+func _hide_modal_panels() -> void:
+	for panel in [_char_panel, _vendor_panel, _inv_panel, _settings_panel]:
+		if is_instance_valid(panel):
+			panel.visible = false
 
 func _force_latest_update() -> void:
 	if not OS.has_feature("web"):
@@ -2954,21 +2985,29 @@ func _withdraw_from_stash(it: Dictionary) -> void:
 	_rebuild_inv()
 
 func _toggle_bag() -> void:
-	_inv_panel.visible = not _inv_panel.visible
-	if _inv_panel.visible:
+	var opening := not _inv_panel.visible
+	_hide_modal_panels()
+	_inv_panel.visible = opening
+	if opening:
 		_rebuild_inv()
 
 var _vendor_gold_lbl: Label
 func _build_vendor() -> void:
+	var scroll := ScrollContainer.new()
+	scroll.position = Vector2(20, 20)
+	scroll.size = _vendor_panel.size - Vector2(40, 40)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_vendor_panel.add_child(scroll)
 	var vb := VBoxContainer.new()
-	vb.position = Vector2(12, 10)
-	vb.custom_minimum_size = Vector2(336, 280)
-	_vendor_panel.add_child(vb)
+	vb.custom_minimum_size = Vector2(scroll.size.x - 20, scroll.size.y)
+	vb.add_theme_font_size_override("font_size", _accessibility.font_size(22))
+	scroll.add_child(vb)
 	var head := Label.new()
 	head.text = "VENDOR"
-	head.add_theme_font_size_override("font_size", _accessibility.font_size(20))
+	head.add_theme_font_size_override("font_size", _accessibility.font_size(28))
 	vb.add_child(head)
 	_vendor_gold_lbl = Label.new()
+	_vendor_gold_lbl.add_theme_font_size_override("font_size", _accessibility.font_size(22))
 	_vendor_gold_lbl.add_theme_color_override("font_color", Color(1, 0.85, 0.3))
 	vb.add_child(_vendor_gold_lbl)
 	_vendor_btn(vb, "Buy Health Potion (%dg)" % COST_HP_POT, func(): _buy_potion("health"))
@@ -2993,8 +3032,8 @@ func _cycle_automation(key: String) -> void:
 func _vendor_btn(vb: VBoxContainer, text: String, cb: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(320, 42)
-	b.add_theme_font_size_override("font_size", _accessibility.font_size(18))
+	b.custom_minimum_size = Vector2(0, 58)
+	b.add_theme_font_size_override("font_size", _accessibility.font_size(22))
 	b.pressed.connect(cb)
 	vb.add_child(b)
 	return b
@@ -3005,7 +3044,9 @@ func _toggle_auto_sell() -> void:
 	_refresh_vendor()
 
 func _toggle_vendor() -> void:
-	_vendor_panel.visible = not _vendor_panel.visible
+	var opening := not _vendor_panel.visible
+	_hide_modal_panels()
+	_vendor_panel.visible = opening
 	_refresh_vendor()
 
 func _travel_waypoint(direction: int) -> void:
@@ -3103,10 +3144,15 @@ func _toggle_town_portal() -> void:
 
 # ── 캐릭터 성장 패널 ──
 func _build_char_panel() -> void:
+	var scroll := ScrollContainer.new()
+	scroll.position = Vector2(20, 20)
+	scroll.size = _char_panel.size - Vector2(40, 40)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_char_panel.add_child(scroll)
 	_char_vbox = VBoxContainer.new()
-	_char_vbox.position = Vector2(12, 10)
-	_char_vbox.custom_minimum_size = Vector2(360, 460)
-	_char_panel.add_child(_char_vbox)
+	_char_vbox.custom_minimum_size = Vector2(scroll.size.x - 20, scroll.size.y)
+	_char_vbox.add_theme_font_size_override("font_size", _accessibility.font_size(22))
+	scroll.add_child(_char_vbox)
 	_rebuild_char_panel()
 
 func _class_skill_ids() -> Array:
@@ -3123,7 +3169,7 @@ func _rebuild_char_panel() -> void:
 	for c in _char_vbox.get_children():
 		c.queue_free()
 	var head := Label.new()
-	head.add_theme_font_size_override("font_size", _accessibility.font_size(20))
+	head.add_theme_font_size_override("font_size", _accessibility.font_size(28))
 	head.text = "CHARACTER Lv%d\nStat Points: %d   Skill Points: %d" % [_player.level, _stat_points, _player.skill_points]
 	_char_vbox.add_child(head)
 	# 스탯 분배
@@ -3131,27 +3177,30 @@ func _rebuild_char_panel() -> void:
 		var sid: String = pair[0]
 		var b := Button.new()
 		b.text = "+ %s" % pair[1]
-		b.custom_minimum_size = Vector2(344, 44)
-		b.add_theme_font_size_override("font_size", _accessibility.font_size(18))
+		b.custom_minimum_size = Vector2(0, 58)
+		b.add_theme_font_size_override("font_size", _accessibility.font_size(22))
 		b.disabled = _stat_points <= 0
 		b.pressed.connect(func(): _spend_stat(sid))
 		_char_vbox.add_child(b)
 	var sep := Label.new()
 	sep.text = "SKILLS"
+	sep.add_theme_font_size_override("font_size", _accessibility.font_size(24))
 	_char_vbox.add_child(sep)
 	for sk in _class_skill_ids():
 		var b2 := Button.new()
 		var required_level := int(Skills.DEFS[sk].get("required_level", 1))
 		b2.text = "+ %s (Lv%d / Req %d / Synergy +%.0f%%)" % [_skill_label(sk), _player.skill_level(sk), required_level, Skills.synergy_bonus_pct(sk, _player.skills)]
-		b2.custom_minimum_size = Vector2(344, 44)
-		b2.add_theme_font_size_override("font_size", _accessibility.font_size(18))
+		b2.custom_minimum_size = Vector2(0, 58)
+		b2.add_theme_font_size_override("font_size", _accessibility.font_size(22))
 		b2.disabled = _player.skill_level(sk) <= 0 or _player.skill_points <= 0 or not Skills.can_invest(sk, _player.skills, _player.level)
 		b2.pressed.connect(func(): _spend_skill(sk))
 		_char_vbox.add_child(b2)
 
 func _toggle_char() -> void:
-	_char_panel.visible = not _char_panel.visible
-	if _char_panel.visible:
+	var opening := not _char_panel.visible
+	_hide_modal_panels()
+	_char_panel.visible = opening
+	if opening:
 		_rebuild_char_panel()
 
 func _spend_stat(stat: String) -> void:
