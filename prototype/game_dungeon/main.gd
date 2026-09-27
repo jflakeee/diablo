@@ -31,7 +31,7 @@ const Mercenary := preload("res://mercenary.gd")
 const Stamina := preload("res://stamina.gd")
 const DeathSystem := preload("res://death_system.gd")
 const Stash := preload("res://stash.gd")
-const DEPLOYED_AT_KST := "2026-09-27 07:45 KST"
+const DEPLOYED_AT_KST := "2026-09-27 08:02 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -740,7 +740,7 @@ func _start_game() -> void:
 		_player.max_life = 40 + 2 * _player.stat_vit + 1  # Part 1 §2
 		_player.max_mana = 35 + 2 * _player.stat_energy + 2
 		_player.speed = 5.5
-		_player.skills = {"ember_bolt": 1, "frost_shard": 0, "storm_lance": 0, "phase_step": 0}
+		_player.skills = {"ember_bolt": 1, "frost_shard": 1, "storm_lance": 1, "phase_step": 1}
 		_base_res_fire = 30      # 소서리스 화염 기본 저항
 		_player.leech_pct = 8    # 스펠 생명 흡혈 8%
 	else:
@@ -752,7 +752,7 @@ func _start_game() -> void:
 		_player.max_life = CombatLib.warden_max_life(25, 1)
 		_player.max_mana = CombatLib.warden_max_mana(15, 1)
 		_player.speed = 6.0
-		_player.skills = {"sundering_strike": 1, "void_fury": 0, "iron_chant": 0, "weapon_discipline": 1}
+		_player.skills = {"sundering_strike": 1, "void_fury": 1, "iron_chant": 1, "weapon_discipline": 1}
 		_player.block_val = 30   # 방패 블록
 		_player.leech_pct = 6    # 물리 생명 흡혈 6%
 	# 종단 검증은 모든 스킬 실행 경로와 기존 50초 층 클리어 기준을 함께 검사한다.
@@ -941,6 +941,25 @@ func _start_game() -> void:
 		_waypoint_travel_selftest()
 	print("[GD] ready - class=%s life=%d dungeon=%dx%d entrance=(%d,%d) exit=(%d,%d)" % [
 		_class, _player.max_life, _gw, _gh, _ent_cell.x, _ent_cell.y, _exit_cell.x, _exit_cell.y])
+	if OS.get_cmdline_user_args().has("skill_visual_test"):
+		_run_skill_visual_test.call_deferred()
+
+func _run_skill_visual_test() -> void:
+	await get_tree().create_timer(0.75).timeout
+	var all_worked := true
+	for skill_id in _skill_slot_ids():
+		_player.attack_cd = 0.0
+		_player.mana = _player.max_mana
+		var casts_before := _spells_cast
+		var position_before := Vector2(_player.gx, _player.gy)
+		_on_skill_used(skill_id)
+		var worked := _spells_cast > casts_before or Vector2(_player.gx, _player.gy) != position_before
+		all_worked = all_worked and worked
+		print("[SKILL_VISUAL] id=%s worked=%s casts=%d log=%s" % [skill_id, str(worked), _spells_cast, _combat_log])
+		await get_tree().create_timer(1.25).timeout
+	print("[SKILL_VISUAL] slots=4 verdict=", "PASS" if all_worked else "FAIL")
+	await get_tree().create_timer(0.75).timeout
+	get_tree().quit()
 
 # 액트 보상 경로(_complete_act) 결정론적 검증 — 더미 보스로 직접 실행
 func _act_reward_selftest() -> void:
@@ -1771,7 +1790,7 @@ func _nearest_ground() -> Node:
 
 func _on_skill_used(id: String) -> void:
 	if _player.skill_level(id) <= 0:
-		_combat_log = "아직 배우지 않은 스킬"
+		_combat_log = "Skill not learned"
 		return
 	if id == "weapon_discipline":
 		_combat_log = "Weapon Discipline: passive skill"
@@ -1841,6 +1860,7 @@ func _cast_storm_lance(target: ActorScript) -> void:
 	_spell_hits += 1
 	_flash(_player.position, target.position)
 	_spawn_text(target.position, "%d LIGHT" % dmg, Color(1, 1, 0.4))
+	_combat_log = "Storm Lance (dmg %d)" % dmg
 	if not target.alive:
 		_grant_xp(target.level * 40)
 
