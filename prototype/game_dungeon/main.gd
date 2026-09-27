@@ -34,7 +34,7 @@ const Stash := preload("res://stash.gd")
 const CollectionBook := preload("res://collection_book.gd")
 const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
-const DEPLOYED_AT_KST := "2026-09-27 20:51 KST"
+const DEPLOYED_AT_KST := "2026-09-27 21:03 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -782,6 +782,16 @@ func _show_class_select() -> void:
 		db.add_theme_color_override("font_color", dcols[i])
 		db.pressed.connect(_set_difficulty.bind(i))
 		_menu_layer.add_child(db)
+	if OS.has_feature("web"):
+		var update_button := Button.new()
+		update_button.text = "FORCE LATEST UPDATE"
+		update_button.position = Vector2(vp.x * 0.5 - 220, minf(vp.y * 0.42 + 305, vp.y - 58))
+		update_button.custom_minimum_size = Vector2(440, 48)
+		update_button.size = Vector2(440, 48)
+		update_button.add_theme_font_size_override("font_size", _accessibility.font_size(detail_font))
+		update_button.pressed.connect(_force_latest_update)
+		_menu_layer.add_child(update_button)
+
 func _set_difficulty(d: int) -> void:
 	_difficulty = d
 	_update_diff_label()
@@ -1432,6 +1442,13 @@ func _build_settings_panel() -> void:
 	load_button.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	load_button.pressed.connect(_load_game)
 	box.add_child(load_button)
+	if OS.has_feature("web"):
+		var update_button := Button.new()
+		update_button.text = "FORCE LATEST UPDATE"
+		update_button.custom_minimum_size = Vector2(336, 52)
+		update_button.add_theme_font_size_override("font_size", _accessibility.font_size(18))
+		update_button.pressed.connect(_force_latest_update)
+		box.add_child(update_button)
 	var note := Label.new()
 	note.text = "UI changes apply when the combat HUD is rebuilt."
 	note.add_theme_font_size_override("font_size", _accessibility.font_size(14))
@@ -1462,6 +1479,28 @@ func _cycle_text_scale() -> void:
 
 func _toggle_settings() -> void:
 	_settings_panel.visible = not _settings_panel.visible
+
+func _force_latest_update() -> void:
+	if not OS.has_feature("web"):
+		_combat_log = "Latest-version update is available in the web build"
+		return
+	# Preserve IndexedDB/local save data. Only the PWA service worker and Cache
+	# Storage are reset before navigating to a unique network URL.
+	JavaScriptBridge.eval("""
+		(async () => {
+			try {
+				const registrations = navigator.serviceWorker ? await navigator.serviceWorker.getRegistrations() : [];
+				await Promise.all(registrations.map((registration) => registration.unregister()));
+				const cacheKeys = ('caches' in window) ? await caches.keys() : [];
+				await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+				const latestUrl = new URL(window.location.href);
+				latestUrl.searchParams.set('force_update', Date.now().toString());
+				window.location.replace(latestUrl.toString());
+			} catch (error) {
+				window.location.reload();
+			}
+		})();
+	""", true)
 
 func _gather_save_state(reason: String = "manual") -> Dictionary:
 	return {
