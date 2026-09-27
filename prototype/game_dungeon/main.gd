@@ -34,7 +34,7 @@ const Stash := preload("res://stash.gd")
 const CollectionBook := preload("res://collection_book.gd")
 const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
-const DEPLOYED_AT_KST := "2026-09-27 18:32 KST"
+const DEPLOYED_AT_KST := "2026-09-27 20:51 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -70,6 +70,9 @@ const PLAYER_ATTACK_CD := 0.45
 const MONSTER_ATTACK_CD := 1.2
 const MANA_REGEN := 4.0
 const PICKUP_RANGE := 1.1
+const DROP_LABEL_HEIGHT := 20.0
+const DROP_LABEL_GAP := 3.0
+const DROP_LABEL_MAX_LANES := 18
 const RANGED_RANGE := 5.0
 const NOVA_RADIUS := 3.5
 const SPELL_RANGE := 7.0
@@ -2671,10 +2674,13 @@ func _spawn_ground(it: Dictionary, gx: float, gy: float) -> void:
 	spr.modulate = col
 	n.add_child(spr)
 	var lbl := Label.new()
+	lbl.name = "DropLabel"
 	lbl.text = Item.display_name(it)
-	lbl.position = Vector2(-30, -30)
 	lbl.add_theme_font_size_override("font_size", _accessibility.font_size(12))
 	lbl.add_theme_color_override("font_color", col)
+	lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.95))
+	lbl.add_theme_constant_override("outline_size", 3)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	n.add_child(lbl)
 	n.position = _iso(gx, gy)
 	n.set_meta("item", it)
@@ -2682,6 +2688,38 @@ func _spawn_ground(it: Dictionary, gx: float, gy: float) -> void:
 	n.set_meta("gy", gy)
 	_world.add_child(n)
 	_ground.append(n)
+	_layout_ground_labels()
+
+func _layout_ground_labels() -> void:
+	# Item sprites keep their exact world position, while their labels are packed
+	# into collision-free rows in world/screen space. This keeps dense boss drops
+	# readable without changing pickup distance or saved ground coordinates.
+	var occupied: Array[Rect2] = []
+	for ground_node in _ground:
+		if not is_instance_valid(ground_node):
+			continue
+		var lbl := ground_node.get_node_or_null("DropLabel") as Label
+		if lbl == null:
+			continue
+		var estimated_width := clampf(float(lbl.text.length()) * float(_accessibility.font_size(12)) * 0.58 + 18.0, 72.0, 240.0)
+		lbl.size = Vector2(estimated_width, DROP_LABEL_HEIGHT)
+		var chosen := Rect2()
+		for lane in DROP_LABEL_MAX_LANES:
+			var y_offset := -34.0 - float(lane) * (DROP_LABEL_HEIGHT + DROP_LABEL_GAP)
+			var candidate := Rect2(ground_node.position + Vector2(-estimated_width * 0.5, y_offset), Vector2(estimated_width, DROP_LABEL_HEIGHT))
+			var overlaps := false
+			for used in occupied:
+				if candidate.intersects(used):
+					overlaps = true
+					break
+			if not overlaps:
+				chosen = candidate
+				break
+		if chosen.size == Vector2.ZERO:
+			var overflow_lane := occupied.size()
+			chosen = Rect2(ground_node.position + Vector2(-estimated_width * 0.5, -34.0 - float(overflow_lane) * (DROP_LABEL_HEIGHT + DROP_LABEL_GAP)), Vector2(estimated_width, DROP_LABEL_HEIGHT))
+		lbl.position = chosen.position - ground_node.position
+		occupied.append(chosen.grow(DROP_LABEL_GAP))
 
 func _pickup(n: Node) -> void:
 	var it: Dictionary = n.get_meta("item")
@@ -2690,6 +2728,7 @@ func _pickup(n: Node) -> void:
 	_play_sfx("pickup")
 	_ground.erase(n)
 	n.queue_free()
+	_layout_ground_labels()
 	if String(it["slot"]) == "vision_relic":
 		_vision_relic_timer = maxf(_vision_relic_timer, float(it.get("duration", VISION_RELIC_DURATION)))
 		_items_picked += 1
