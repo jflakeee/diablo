@@ -31,7 +31,7 @@ const Mercenary := preload("res://mercenary.gd")
 const Stamina := preload("res://stamina.gd")
 const DeathSystem := preload("res://death_system.gd")
 const Stash := preload("res://stash.gd")
-const DEPLOYED_AT_KST := "2026-09-27 08:18 KST"
+const DEPLOYED_AT_KST := "2026-09-27 10:23 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -946,6 +946,8 @@ func _start_game() -> void:
 		_run_skill_visual_test.call_deferred()
 	elif OS.get_cmdline_user_args().has("skill_book_visual_test"):
 		_run_skill_book_visual_test.call_deferred()
+	elif OS.get_cmdline_user_args().has("economy_conversion_test"):
+		_run_economy_conversion_test.call_deferred()
 
 func _run_skill_visual_test() -> void:
 	await get_tree().create_timer(0.75).timeout
@@ -993,6 +995,39 @@ func _run_skill_book_visual_test() -> void:
 		print("[SKILL_BOOK] id=%s unlocked=%s visible=%d" % [skill_id, str(worked), visible_count])
 	print("[SKILL_BOOK] drops=3 buttons=4 verdict=", "PASS" if all_worked else "FAIL")
 	await get_tree().create_timer(0.75).timeout
+	get_tree().quit()
+
+func _run_economy_conversion_test() -> void:
+	await get_tree().create_timer(0.75).timeout
+	_inv_panel.visible = true
+	var sale_item := Item.generate(_rng, Item.WEAPON_BASES[1], 10, "unique")
+	_inventory.append(sale_item)
+	var sale_value := _item_value(sale_item)
+	var gold_before_sale := _gold
+	_sell_inventory_item(sale_item)
+	var item_sale_ok := _gold == gold_before_sale + sale_value and not _inventory.has(sale_item)
+	var protected_item := Item.generate(_rng, Item.ARMOR_BASES[0], 5, "rare")
+	protected_item["salvage_protected"] = true
+	_inventory.append(protected_item)
+	_sell_all()
+	var protected_ok := _inventory.has(protected_item)
+	_player.skills["frost_shard"] = 1
+	var duplicate_book := _make_skill_book("frost_shard")
+	_spawn_ground(duplicate_book, _player.gx + 2.0, _player.gy)
+	var book_node := _ground.back() as Node
+	var gold_before_book := _gold
+	await get_tree().create_timer(0.75).timeout
+	_pickup(book_node)
+	var book_value := _skill_book_value("frost_shard")
+	var duplicate_ok := _gold == gold_before_book + book_value
+	var gamble_cost := _gamble_cost()
+	var gold_before_gamble := _gold
+	var bag_before_gamble := _inventory.size()
+	_gamble()
+	var gamble_ok := gold_before_gamble >= gamble_cost and _gold == gold_before_gamble - gamble_cost and _inventory.size() == bag_before_gamble + 1
+	var ok := item_sale_ok and protected_ok and duplicate_ok and gamble_ok
+	print("[ECONOMY] item_sale=%s protected=%s duplicate_book=%s(+%dg) gamble=%s(cost=%dg) verdict=%s" % [str(item_sale_ok), str(protected_ok), str(duplicate_ok), book_value, str(gamble_ok), gamble_cost, "PASS" if ok else "FAIL"])
+	await get_tree().create_timer(1.0).timeout
 	get_tree().quit()
 
 # 액트 보상 경로(_complete_act) 결정론적 검증 — 더미 보스로 직접 실행
@@ -2274,6 +2309,10 @@ func _item_value(it: Dictionary) -> int:
 		affix_cnt += 1
 	return base + affix_cnt * 15 + int(it.get("ilvl", 1)) * 2
 
+func _skill_book_value(skill_id: String) -> int:
+	var slot_index := _skill_slot_ids().find(skill_id)
+	return [100, 150, 300, 500][clampi(slot_index, 0, 3)]
+
 func _make_potion(ptype: String, tier: int = 1) -> Dictionary:
 	var nm := "Healing Potion" if ptype == "health" else "Mana Potion"
 	return {"name": nm, "slot": "potion", "ptype": ptype, "tier": tier, "quality": "normal", "affixes": {}, "prefix": "", "suffix": ""}
@@ -2285,20 +2324,19 @@ func _make_skill_book(skill_id: String) -> Dictionary:
 	return {"name": "Skill Book: %s" % _skill_label(skill_id), "skill_id": skill_id, "slot": "skill_book", "quality": "unique", "affixes": {}, "prefix": "", "suffix": ""}
 
 func _next_skill_book_drop() -> String:
+	# Keep only one uncollected book in the world at a time.
+	for ground_node in _ground:
+		if is_instance_valid(ground_node):
+			var ground_item: Dictionary = ground_node.get_meta("item", {})
+			if String(ground_item.get("slot", "")) == "skill_book":
+				return ""
 	for skill_id in _skill_slot_ids():
 		if _player.skill_level(skill_id) > 0:
 			continue
-		var already_dropped := false
-		for ground_node in _ground:
-			if not is_instance_valid(ground_node):
-				continue
-			var ground_item: Dictionary = ground_node.get_meta("item", {})
-			if String(ground_item.get("slot", "")) == "skill_book" and String(ground_item.get("skill_id", "")) == skill_id:
-				already_dropped = true
-				break
-		if not already_dropped:
-			return skill_id
-	return ""
+		return skill_id
+	# Once every skill is open, later books become valuable duplicate drops.
+	var duplicate_pool := _skill_slot_ids().slice(1)
+	return String(duplicate_pool[_rng.randi_range(0, duplicate_pool.size() - 1)])
 
 func _unlock_skill_from_book(skill_id: String) -> bool:
 	if not _skill_slot_ids().has(skill_id) or _player.skill_level(skill_id) > 0:
@@ -2369,8 +2407,14 @@ func _pickup(n: Node) -> void:
 	_ground.erase(n)
 	n.queue_free()
 	if String(it["slot"]) == "skill_book":
-		if _unlock_skill_from_book(String(it.get("skill_id", ""))):
-			_items_picked += 1
+		var book_skill := String(it.get("skill_id", ""))
+		_items_picked += 1
+		if not _unlock_skill_from_book(book_skill):
+			var book_gold := _skill_book_value(book_skill)
+			_gold += book_gold
+			_gold_sold += book_gold
+			_combat_log = "DUPLICATE BOOK SOLD: %s / +%dg" % [_skill_label(book_skill), book_gold]
+			_spawn_text(_player.position + Vector2(0, -56), "+%dg" % book_gold, Color(1.0, 0.85, 0.25))
 		return
 	# 골드 → 지갑
 	if String(it["slot"]) == "gold":
@@ -2709,13 +2753,33 @@ func _sell_all() -> void:
 	if _inventory.is_empty():
 		return
 	var total := 0
-	var cnt := _inventory.size()
-	for it in _inventory:
+	var cnt := 0
+	for it in _inventory.duplicate():
+		if bool((it as Dictionary).get("salvage_protected", false)):
+			continue
 		total += _item_value(it)
+		cnt += 1
+		_inventory.erase(it)
+	if cnt <= 0:
+		_combat_log = "No sellable bag items"
+		return
 	_gold += total
 	_gold_sold += total
-	_inventory.clear()
 	_combat_log = "%d sold / +%dg" % [cnt, total]
+	_rebuild_inv()
+	_refresh_vendor()
+
+func _sell_inventory_item(it: Dictionary) -> void:
+	if not _inventory.has(it):
+		return
+	if bool(it.get("salvage_protected", false)):
+		_combat_log = "Protected item cannot be sold"
+		return
+	var value := _item_value(it)
+	_inventory.erase(it)
+	_gold += value
+	_gold_sold += value
+	_combat_log = "Sold %s / +%dg" % [Item.display_name(it), value]
 	_rebuild_inv()
 	_refresh_vendor()
 
@@ -2770,6 +2834,13 @@ func _rebuild_inv() -> void:
 		stash_btn.pressed.connect(func(): _deposit_to_stash(captured))
 		stash_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		actions.add_child(stash_btn)
+		var sell_btn := Button.new()
+		sell_btn.text = "Sell %dg" % _item_value(it)
+		sell_btn.tooltip_text = "Convert this item to gold"
+		sell_btn.disabled = bool(it.get("salvage_protected", false))
+		sell_btn.pressed.connect(func(): _sell_inventory_item(captured))
+		sell_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		actions.add_child(sell_btn)
 		var protect := Button.new()
 		protect.text = "Protected" if bool(it.get("salvage_protected", false)) else "Salvage OK"
 		protect.tooltip_text = "Toggle automatic salvage protection"
