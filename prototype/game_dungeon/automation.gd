@@ -22,7 +22,7 @@ func accepts(it: Dictionary) -> bool:
 	var slot := String(it.get("slot", ""))
 	if auto_sell and slot in ["weapon", "armor", "ring", "amulet"]:
 		return true
-	return slot in ["gold", "potion", "material", "skill_book", "vision_relic"] or rank(String(it.get("quality", "normal"))) >= rank(pickup_min)
+	return slot in ["gold", "potion", "material", "skill_book", "vision_relic", "arc_flask"] or rank(String(it.get("quality", "normal"))) >= rank(pickup_min)
 
 func should_auto_sell(it: Dictionary, sale_value: int, requirement_locked: bool) -> bool:
 	if not auto_sell or requirement_locked or bool(it.get("salvage_protected", false)):

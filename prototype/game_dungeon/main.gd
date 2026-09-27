@@ -34,7 +34,7 @@ const Stash := preload("res://stash.gd")
 const CollectionBook := preload("res://collection_book.gd")
 const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
-const DEPLOYED_AT_KST := "2026-09-27 18:22 KST"
+const DEPLOYED_AT_KST := "2026-09-27 18:29 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -42,6 +42,7 @@ var _gw := 45
 var _gh := 45
 var _ent_cell := Vector2i(1, 1)
 var _exit_cell := Vector2i(1, 1)
+var _map_type := "dungeon"
 var _tiles_node: Node2D
 var _dlevel := 1
 var _levels_cleared := 0
@@ -96,6 +97,7 @@ var _last_visibility_cell := Vector2i(-999, -999)
 const SIGHT_RADIUS := 8
 const VISION_RELIC_DURATION := 30.0
 var _vision_relic_timer := 0.0
+var _arc_flasks := 0
 var _attack_line: Line2D
 var _attack_ttl := 0.0
 
@@ -248,7 +250,7 @@ func _walkable(gx: float, gy: float) -> bool:
 	var iy := int(round(gy))
 	if ix < 0 or ix >= _gw or iy < 0 or iy >= _gh:
 		return false
-	return int(_grid[iy][ix]) == 1
+	return int(_grid[iy][ix]) == LevelGen.FLOOR
 
 func _make_actor(nm: String, col: Color, w: int, h: int) -> ActorScript:
 	var a := ActorScript.new()
@@ -264,7 +266,7 @@ func _build_minimap_tex() -> void:
 	var img := Image.create(_gw, _gh, false, Image.FORMAT_RGBA8)
 	for y in _gh:
 		for x in _gw:
-			var wall: bool = int(_grid[y][x]) == 0
+			var wall: bool = int(_grid[y][x]) != LevelGen.FLOOR
 			img.set_pixel(x, y, Color(0.08, 0.07, 0.09, 0.0) if wall else Color(0.55, 0.5, 0.42, 0.92))
 	_minimap.tex = ImageTexture.create_from_image(img)
 	_minimap.gw = _gw
@@ -294,7 +296,7 @@ func _build_astar(w: int, h: int, grid: Array) -> AStarGrid2D:
 	astar.update()
 	for y in h:
 		for x in w:
-			if int(grid[y][x]) == 0:
+			if int(grid[y][x]) != LevelGen.FLOOR:
 				astar.set_point_solid(Vector2i(x, y), true)
 	return astar
 
@@ -307,6 +309,7 @@ func _generate_dungeon() -> void:
 	_gw = int(lvl["w"])
 	_gh = int(lvl["h"])
 	_grid = lvl["grid"]
+	_map_type = String(lvl.get("map_type", "dungeon"))
 	_ent_cell = lvl["entrance"]
 	_exit_cell = lvl["exit"]
 	# 제작기로 타일 변종 몇 개 미리 생성(성능: 재사용)
@@ -322,10 +325,17 @@ func _generate_dungeon() -> void:
 	for y in _gh:
 		for x in _gw:
 			var s := Sprite2D.new()
-			if int(_grid[y][x]) == 1:
+			var terrain := int(_grid[y][x])
+			if terrain == LevelGen.FLOOR:
 				s.texture = floor_texs[(x * 7 + y) % 3]
 			else:
 				s.texture = wall_texs[(x * 5 + y) % 2]
+				if terrain == LevelGen.PILLAR:
+					s.modulate = Color(0.72, 0.76, 0.82)
+					s.scale = Vector2(0.72, 1.35)
+				elif terrain == LevelGen.LOW_WALL:
+					s.modulate = Color(0.55, 0.72, 0.48)
+					s.scale = Vector2(1.0, 0.62)
 			s.position = _iso(x, y)
 			_tiles_node.add_child(s)
 	var em := Sprite2D.new()
@@ -673,6 +683,7 @@ func _ready() -> void:
 		print("[AUTO] selftest verdict=", "PASS" if _automation.selftest() else "FAIL")
 		print("[COLLECTION] selftest verdict=", "PASS" if _collection.selftest() else "FAIL")
 		print("[VISIBILITY] selftest verdict=", "PASS" if Visibility.selftest() else "FAIL")
+		print("[MAP_VARIANTS] selftest verdict=", "PASS" if LevelGen.selftest() else "FAIL")
 		print("[ANIM] selftest verdict=", "PASS" if ActorScript.animation_selftest() else "FAIL")
 		_ui_selftest_ok = MobileUI.selftest()
 		print("[MOBILE_UI] ratios=4 targets>=48 primary>=72 safe_margin=16 verdict=", "PASS" if _ui_selftest_ok else "FAIL")
@@ -1042,6 +1053,8 @@ func _start_game() -> void:
 		_run_travel_system_test.call_deferred()
 	elif OS.get_cmdline_user_args().has("vision_relic_test"):
 		_run_vision_relic_test.call_deferred()
+	elif OS.get_cmdline_user_args().has("map_variant_test"):
+		_run_map_variant_test.call_deferred()
 
 func _run_skill_visual_test() -> void:
 	await get_tree().create_timer(0.75).timeout
@@ -1198,6 +1211,22 @@ func _run_vision_relic_test() -> void:
 	var expanded: bool = _vision_relic_timer > 0.0 and _visible_cells.size() > normal_count
 	var walls_hold: bool = not _has_los(Vector2(1, 1), Vector2(_gw - 2, _gh - 2)) or _grid.size() > 0
 	print("[VISION_RELIC] normal=%d expanded=%d timer=%.0f walls_hold=%s verdict=%s" % [normal_count, _visible_cells.size(), _vision_relic_timer, str(walls_hold), "PASS" if expanded and walls_hold else "FAIL"])
+	await get_tree().create_timer(0.4).timeout
+	get_tree().quit()
+
+func _run_map_variant_test() -> void:
+	await get_tree().create_timer(0.4).timeout
+	var low_wall_grid: Array = []
+	for y in 5:
+		var row := PackedInt32Array([1, 1, 1, 1, 1])
+		low_wall_grid.append(row)
+	low_wall_grid[2][2] = LevelGen.LOW_WALL
+	var direct_blocked := not Visibility.is_clear(low_wall_grid, Vector2(0, 2), Vector2(4, 2))
+	var arc_open := Visibility.is_arc_clear(low_wall_grid, Vector2(0, 2), Vector2(4, 2))
+	low_wall_grid[2][2] = LevelGen.PILLAR
+	var pillar_blocked := not Visibility.is_arc_clear(low_wall_grid, Vector2(0, 2), Vector2(4, 2))
+	var ok: bool = LevelGen.selftest() and direct_blocked and arc_open and pillar_blocked
+	print("[MAP_VARIANTS] types=%s direct_blocked=%s low_wall_arc=%s pillar_arc_blocked=%s verdict=%s" % [_map_type, str(direct_blocked), str(arc_open), str(pillar_blocked), "PASS" if ok else "FAIL"])
 	await get_tree().create_timer(0.4).timeout
 	get_tree().quit()
 
@@ -1452,6 +1481,7 @@ func _gather_save_state(reason: String = "manual") -> Dictionary:
 		"explored_by_floor": _explored_by_floor.duplicate(true),
 		"floor_states": _floor_states.duplicate(true), "town_portal": _town_portal.duplicate(true),
 		"vision_relic_timer": _vision_relic_timer,
+		"arc_flasks": _arc_flasks,
 	}
 
 func _save_game() -> void:
@@ -1515,6 +1545,7 @@ func _load_game() -> void:
 	_floor_states = (state.get("floor_states", {}) as Dictionary).duplicate(true)
 	_town_portal = (state.get("town_portal", {}) as Dictionary).duplicate(true)
 	_vision_relic_timer = clampf(float(state.get("vision_relic_timer", 0.0)), 0.0, VISION_RELIC_DURATION)
+	_arc_flasks = maxi(0, int(state.get("arc_flasks", 0)))
 	_last_visibility_cell = Vector2i(-999, -999)
 	_update_visibility(true)
 	_spawn_corpse_marker()
@@ -1988,8 +2019,9 @@ func _process(delta: float) -> void:
 		_player.actor_name, _player.level, _player.life, _player.max_life, _player.mana, _player.max_mana, _gold,
 		wn, _player.dmg_min, _player.dmg_max, an, _player.defense,
 		_kills, _items_dropped, _inventory.size(), _player_mf, _belt_hp, _belt_mp, _combat_log]
-	_hud.text += "\nStamina %d/%d / %s" % [roundi(_stamina), roundi(_stamina_max), "RUN" if _player_running else "WALK"]
+	_hud.text += "\nStamina %d/%d / %s / %s" % [roundi(_stamina), roundi(_stamina_max), "RUN" if _player_running else "WALK", _map_type.to_upper()]
 	if _vision_relic_timer > 0.0: _hud.text += " / ALL-SEEING %.0fs" % _vision_relic_timer
+	if _arc_flasks > 0: _hud.text += " / ARC FLASK %d" % _arc_flasks
 	if not _corpse_state.is_empty():
 		_hud.text += " / Corpse %dg / Deaths %d" % [int(_corpse_state.get("held_gold", 0)), _player_deaths]
 	if _pot_hp_btn:
@@ -2051,6 +2083,37 @@ func _nearest_monster() -> ActorScript:
 			bestd = d
 			best = m
 	return best
+
+func _nearest_arc_target() -> ActorScript:
+	var best: ActorScript = null
+	var best_distance := 7.01
+	for m in _monsters:
+		if not m.alive: continue
+		var distance := Vector2(_player.gx, _player.gy).distance_to(Vector2(m.gx, m.gy))
+		if distance < best_distance and Visibility.is_arc_clear(_grid, Vector2(_player.gx, _player.gy), Vector2(m.gx, m.gy)):
+			best = m; best_distance = distance
+	return best
+
+func _throw_arc_flask() -> void:
+	if _arc_flasks <= 0:
+		_combat_log = "No Skyfire Arc Flask"
+		return
+	var target := _nearest_arc_target()
+	if target == null:
+		_combat_log = "No arc target — high wall or pillar blocks the throw"
+		return
+	_arc_flasks -= 1
+	var impact := Vector2(target.gx, target.gy)
+	var total_hits := 0
+	for m in _monsters:
+		if m.alive and Vector2(m.gx, m.gy).distance_to(impact) <= 1.5:
+			var damage := 25 + _player.level * 4
+			m.take_damage(CombatLib.apply_resistance(damage, m.res_fire))
+			total_hits += 1
+			_spawn_text(m.position, "%d ARC FIRE" % damage, Color(1.0, 0.4, 0.15))
+	_flash(_player.position, target.position)
+	_combat_log = "Skyfire Flask arced over low wall / hits %d" % total_hits
+	_rebuild_inv()
 
 func _nearest_ground() -> Node:
 	var best: Node = null
@@ -2491,6 +2554,9 @@ func _on_monster_died(m: Node) -> void:
 	if _rng.randf() < (0.05 if rank == "" else 0.16):
 		_spawn_ground(_make_vision_relic(), m.gx - 0.25, m.gy + 0.25)
 		_items_dropped += 1
+	if _rng.randf() < (0.08 if rank == "" else 0.22):
+		_spawn_ground(_make_arc_flask(), m.gx + 0.25, m.gy + 0.25)
+		_items_dropped += 1
 	# Skill progression is item-driven. The first kill guarantees a book, then
 	# champions/uniques and every fourth kill provide reliable advancement.
 	var book_skill := _next_skill_book_drop()
@@ -2511,6 +2577,9 @@ func _make_gold(amount: int) -> Dictionary:
 
 func _make_vision_relic() -> Dictionary:
 	return {"name": "All-Seeing Ember", "slot": "vision_relic", "duration": VISION_RELIC_DURATION, "quality": "unique", "affixes": {}, "prefix": "", "suffix": ""}
+
+func _make_arc_flask() -> Dictionary:
+	return {"name": "Skyfire Arc Flask", "slot": "arc_flask", "quality": "magic", "affixes": {}, "prefix": "", "suffix": ""}
 
 # 아이템 판매가(품질 + 접사 수 기반)
 func _item_value(it: Dictionary) -> int:
@@ -2626,6 +2695,13 @@ func _pickup(n: Node) -> void:
 		_update_visibility(true)
 		_combat_log = "ALL-SEEING EMBER: map-wide sight for %.0fs" % _vision_relic_timer
 		_spawn_text(_player.position, "ALL-SEEING", Color(0.8, 0.55, 1.0))
+		return
+	if String(it["slot"]) == "arc_flask":
+		_arc_flasks += 1
+		_items_picked += 1
+		_combat_log = "Skyfire Arc Flask stored (%d)" % _arc_flasks
+		_spawn_text(_player.position, "+ARC FLASK", Color(1.0, 0.45, 0.2))
+		_rebuild_inv()
 		return
 	if String(it["slot"]) == "skill_book":
 		var book_skill := String(it.get("skill_id", ""))
@@ -3272,6 +3348,11 @@ func _rebuild_inv() -> void:
 	town_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	travel_row.add_child(town_button)
 	_inv_vbox.add_child(travel_row)
+	var flask_button := Button.new()
+	flask_button.text = "Throw Skyfire Flask (%d)" % _arc_flasks
+	flask_button.disabled = _arc_flasks <= 0
+	flask_button.pressed.connect(_throw_arc_flask)
+	_inv_vbox.add_child(flask_button)
 	var wn := _equipped_label("weapon")
 	var an := _equipped_label("armor")
 	var rln := _equipped_label("ring_left")

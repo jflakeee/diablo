@@ -6,6 +6,11 @@ extends RefCounted
 const SLOTS := 3   # 3x3 룸 슬롯 (게임용: 컴팩트)
 const ROOM := 9    # 룸당 9x9 타일 → 맵 27x27
 
+const WALL := 0
+const FLOOR := 1
+const PILLAR := 2
+const LOW_WALL := 3
+
 static func generate(seed_val: int) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_val
@@ -47,6 +52,21 @@ static func generate(seed_val: int) -> Dictionary:
 			_carve_room(grid, sx, sy)
 	for e in edges:
 		_carve_door(grid, e[0], e[1])
+	var map_type := "dungeon"
+	var variant: int = absi(seed_val) % 3
+	if variant == 2:
+		map_type = "outdoor"
+		for y in h:
+			for x in w:
+				if grid[y][x] == WALL: grid[y][x] = LOW_WALL
+	elif variant == 0:
+		map_type = "pillar_plains"
+		for y in range(1, h - 1):
+			for x in range(1, w - 1): grid[y][x] = FLOOR
+		for i in 20:
+			var px := rng.randi_range(2, w - 3)
+			var py := rng.randi_range(2, h - 3)
+			if Vector2(px, py).distance_to(Vector2(ROOM / 2, ROOM / 2)) > 3.0: grid[py][px] = PILLAR
 
 	# 입구 = start 중심, 출구 = 트리 최심부 슬롯 중심
 	var exit_slot := start
@@ -59,8 +79,21 @@ static func generate(seed_val: int) -> Dictionary:
 	return {
 		"w": w, "h": h, "grid": grid,
 		"entrance": _slot_center(start), "exit": _slot_center(exit_slot),
-		"rooms": SLOTS * SLOTS, "doors": edges.size(),
+		"rooms": SLOTS * SLOTS, "doors": edges.size(), "map_type": map_type,
 	}
+
+static func selftest() -> bool:
+	var dungeon := generate(1000)
+	var outdoor := generate(1001)
+	var plains := generate(1002)
+	return String(dungeon.get("map_type", "")) == "dungeon" and String(outdoor.get("map_type", "")) == "outdoor" and String(plains.get("map_type", "")) == "pillar_plains" and _count_tile(outdoor["grid"], LOW_WALL) > 0 and _count_tile(plains["grid"], PILLAR) > 0
+
+static func _count_tile(grid: Array, tile: int) -> int:
+	var count := 0
+	for row in grid:
+		for value in row:
+			if int(value) == tile: count += 1
+	return count
 
 static func _slot_center(s: Vector2i) -> Vector2i:
 	return Vector2i(s.x * ROOM + ROOM / 2, s.y * ROOM + ROOM / 2)

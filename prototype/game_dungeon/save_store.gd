@@ -1,6 +1,6 @@
 extends RefCounted
 
-const CURRENT_VERSION := 13
+const CURRENT_VERSION := 14
 const DEFAULT_PATH := "user://ashen_depths_save.json"
 
 static func _migrate(raw: Dictionary) -> Dictionary:
@@ -57,6 +57,9 @@ static func _migrate(raw: Dictionary) -> Dictionary:
 	if version == 12:
 		state["vision_relic_timer"] = float(state.get("vision_relic_timer", 0.0))
 		version = 13
+	if version == 13:
+		state["arc_flasks"] = int(state.get("arc_flasks", 0))
+		version = 14
 	state["schema_version"] = version
 	return state
 
@@ -195,6 +198,10 @@ static func selftest() -> Dictionary:
 	v12["schema_version"] = 12
 	var migrated_v12 := _migrate(v12)
 	if int(migrated_v12.get("schema_version", 0)) != CURRENT_VERSION or not migrated_v12.has("vision_relic_timer"): failures.append("v12 vision relic migration")
+	var v13 := state.duplicate(true)
+	v13["schema_version"] = 13
+	var migrated_v13 := _migrate(v13)
+	if int(migrated_v13.get("schema_version", 0)) != CURRENT_VERSION or not migrated_v13.has("arc_flasks"): failures.append("v13 arc flask migration")
 	var corrupt_path := "user://save_store_corrupt_%s.json" % suffix
 	var corrupt := FileAccess.open(corrupt_path, FileAccess.WRITE)
 	if corrupt != null:
@@ -204,4 +211,4 @@ static func selftest() -> Dictionary:
 	for cleanup in [path, path + ".tmp", path + ".bak", corrupt_path]:
 		var absolute := ProjectSettings.globalize_path(cleanup)
 		if FileAccess.file_exists(absolute): DirAccess.remove_absolute(absolute)
-	return {"ok": failures.is_empty(), "checks": 18, "failures": failures}
+	return {"ok": failures.is_empty(), "checks": 19, "failures": failures}
