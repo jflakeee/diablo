@@ -34,7 +34,7 @@ const Stash := preload("res://stash.gd")
 const CollectionBook := preload("res://collection_book.gd")
 const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
-const DEPLOYED_AT_KST := "2026-09-27 14:42 KST"
+const DEPLOYED_AT_KST := "2026-09-27 17:57 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -89,6 +89,9 @@ var _blocked := {}
 var _fog: Node2D
 var _visible_cells := {}
 var _explored_by_floor := {}
+var _floor_states := {}
+var _town_portal := {}
+var _in_town := false
 var _last_visibility_cell := Vector2i(-999, -999)
 const SIGHT_RADIUS := 8
 var _attack_line: Line2D
@@ -495,6 +498,7 @@ func _complete_act(boss: Node) -> void:
 	_act += 1
 
 func _next_level() -> void:
+	_capture_floor_state()
 	_levels_cleared += 1
 	_dlevel += 1
 	Waypoint.unlock(_waypoint_defs, _waypoint_state, _act, _level_in_act())
@@ -516,7 +520,7 @@ func _next_level() -> void:
 			_merc.gx = _player.gx + 1
 			_merc.gy = _player.gy
 			_merc.position = _iso(_merc.gx, _merc.gy)
-	_spawn_dungeon_monsters()
+	_restore_or_spawn_floor()
 	_last_visibility_cell = Vector2i(-999, -999)
 	_update_visibility(true)
 	if is_instance_valid(_cam):
@@ -524,6 +528,37 @@ func _next_level() -> void:
 	_combat_log = "던전 레벨 %d" % _dlevel
 
 # A* 내비게이션: actor를 (tgx,tgy)로 경로 따라 이동 (경로 400ms 캐시)
+func _capture_floor_state() -> void:
+	if _in_town or _grid.is_empty(): return
+	var monster_states: Array = []
+	for m in _monsters:
+		if not is_instance_valid(m) or not m.alive: continue
+		monster_states.append({"name": m.actor_name, "level": m.level, "life": m.life, "max_life": m.max_life, "ar": m.attack_rating, "def": m.defense, "dmin": m.dmg_min, "dmax": m.dmg_max, "speed": m.speed, "gx": m.gx, "gy": m.gy, "kind": String(m.get_meta("kind", "melee")), "res_fire": m.res_fire, "res_cold": m.res_cold, "res_light": m.res_light, "res_poison": m.res_poison})
+	var ground_states: Array = []
+	for n in _ground:
+		if is_instance_valid(n): ground_states.append({"item": (n.get_meta("item") as Dictionary).duplicate(true), "gx": float(n.get_meta("gx")), "gy": float(n.get_meta("gy"))})
+	_floor_states[str(_dlevel)] = {"monsters": monster_states, "ground": ground_states, "exit_locked": _exit_locked}
+
+func _restore_or_spawn_floor() -> void:
+	for existing in _monsters:
+		if is_instance_valid(existing): existing.queue_free()
+	_monsters.clear()
+	var state: Dictionary = _floor_states.get(str(_dlevel), {})
+	if state.is_empty():
+		_spawn_dungeon_monsters()
+		return
+	_exit_locked = bool(state.get("exit_locked", false))
+	for raw in state.get("monsters", []):
+		var s: Dictionary = raw
+		var m := _spawn_monster(String(s["name"]), Color(0.65, 0.25, 0.2), 24, 32, int(s["level"]), int(s["max_life"]), int(s["ar"]), int(s["def"]), int(s["dmin"]), int(s["dmax"]), float(s["speed"]), roundi(float(s["gx"])), roundi(float(s["gy"])))
+		m.life = int(s["life"]); m.gx = float(s["gx"]); m.gy = float(s["gy"]); m.position = _iso(m.gx, m.gy)
+		m.set_meta("kind", String(s.get("kind", "melee")))
+		m.res_fire = int(s.get("res_fire", 0)); m.res_cold = int(s.get("res_cold", 0)); m.res_light = int(s.get("res_light", 0)); m.res_poison = int(s.get("res_poison", 0))
+		if String(s.get("kind", "")) == "boss": _boss = m
+	for raw in state.get("ground", []):
+		var drop: Dictionary = raw
+		_spawn_ground((drop.get("item", {}) as Dictionary).duplicate(true), float(drop.get("gx", 0)), float(drop.get("gy", 0)))
+
 func _nav_toward(actor: ActorScript, tgx: float, tgy: float, delta: float) -> void:
 	var d := Vector2(tgx - actor.gx, tgy - actor.gy)
 	if d.length() <= 1.5:
@@ -1000,6 +1035,8 @@ func _start_game() -> void:
 		_run_auto_equip_sell_test.call_deferred()
 	elif OS.get_cmdline_user_args().has("collection_book_test"):
 		_run_collection_book_test.call_deferred()
+	elif OS.get_cmdline_user_args().has("travel_system_test"):
+		_run_travel_system_test.call_deferred()
 
 func _run_skill_visual_test() -> void:
 	await get_tree().create_timer(0.75).timeout
@@ -1127,6 +1164,23 @@ func _run_collection_book_test() -> void:
 	var equip_ok: bool = _equipped["weapon"] == unique and not _collection.stored.has(unique)
 	var ok: bool = stored_ok and records_ok and page_ok and equip_ok
 	print("[COLLECTION] stored=%s records=%s page=%s equip=%s verdict=%s" % [str(stored_ok), str(records_ok), str(page_ok), str(equip_ok), "PASS" if ok else "FAIL"])
+	await get_tree().create_timer(0.5).timeout
+	get_tree().quit()
+
+func _run_travel_system_test() -> void:
+	await get_tree().create_timer(0.5).timeout
+	var start_floor := _dlevel
+	var start_position := Vector2(_player.gx, _player.gy)
+	var start_monsters := _monsters.size()
+	_toggle_town_portal()
+	var town_ok: bool = _in_town and not _town_portal.is_empty() and _monsters.is_empty()
+	_toggle_town_portal()
+	var return_ok: bool = not _in_town and _dlevel == start_floor and Vector2(_player.gx, _player.gy).distance_to(start_position) < 0.1 and _monsters.size() == start_monsters
+	_travel_to_floor(start_floor + 1, Vector2.INF)
+	_previous_floor()
+	var previous_ok: bool = _dlevel == start_floor and _floor_states.has(str(start_floor + 1))
+	var ok: bool = town_ok and return_ok and previous_ok
+	print("[TRAVEL] town=%s return=%s previous=%s cached=%d verdict=%s" % [str(town_ok), str(return_ok), str(previous_ok), _floor_states.size(), "PASS" if ok else "FAIL"])
 	await get_tree().create_timer(0.5).timeout
 	get_tree().quit()
 
@@ -1379,6 +1433,7 @@ func _gather_save_state(reason: String = "manual") -> Dictionary:
 		"automation": _automation.snapshot(),
 		"collection_book": _collection.snapshot(),
 		"explored_by_floor": _explored_by_floor.duplicate(true),
+		"floor_states": _floor_states.duplicate(true), "town_portal": _town_portal.duplicate(true),
 	}
 
 func _save_game() -> void:
@@ -1439,6 +1494,8 @@ func _load_game() -> void:
 	_automation.restore(state.get("automation", {}))
 	_collection.restore(state.get("collection_book", {}))
 	_explored_by_floor = (state.get("explored_by_floor", {}) as Dictionary).duplicate(true)
+	_floor_states = (state.get("floor_states", {}) as Dictionary).duplicate(true)
+	_town_portal = (state.get("town_portal", {}) as Dictionary).duplicate(true)
 	_last_visibility_cell = Vector2i(-999, -999)
 	_update_visibility(true)
 	_spawn_corpse_marker()
@@ -2763,6 +2820,7 @@ func _travel_waypoint(direction: int) -> void:
 	if target.is_empty():
 		_combat_log = "No waypoint available"
 		return
+	_capture_floor_state()
 	_dlevel = (_act - 1) * ACT_LEN + int(target.get("floor", 1))
 	Waypoint.unlock(_waypoint_defs, _waypoint_state, _act, _level_in_act())
 	for ground_item in _ground:
@@ -2783,13 +2841,72 @@ func _travel_waypoint(direction: int) -> void:
 		_merc.gx = _player.gx + 1
 		_merc.gy = _player.gy
 		_merc.position = _iso(_merc.gx, _merc.gy)
-	_spawn_dungeon_monsters()
+	_restore_or_spawn_floor()
 	_last_visibility_cell = Vector2i(-999, -999)
 	_update_visibility(true)
 	if is_instance_valid(_cam):
 		_cam.position = _player.position
 	_combat_log = "Waypoint: %s" % Waypoint.current_name(_waypoint_defs, _waypoint_state)
 	_refresh_vendor()
+
+func _previous_floor() -> void:
+	if _in_town:
+		_combat_log = "Use Return Portal first"
+		return
+	if _dlevel <= 1:
+		_combat_log = "No previous floor"
+		return
+	_travel_to_floor(_dlevel - 1, Vector2.INF)
+
+func _clear_travel_nodes() -> void:
+	for n in _ground:
+		if is_instance_valid(n): n.queue_free()
+	_ground.clear()
+	for p in _projectiles:
+		var node: Node = p.get("node", null)
+		if is_instance_valid(node): node.queue_free()
+	_projectiles.clear()
+	for m in _monsters:
+		if is_instance_valid(m): m.queue_free()
+	_monsters.clear()
+
+func _travel_to_floor(target_level: int, return_position: Vector2) -> void:
+	if not _in_town: _capture_floor_state()
+	_clear_travel_nodes()
+	_dlevel = maxi(1, target_level)
+	_in_town = false
+	_generate_dungeon()
+	_build_minimap_tex()
+	var arrival := return_position
+	if arrival == Vector2.INF or not _walkable(arrival.x, arrival.y): arrival = Vector2(_ent_cell.x, _ent_cell.y)
+	_player.gx = arrival.x; _player.gy = arrival.y; _player.position = _iso(arrival.x, arrival.y)
+	if _merc != null:
+		_merc.gx = _player.gx + 1; _merc.gy = _player.gy; _merc.position = _iso(_merc.gx, _merc.gy)
+	_restore_or_spawn_floor()
+	_last_visibility_cell = Vector2i(-999, -999)
+	_update_visibility(true)
+	if is_instance_valid(_cam): _cam.position = _player.position
+	_combat_log = "Returned to Floor %d" % _dlevel
+	_rebuild_inv()
+
+func _toggle_town_portal() -> void:
+	if _in_town:
+		if _town_portal.is_empty():
+			_combat_log = "No return portal"
+			return
+		_travel_to_floor(int(_town_portal.get("floor", 1)), Vector2(float(_town_portal.get("gx", 1)), float(_town_portal.get("gy", 1))))
+		_town_portal = {}
+		return
+	_capture_floor_state()
+	_town_portal = {"floor": _dlevel, "gx": _player.gx, "gy": _player.gy}
+	_clear_travel_nodes()
+	for m in _monsters:
+		if is_instance_valid(m): m.queue_free()
+	_monsters.clear()
+	_in_town = true
+	_player.gx = _ent_cell.x; _player.gy = _ent_cell.y; _player.position = _iso(_player.gx, _player.gy)
+	_combat_log = "HOMETOWN — Return Portal is open"
+	_rebuild_inv()
 
 # ── 캐릭터 성장 패널 ──
 func _build_char_panel() -> void:
@@ -3105,6 +3222,19 @@ func _rebuild_inv() -> void:
 	collection_button.text = "Collection & Ranking Book (%d)" % _collection.records.size()
 	collection_button.pressed.connect(_show_collection)
 	_inv_vbox.add_child(collection_button)
+	var travel_row := HBoxContainer.new()
+	var previous_button := Button.new()
+	previous_button.text = "Previous Floor"
+	previous_button.disabled = _dlevel <= 1 or _in_town
+	previous_button.pressed.connect(_previous_floor)
+	previous_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	travel_row.add_child(previous_button)
+	var town_button := Button.new()
+	town_button.text = "Return Portal" if _in_town else "Town Portal"
+	town_button.pressed.connect(_toggle_town_portal)
+	town_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	travel_row.add_child(town_button)
+	_inv_vbox.add_child(travel_row)
 	var wn := _equipped_label("weapon")
 	var an := _equipped_label("armor")
 	var rln := _equipped_label("ring_left")

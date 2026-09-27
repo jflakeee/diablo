@@ -1,6 +1,6 @@
 extends RefCounted
 
-const CURRENT_VERSION := 11
+const CURRENT_VERSION := 12
 const DEFAULT_PATH := "user://ashen_depths_save.json"
 
 static func _migrate(raw: Dictionary) -> Dictionary:
@@ -50,6 +50,10 @@ static func _migrate(raw: Dictionary) -> Dictionary:
 	if version == 10:
 		state["explored_by_floor"] = state.get("explored_by_floor", {})
 		version = 11
+	if version == 11:
+		state["floor_states"] = state.get("floor_states", {})
+		state["town_portal"] = state.get("town_portal", {})
+		version = 12
 	state["schema_version"] = version
 	return state
 
@@ -180,6 +184,10 @@ static func selftest() -> Dictionary:
 	v10["schema_version"] = 10
 	var migrated_v10 := _migrate(v10)
 	if int(migrated_v10.get("schema_version", 0)) != CURRENT_VERSION or not migrated_v10.get("explored_by_floor", null) is Dictionary: failures.append("v10 exploration migration")
+	var v11 := state.duplicate(true)
+	v11["schema_version"] = 11
+	var migrated_v11 := _migrate(v11)
+	if int(migrated_v11.get("schema_version", 0)) != CURRENT_VERSION or not migrated_v11.get("floor_states", null) is Dictionary or not migrated_v11.get("town_portal", null) is Dictionary: failures.append("v11 travel migration")
 	var corrupt_path := "user://save_store_corrupt_%s.json" % suffix
 	var corrupt := FileAccess.open(corrupt_path, FileAccess.WRITE)
 	if corrupt != null:
@@ -189,4 +197,4 @@ static func selftest() -> Dictionary:
 	for cleanup in [path, path + ".tmp", path + ".bak", corrupt_path]:
 		var absolute := ProjectSettings.globalize_path(cleanup)
 		if FileAccess.file_exists(absolute): DirAccess.remove_absolute(absolute)
-	return {"ok": failures.is_empty(), "checks": 16, "failures": failures}
+	return {"ok": failures.is_empty(), "checks": 17, "failures": failures}
