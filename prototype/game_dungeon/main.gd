@@ -34,7 +34,8 @@ const Stash := preload("res://stash.gd")
 const CollectionBook := preload("res://collection_book.gd")
 const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
-const DEPLOYED_AT_KST := "2026-09-27 23:11 KST"
+const TemplateTheme := preload("res://ui/template_theme.gd")
+const DEPLOYED_AT_KST := "2026-09-28 06:48 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -167,6 +168,7 @@ var _collection := CollectionBook.new()
 var _accessibility := Accessibility.new()
 var _automation_last_expire := 0
 var _assets := AssetCatalog.new()
+var _ui_theme: Theme
 
 var _logic_ticks := 0
 var _attacks := 0
@@ -696,6 +698,9 @@ func _release_runtime_resources() -> void:
 	_assets.clear()
 
 func _ready() -> void:
+	_ui_theme = TemplateTheme.create()
+	if not TemplateTheme.selftest():
+		push_error("Temporary UI theme failed its resource contract")
 	_accessibility.load_settings()
 	_setup_sfx()
 	_auto_quit = OS.get_cmdline_user_args().has("autoquit")
@@ -796,6 +801,7 @@ func _show_class_select() -> void:
 	var dcols := [Color(0.5, 0.8, 0.5), Color(0.9, 0.8, 0.3), Color(0.9, 0.3, 0.3)]
 	for i in 3:
 		var db := Button.new()
+		db.theme = _ui_theme
 		db.text = dnames[i]
 		db.position = Vector2(vp.x * 0.5 - 220 + i * 150, vp.y * 0.42 + 240)
 		db.custom_minimum_size = Vector2(140, 50)
@@ -806,6 +812,7 @@ func _show_class_select() -> void:
 		_menu_layer.add_child(db)
 	if OS.has_feature("web"):
 		var update_button := Button.new()
+		update_button.theme = _ui_theme
 		update_button.text = "FORCE LATEST UPDATE"
 		update_button.position = Vector2(vp.x * 0.5 - 220, minf(vp.y * 0.42 + 305, vp.y - 58))
 		update_button.custom_minimum_size = Vector2(440, 48)
@@ -825,6 +832,7 @@ func _update_diff_label() -> void:
 
 func _add_class_button(text: String, col: Color, pos: Vector2, cls: String, font_px: int = 26) -> void:
 	var btn := Button.new()
+	btn.theme = _ui_theme
 	btn.text = text
 	btn.position = pos
 	btn.custom_minimum_size = Vector2(440, 74)
@@ -938,6 +946,11 @@ func _start_game() -> void:
 	ui.transform = Transform2D.IDENTITY.scaled(Vector2(ui_scale, ui_scale))
 	add_child(ui)
 	var vp := physical_vp / ui_scale
+	var ui_root := Control.new()
+	ui_root.name = "ThemedUIRoot"
+	ui_root.size = vp
+	ui_root.theme = _ui_theme
+	ui.add_child(ui_root)
 	var safe := Rect2(Vector2.ZERO, vp)
 	if mobile_profile:
 		safe = MobileUI.logical_safe_area(physical_vp)
@@ -949,18 +962,18 @@ func _start_game() -> void:
 	_joy.control_size = MobileUI.JOYSTICK_SIZE
 	_joy.position = mobile_layout["joystick"]
 	_joy.visible = mobile_profile
-	ui.add_child(_joy)
+	ui_root.add_child(_joy)
 	# 스킬 버튼(확대): 우하단 2개 + 위 1개
 	if _class == "arcanist":
-		_add_skill_button(ui, "ember_bolt", "1 Ember", Color.ORANGE_RED, mobile_layout["skill_primary"], mobile_layout["skill_size"])
-		_add_skill_button(ui, "frost_shard", "2 Frost", Color.SKY_BLUE, mobile_layout["skill_secondary"], mobile_layout["skill_size"])
-		_add_skill_button(ui, "storm_lance", "3 Storm", Color.YELLOW, mobile_layout["skill_utility"], mobile_layout["skill_size"])
-		_add_skill_button(ui, "phase_step", "4 Phase", Color.MEDIUM_PURPLE, mobile_layout["skill_quaternary"], mobile_layout["skill_size"])
+		_add_skill_button(ui_root, "ember_bolt", "1 Ember", Color.ORANGE_RED, mobile_layout["skill_primary"], mobile_layout["skill_size"])
+		_add_skill_button(ui_root, "frost_shard", "2 Frost", Color.SKY_BLUE, mobile_layout["skill_secondary"], mobile_layout["skill_size"])
+		_add_skill_button(ui_root, "storm_lance", "3 Storm", Color.YELLOW, mobile_layout["skill_utility"], mobile_layout["skill_size"])
+		_add_skill_button(ui_root, "phase_step", "4 Phase", Color.MEDIUM_PURPLE, mobile_layout["skill_quaternary"], mobile_layout["skill_size"])
 	else:
-		_add_skill_button(ui, "sundering_strike", "1 Sunder", Color.ORANGE_RED, mobile_layout["skill_primary"], mobile_layout["skill_size"])
-		_add_skill_button(ui, "void_fury", "2 Fury", Color.CRIMSON, mobile_layout["skill_secondary"], mobile_layout["skill_size"])
-		_add_skill_button(ui, "iron_chant", "3 Chant", Color.GOLD, mobile_layout["skill_utility"], mobile_layout["skill_size"])
-		_add_skill_button(ui, "weapon_discipline", "4 Passive", Color.STEEL_BLUE, mobile_layout["skill_quaternary"], mobile_layout["skill_size"])
+		_add_skill_button(ui_root, "sundering_strike", "1 Sunder", Color.ORANGE_RED, mobile_layout["skill_primary"], mobile_layout["skill_size"])
+		_add_skill_button(ui_root, "void_fury", "2 Fury", Color.CRIMSON, mobile_layout["skill_secondary"], mobile_layout["skill_size"])
+		_add_skill_button(ui_root, "iron_chant", "3 Chant", Color.GOLD, mobile_layout["skill_utility"], mobile_layout["skill_size"])
+		_add_skill_button(ui_root, "weapon_discipline", "4 Passive", Color.STEEL_BLUE, mobile_layout["skill_quaternary"], mobile_layout["skill_size"])
 
 	var bag := Button.new()
 	bag.text = "Bag"
@@ -969,7 +982,7 @@ func _start_game() -> void:
 	bag.size = mobile_layout["menu_size"]
 	bag.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	bag.pressed.connect(_toggle_bag)
-	ui.add_child(bag)
+	ui_root.add_child(bag)
 
 	_inv_panel = Panel.new()
 	_inv_panel.position = modal_position
@@ -977,7 +990,7 @@ func _start_game() -> void:
 	_inv_panel.z_index = 200
 	_style_modal_panel(_inv_panel)
 	_inv_panel.visible = false
-	ui.add_child(_inv_panel)
+	ui_root.add_child(_inv_panel)
 	var inventory_scroll := ScrollContainer.new()
 	inventory_scroll.position = Vector2(20, 20)
 	inventory_scroll.size = modal_size - Vector2(40, 40)
@@ -996,7 +1009,7 @@ func _start_game() -> void:
 	shop.size = mobile_layout["menu_size"]
 	shop.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	shop.pressed.connect(_toggle_vendor)
-	ui.add_child(shop)
+	ui_root.add_child(shop)
 
 	_vendor_panel = Panel.new()
 	_vendor_panel.position = modal_position
@@ -1004,7 +1017,7 @@ func _start_game() -> void:
 	_vendor_panel.z_index = 200
 	_style_modal_panel(_vendor_panel)
 	_vendor_panel.visible = false
-	ui.add_child(_vendor_panel)
+	ui_root.add_child(_vendor_panel)
 	_build_vendor()
 	_add_modal_close_button(_vendor_panel)
 
@@ -1015,7 +1028,7 @@ func _start_game() -> void:
 	charb.size = mobile_layout["menu_size"]
 	charb.add_theme_font_size_override("font_size", _accessibility.font_size(18))
 	charb.pressed.connect(_toggle_char)
-	ui.add_child(charb)
+	ui_root.add_child(charb)
 
 	_char_panel = Panel.new()
 	_char_panel.position = modal_position
@@ -1023,7 +1036,7 @@ func _start_game() -> void:
 	_char_panel.z_index = 200
 	_style_modal_panel(_char_panel)
 	_char_panel.visible = false
-	ui.add_child(_char_panel)
+	ui_root.add_child(_char_panel)
 	_build_char_panel()
 	_add_modal_close_button(_char_panel)
 
@@ -1034,7 +1047,7 @@ func _start_game() -> void:
 	settings_button.size = settings_button.custom_minimum_size
 	settings_button.add_theme_font_size_override("font_size", _accessibility.font_size(20))
 	settings_button.pressed.connect(_toggle_settings)
-	ui.add_child(settings_button)
+	ui_root.add_child(settings_button)
 
 	var deploy_stamp := Label.new()
 	deploy_stamp.text = "DEPLOYED %s" % DEPLOYED_AT_KST
@@ -1044,7 +1057,7 @@ func _start_game() -> void:
 	deploy_stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	deploy_stamp.add_theme_font_size_override("font_size", _accessibility.font_size(20 if mobile_profile else 16))
 	deploy_stamp.add_theme_color_override("font_color", Color(0.92, 0.92, 0.92, 1.0))
-	ui.add_child(deploy_stamp)
+	ui_root.add_child(deploy_stamp)
 
 	_settings_panel = Panel.new()
 	_settings_panel.position = modal_position
@@ -1052,7 +1065,7 @@ func _start_game() -> void:
 	_settings_panel.z_index = 200
 	_style_modal_panel(_settings_panel)
 	_settings_panel.visible = false
-	ui.add_child(_settings_panel)
+	ui_root.add_child(_settings_panel)
 	_build_settings_panel()
 	_add_modal_close_button(_settings_panel)
 
@@ -1060,7 +1073,7 @@ func _start_game() -> void:
 	_minimap = MinimapScript.new()
 	_minimap.size = mobile_layout["minimap_size"]
 	_minimap.position = mobile_layout["minimap"]
-	ui.add_child(_minimap)
+	ui_root.add_child(_minimap)
 	_build_minimap_tex()
 
 	_hud = Label.new()
@@ -1068,13 +1081,13 @@ func _start_game() -> void:
 	_hud.size = Vector2(500, 0)
 	_hud.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_hud.add_theme_font_size_override("font_size", _accessibility.font_size(18))
-	ui.add_child(_hud)
+	ui_root.add_child(_hud)
 
 	# 포션 벨트 버튼(모바일): 좌하단, 조이스틱 위. 빨강=생명 / 파랑=마나
 	_pot_hp_btn = _make_potion_button("HP", Color(0.75, 0.15, 0.15), mobile_layout["potion_hp"], _quaff_health, mobile_layout["potion_size"])
 	_pot_mp_btn = _make_potion_button("MP", Color(0.15, 0.3, 0.8), mobile_layout["potion_mp"], _quaff_mana, mobile_layout["potion_size"])
-	ui.add_child(_pot_hp_btn)
-	ui.add_child(_pot_mp_btn)
+	ui_root.add_child(_pot_hp_btn)
+	ui_root.add_child(_pot_mp_btn)
 
 	if _class == "warden":
 		_equip(Item.generate(_rng, Item.WEAPON_BASES[1], 1, "normal"))  # Hand Axe 3-10
@@ -1363,7 +1376,7 @@ func _craft_selftest() -> void:
 
 	print("[P4][RESULT] craft_selftest verdict=", ("PASS" if (t1 and t2 and t3 and t4) else "FAIL"))
 
-func _add_skill_button(ui: CanvasLayer, id: String, label: String, col: Color, pos: Vector2, control_size: Vector2) -> void:
+func _add_skill_button(ui: Node, id: String, label: String, col: Color, pos: Vector2, control_size: Vector2) -> void:
 	var b := SkillButtonScript.new()
 	b.skill_id = id
 	b.label_text = label
