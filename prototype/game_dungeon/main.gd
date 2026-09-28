@@ -36,7 +36,7 @@ const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
-const DEPLOYED_AT_KST := "2026-09-28 15:04 KST"
+const DEPLOYED_AT_KST := "2026-09-28 15:15 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -2046,6 +2046,7 @@ func _boss_melee(m: ActorScript) -> void:
 
 func _boss_nova(m: ActorScript) -> void:
 	_boss_nova_cnt += 1
+	_fx.nova_wave(m.position, "poison", NOVA_RADIUS * 28.0)
 	_spawn_text(m.position, "POISON NOVA", Color(0.4, 0.9, 0.3))
 	if Vector2(_player.gx - m.gx, _player.gy - m.gy).length() <= NOVA_RADIUS and _has_los(Vector2(m.gx, m.gy), Vector2(_player.gx, _player.gy)):
 		var raw := CombatLib.physical_damage(_rng, m.dmg_min, m.dmg_max, 30.0)
@@ -2063,6 +2064,7 @@ func _boss_spray(m: ActorScript) -> void:
 		return
 	_boss_spray_cnt += 1
 	_flash(m.position, _player.position)
+	_fx.elemental_impact(_player.position, "poison", false)
 	_spawn_text(m.position, "poison spray", Color(0.5, 0.8, 0.4))
 	if CombatLib.roll_hit(_rng, m.attack_rating, _player.defense, m.level, _player.level):
 		var raw := CombatLib.physical_damage(_rng, m.dmg_min, m.dmg_max, 0.0)
@@ -2554,13 +2556,16 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 		var fd := int(_eq.get("fdmg", 0))
 		if fd > 0:
 			edmg += CombatLib.apply_resistance(fd, _target_resist(target, "fire"))
+			_fx.elemental_impact(target.position, "fire", false)
 		var cd := int(_eq.get("cdmg", 0))
 		if cd > 0:
 			edmg += CombatLib.apply_resistance(cd, _target_resist(target, "cold"))
+			_fx.elemental_impact(target.position, "cold", false)
 			target.slow_timer = 1.5   # 냉기 무기 슬로우
 		var ld := int(_eq.get("ldmg", 0))
 		if ld > 0:
 			edmg += CombatLib.apply_resistance(ld, _target_resist(target, "light"))
+			_fx.elemental_impact(target.position, "light", false)
 		if edmg > 0:
 			target.take_damage(edmg)
 			_spawn_text(target.position + Vector2(-14, 0), "+%d" % edmg, Color(0.6, 0.9, 1.0))
@@ -2620,7 +2625,7 @@ func _apply_enchant(m: ActorScript) -> void:
 	if d > 0:
 		_player.take_damage(d)
 		var c := Color(1, 0.5, 0.2) if el == "fire" else (Color(0.5, 0.8, 1) if el == "cold" else Color(1, 1, 0.4))
-		_fx.impact(_player.position, c, false)
+		_fx.elemental_impact(_player.position, el, false)
 		_spawn_text(_player.position + Vector2(0, -12), "+%d %s" % [d, el], c)
 
 func _cast_iron_chant() -> void:

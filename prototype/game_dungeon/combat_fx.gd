@@ -85,6 +85,74 @@ func impact(pos: Vector2, color: Color, heavy: bool = false) -> void:
 		tween.tween_property(shard, "modulate:a", 0.0, 0.22)
 		tween.finished.connect(shard.queue_free)
 
+func elemental_impact(pos: Vector2, element: String, heavy: bool = false) -> void:
+	var colors := {"fire": Color(1.0, 0.32, 0.08), "cold": Color(0.38, 0.78, 1.0), "light": Color(1.0, 0.92, 0.24), "poison": Color(0.38, 0.9, 0.28)}
+	var color: Color = colors.get(element, Color.WHITE)
+	impact(pos, color, heavy)
+	var count: int = [2, 4, 6][quality]
+	for index in count:
+		var accent := Line2D.new()
+		accent.width = 3.5 if heavy else 2.5
+		accent.default_color = color.lightened(0.22)
+		accent.position = pos
+		accent.z_index = 76
+		var ratio := float(index) / float(maxi(1, count - 1))
+		var angle := -PI * 0.85 + ratio * PI * 0.7
+		var length := 24.0 if heavy else 17.0
+		match element:
+			"fire":
+				accent.add_point(Vector2.ZERO)
+				accent.add_point(Vector2(cos(angle), sin(angle)) * length + Vector2(0, -8))
+			"cold":
+				angle = TAU * float(index) / float(count)
+				accent.add_point(Vector2(cos(angle), sin(angle)) * 4.0)
+				accent.add_point(Vector2(cos(angle), sin(angle)) * (length + 5.0))
+			"light":
+				var side := -1.0 if index % 2 == 0 else 1.0
+				accent.add_point(Vector2(side * 4.0, -10.0))
+				accent.add_point(Vector2(-side * 3.0, -2.0))
+				accent.add_point(Vector2(side * 5.0, 9.0))
+			"poison":
+				var spread := (ratio - 0.5) * 28.0
+				accent.add_point(Vector2(spread, 5.0))
+				accent.add_point(Vector2(spread * 0.7, -length))
+			_:
+				accent.add_point(Vector2.ZERO)
+				accent.add_point(Vector2.UP * length)
+		if not _track(accent):
+			accent.free()
+			continue
+		var travel := Vector2(0, -10.0) if element in ["fire", "poison"] else Vector2.ZERO
+		var tween := accent.create_tween().set_parallel(true)
+		tween.tween_property(accent, "position", pos + travel, 0.30)
+		tween.tween_property(accent, "modulate:a", 0.0, 0.30).set_delay(0.06)
+		tween.tween_property(accent, "width", 0.5, 0.30)
+		tween.finished.connect(accent.queue_free)
+
+func nova_wave(pos: Vector2, element: String, radius: float) -> void:
+	var color := Color(0.38, 0.9, 0.28) if element == "poison" else Color(0.72, 0.32, 1.0)
+	_ring(pos, Color(color.r, color.g, color.b, 0.9), radius * 0.38, 0.32, 5.0)
+	_ring(pos, Color(color.r, color.g, color.b, 0.62), radius * 0.68, 0.48, 3.5)
+	if quality > 0:
+		_ring(pos, Color(color.r, color.g, color.b, 0.38), radius, 0.64, 2.0)
+	var ray_count: int = [4, 6, 8][quality]
+	for index in ray_count:
+		var angle := TAU * float(index) / float(ray_count)
+		var ray := Line2D.new()
+		ray.width = 3.0
+		ray.default_color = color
+		ray.position = pos
+		ray.z_index = 70
+		ray.add_point(Vector2(cos(angle), sin(angle) * 0.55) * 14.0)
+		ray.add_point(Vector2(cos(angle), sin(angle) * 0.55) * radius)
+		if not _track(ray):
+			ray.free()
+			continue
+		var tween := ray.create_tween().set_parallel(true)
+		tween.tween_property(ray, "modulate:a", 0.0, 0.55).set_delay(0.12)
+		tween.tween_property(ray, "width", 0.5, 0.55)
+		tween.finished.connect(ray.queue_free)
+
 func slash(from_pos: Vector2, to_pos: Vector2, color: Color, heavy: bool = false) -> void:
 	var delta := to_pos - from_pos
 	if delta.length() < 1.0:
@@ -398,4 +466,6 @@ func pickup(texture: Texture2D, from_pos: Vector2, to_pos: Vector2, color: Color
 	tween.finished.connect(sprite.queue_free)
 
 static func selftest() -> bool:
-	return MAX_ACTIVE >= 48 and MAX_ACTIVE <= 96 and MAX_FLOATING_TEXT <= 24 and DAMAGE_BATCH_MS >= 100
+	var supported_elements := ["fire", "cold", "light", "poison"]
+	return MAX_ACTIVE >= 48 and MAX_ACTIVE <= 96 and MAX_FLOATING_TEXT <= 24 and DAMAGE_BATCH_MS >= 100 \
+		and supported_elements.size() == 4 and supported_elements.has("poison")
