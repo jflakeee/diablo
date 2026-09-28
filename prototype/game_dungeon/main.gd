@@ -37,7 +37,7 @@ const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
 const WorldStream := preload("res://world_stream.gd")
-const DEPLOYED_AT_KST := "2026-09-29 05:58 KST"
+const DEPLOYED_AT_KST := "2026-09-29 06:06 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -428,7 +428,7 @@ func _update_minimap() -> void:
 	_minimap.visible_cells = _visible_cells
 	_minimap.explored_cells = _floor_explored()
 	var exit_id := Visibility.key(_exit_cell)
-	_minimap.exit_cell = Vector2(_exit_cell.x, _exit_cell.y) if _floor_explored().has(exit_id) else Vector2(-99, -99)
+	_minimap.exit_cell = Vector2(_exit_cell.x, _exit_cell.y) if _stream_exit_ready() and _floor_explored().has(exit_id) else Vector2(-99, -99)
 	var mc: Array = []
 	for m in _monsters:
 		if m.alive and _visible_cells.has(Visibility.key(Vector2i(roundi(m.gx), roundi(m.gy)))):
@@ -503,12 +503,42 @@ func _apply_dungeon_layout(lvl: Dictionary) -> void:
 					s.scale = Vector2(1.0, 0.62)
 			s.position = _iso(x, y)
 			_tiles_node.add_child(s)
-	var em := Sprite2D.new()
-	em.texture = _tex_rect(16, 16, Color(0.95, 0.3, 0.3))
-	em.position = _iso(_exit_cell.x, _exit_cell.y)
-	em.z_index = 2
-	_tiles_node.add_child(em)
+	if _stream_exit_ready():
+		var em := Sprite2D.new()
+		em.texture = _tex_rect(16, 16, Color(0.95, 0.3, 0.3))
+		em.position = _iso(_exit_cell.x, _exit_cell.y)
+		em.z_index = 2
+		_tiles_node.add_child(em)
 	_astar = _build_astar(_gw, _gh, _grid)
+
+func _stream_exit_ready() -> bool:
+	# Require one complete streaming eviction cycle before a floor can end.
+	return _world_stream == null or _world_stream.next_sequence >= WorldStream.MAX_ACTIVE_CHUNKS + 1
+
+func _stream_exploration_target() -> Vector2i:
+	if _world_stream == null or _stream_exit_ready():
+		return _exit_cell
+	var front: Dictionary = _world_stream.frontier()
+	var revealed: Dictionary = front.get("revealed_rooms", {})
+	var origin: Vector2i = (front["coord"] as Vector2i) * WorldStream.CHUNK_TILE_SIDE - _stream_grid_origin
+	var player_cell := Vector2i(roundi(_player.gx), roundi(_player.gy))
+	var best := _exit_cell
+	var best_distance := INF
+	for room_y in WorldStream.CHUNK_ROOM_SIDE:
+		for room_x in WorldStream.CHUNK_ROOM_SIDE:
+			if revealed.has("%d,%d" % [room_x, room_y]):
+				continue
+			var candidate := origin + Vector2i(room_x * WorldStream.ROOM_SIZE + WorldStream.ROOM_SIZE / 2, room_y * WorldStream.ROOM_SIZE + WorldStream.ROOM_SIZE / 2)
+			if not _walkable(candidate.x, candidate.y):
+				continue
+			var path := _astar.get_id_path(player_cell, candidate) if _astar != null and _astar.region.has_point(player_cell) else []
+			if path.is_empty():
+				continue
+			var distance := Vector2(player_cell).distance_squared_to(Vector2(candidate))
+			if distance < best_distance:
+				best_distance = distance
+				best = candidate
+	return best
 
 func _stream_cell_active(cell: Vector2i) -> bool:
 	for raw_rect in _stream_chunk_rects.values():
@@ -1503,6 +1533,7 @@ func _run_travel_system_test() -> void:
 func _run_streaming_map_test() -> void:
 	await get_tree().create_timer(0.4).timeout
 	var initial_ok := _world_stream.active_chunks.size() == 1 and _gw == 27 and _gh == 27
+	var initial_exit_gated := not _stream_exit_ready()
 	for generation in 3:
 		var front: Dictionary = _world_stream.frontier()
 		var front_coord: Vector2i = front["coord"]
@@ -1516,10 +1547,11 @@ func _run_streaming_map_test() -> void:
 		if not transition.is_empty():
 			_apply_stream_transition(transition)
 	var resident_ok := _world_stream.active_chunks.size() == 3 and _world_stream.retired_chunks.size() == 1
+	var exit_ready := _stream_exit_ready()
 	var tiles_ok := is_instance_valid(_tiles_node) and _tiles_node.get_child_count() <= WorldStream.MAX_ACTIVE_CHUNKS * WorldStream.CHUNK_TILE_SIDE * WorldStream.CHUNK_TILE_SIDE + 1
 	var path_ok := _astar != null and not _astar.get_id_path(Vector2i(roundi(_player.gx), roundi(_player.gy)), _exit_cell).is_empty()
-	var ok := initial_ok and resident_ok and tiles_ok and path_ok
-	print("[STREAM] initial=%s active=%d retired=%d tiles=%d path=%s verdict=%s" % [str(initial_ok), _world_stream.active_chunks.size(), _world_stream.retired_chunks.size(), _tiles_node.get_child_count(), str(path_ok), "PASS" if ok else "FAIL"])
+	var ok := initial_ok and initial_exit_gated and resident_ok and exit_ready and tiles_ok and path_ok
+	print("[STREAM] initial=%s gated=%s active=%d retired=%d exit_ready=%s tiles=%d path=%s verdict=%s" % [str(initial_ok), str(initial_exit_gated), _world_stream.active_chunks.size(), _world_stream.retired_chunks.size(), str(exit_ready), _tiles_node.get_child_count(), str(path_ok), "PASS" if ok else "FAIL"])
 	await get_tree().create_timer(0.4).timeout
 	get_tree().quit()
 
@@ -2073,7 +2105,9 @@ func _physics_process(delta: float) -> void:
 
 	# 출구 도달 → 다음 던전 레벨(워프). 보스 층은 보스 처치 전 잠금.
 	if Vector2(_player.gx, _player.gy).distance_to(Vector2(_exit_cell.x, _exit_cell.y)) < 1.3:
-		if _exit_locked:
+		if not _stream_exit_ready():
+			_combat_log = "EXPLORE THE FRONTIER: %d/4 AREAS" % _world_stream.next_sequence
+		elif _exit_locked:
 			_combat_log = "EXIT SEALED: defeat the boss"
 		else:
 			_next_level()
@@ -2396,7 +2430,8 @@ func _auto_play(delta: float) -> void:
 		_nav_toward(_player, float(gi.get_meta("gx")), float(gi.get_meta("gy")), delta)
 		return
 	# 몬스터·아이템 없음 → 출구로 A* 이동(다음 레벨 워프)
-	_nav_toward(_player, _exit_cell.x, _exit_cell.y, delta)
+	var exploration_target := _stream_exploration_target()
+	_nav_toward(_player, exploration_target.x, exploration_target.y, delta)
 
 func _check_pickup() -> void:
 	for n in _ground.duplicate():
@@ -2457,6 +2492,7 @@ func _process(delta: float) -> void:
 	if _world_stream != null and not _in_town:
 		var frontier_revealed := (_world_stream.frontier().get("revealed_rooms", {}) as Dictionary).size()
 		_hud.text += "\nAREA %d/27 ROOMS / FRONTIER %d/3" % [_world_stream.active_chunks.size() * 9, mini(frontier_revealed, 3)]
+		if not _stream_exit_ready(): _hud.text += " / EXIT AFTER AREA 4"
 	if _vision_relic_timer > 0.0: _hud.text += " / ALL-SEEING %.0fs" % _vision_relic_timer
 	if _arc_flasks > 0: _hud.text += " / ARC FLASK %d" % _arc_flasks
 	if not _corpse_state.is_empty():
