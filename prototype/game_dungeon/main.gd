@@ -35,7 +35,7 @@ const CollectionBook := preload("res://collection_book.gd")
 const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
-const DEPLOYED_AT_KST := "2026-09-28 10:06 KST"
+const DEPLOYED_AT_KST := "2026-09-28 10:58 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -762,7 +762,7 @@ func _show_class_select() -> void:
 	add_child(_menu_layer)
 	var physical_vp := get_viewport_rect().size
 	var mobile_profile := MobileUI.prefer_mobile(physical_vp)
-	var display_scale := MobileUI.device_pixel_ratio() if mobile_profile else 1.0
+	var display_scale := MobileUI.device_pixel_ratio() * MobileUI.MOBILE_VISUAL_SCALE if mobile_profile else 1.0
 	var vp := physical_vp / display_scale
 	_menu_layer.transform = Transform2D.IDENTITY.scaled(Vector2(display_scale, display_scale))
 	var title_font := 34 if mobile_profile else 44
@@ -950,7 +950,7 @@ func _start_game() -> void:
 	_cam.make_current()
 
 	var ui := CanvasLayer.new()
-	var requested_ui_scale := _accessibility.ui_scale * MobileUI.device_pixel_ratio() if mobile_profile else _accessibility.ui_scale
+	var requested_ui_scale := _accessibility.ui_scale * MobileUI.device_pixel_ratio() * MobileUI.MOBILE_VISUAL_SCALE if mobile_profile else _accessibility.ui_scale
 	var ui_scale := MobileUI.effective_scale(requested_ui_scale, physical_vp, mobile_profile)
 	ui.transform = Transform2D.IDENTITY.scaled(Vector2(ui_scale, ui_scale))
 	add_child(ui)
