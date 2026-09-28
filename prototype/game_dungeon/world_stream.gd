@@ -124,6 +124,7 @@ func snapshot() -> Dictionary:
 			"id": chunk["id"], "sequence": chunk["sequence"],
 			"coord": [chunk["coord"].x, chunk["coord"].y],
 			"seed": chunk["seed"], "entry_side": chunk["entry_side"],
+			"entry_direction": [chunk["entry_direction"].x, chunk["entry_direction"].y],
 			"exit_direction": [chunk["exit_direction"].x, chunk["exit_direction"].y],
 			"gate_offset": chunk["gate_offset"],
 			"revealed_rooms": chunk["revealed_rooms"].duplicate(true),
@@ -134,6 +135,48 @@ func snapshot() -> Dictionary:
 		"generation_epoch": generation_epoch, "next_sequence": next_sequence,
 		"active_chunks": chunks, "used_chunk_coords": used_chunk_coords.keys(),
 	}
+
+func restore(raw: Dictionary) -> bool:
+	var saved_chunks = raw.get("active_chunks", null)
+	if not saved_chunks is Array or saved_chunks.is_empty() or saved_chunks.size() > MAX_ACTIVE_CHUNKS:
+		return false
+	run_seed = int(raw.get("run_seed", 0))
+	floor_id = maxi(1, int(raw.get("floor_id", 1)))
+	act = maxi(1, int(raw.get("act", 1)))
+	generation_epoch = maxi(0, int(raw.get("generation_epoch", 0)))
+	next_sequence = maxi(0, int(raw.get("next_sequence", saved_chunks.size())))
+	active_chunks.clear()
+	used_chunk_coords.clear()
+	retired_chunks.clear()
+	for raw_coord in raw.get("used_chunk_coords", []):
+		used_chunk_coords[String(raw_coord)] = true
+	for raw_chunk in saved_chunks:
+		if not raw_chunk is Dictionary:
+			return false
+		var coord_values: Array = raw_chunk.get("coord", [])
+		var entry_values: Array = raw_chunk.get("entry_direction", [])
+		var exit_values: Array = raw_chunk.get("exit_direction", [])
+		if coord_values.size() != 2 or exit_values.size() != 2:
+			return false
+		var coord := Vector2i(int(coord_values[0]), int(coord_values[1]))
+		var entry_direction := _side_direction(String(raw_chunk.get("entry_side", "west")))
+		if entry_values.size() == 2:
+			entry_direction = Vector2i(int(entry_values[0]), int(entry_values[1]))
+		var seed := int(raw_chunk.get("seed", 0))
+		var level := LevelGen.generate_chunk(seed, act)
+		var chunk := {
+			"id": String(raw_chunk.get("id", "%d:%d:%d" % [floor_id, generation_epoch, int(raw_chunk.get("sequence", 0))])),
+			"sequence": int(raw_chunk.get("sequence", 0)), "coord": coord, "seed": seed,
+			"entry_direction": entry_direction, "entry_side": String(raw_chunk.get("entry_side", "west")),
+			"exit_direction": Vector2i(int(exit_values[0]), int(exit_values[1])),
+			"gate_offset": int(raw_chunk.get("gate_offset", CHUNK_TILE_SIDE / 2)),
+			"revealed_rooms": (raw_chunk.get("revealed_rooms", {}) as Dictionary).duplicate(true),
+			"frontier_consumed": bool(raw_chunk.get("frontier_consumed", false)),
+			"grid": level["grid"], "map_type": level["map_type"], "theme": level["theme"],
+		}
+		active_chunks.append(chunk)
+		used_chunk_coords[_coord_key(coord)] = true
+	return not active_chunks.is_empty()
 
 func _append_chunk(coord: Vector2i, entry_direction: Vector2i, entry_side: String) -> Dictionary:
 	var sequence := next_sequence
@@ -255,6 +298,12 @@ static func _side_name(direction: Vector2i) -> String:
 	if direction == Vector2i.LEFT: return "west"
 	return ""
 
+static func _side_direction(side: String) -> Vector2i:
+	if side == "north": return Vector2i.UP
+	if side == "east": return Vector2i.RIGHT
+	if side == "south": return Vector2i.DOWN
+	return Vector2i.LEFT
+
 static func selftest() -> bool:
 	var stream := preload("res://world_stream.gd").new()
 	stream.setup(987654, 1, 1)
@@ -287,4 +336,7 @@ static func selftest() -> bool:
 		var long_composite: Dictionary = transition["composite"]
 		if int(long_composite["w"]) * int(long_composite["h"]) > 81 * 81:
 			return false
-	return long_stream.next_sequence == 101 and long_stream.used_chunk_coords.size() == 101 and long_stream.retired_chunks.size() == 98
+	if long_stream.next_sequence != 101 or long_stream.used_chunk_coords.size() != 101 or long_stream.retired_chunks.size() != 98:
+		return false
+	var restored := preload("res://world_stream.gd").new()
+	return restored.restore(stream.snapshot()) and restored.snapshot() == stream.snapshot() and restored.compose_active_grid()["grid"] == stream.compose_active_grid()["grid"]

@@ -37,7 +37,7 @@ const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
 const WorldStream := preload("res://world_stream.gd")
-const DEPLOYED_AT_KST := "2026-09-28 22:19 KST"
+const DEPLOYED_AT_KST := "2026-09-28 22:30 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -1873,6 +1873,7 @@ func _gather_save_state(reason: String = "manual") -> Dictionary:
 		"vision_relic_timer": _vision_relic_timer,
 		"arc_flasks": _arc_flasks,
 		"world_stream": _world_stream.snapshot() if _world_stream != null else {},
+		"player_global_tile": [_player.gx + _stream_grid_origin.x, _player.gy + _stream_grid_origin.y],
 	}
 
 func _save_game() -> void:
@@ -1940,10 +1941,25 @@ func _load_game() -> void:
 	var saved_stream: Dictionary = state.get("world_stream", {})
 	_stream_epoch = int(saved_stream.get("generation_epoch", _stream_epoch))
 	_clear_travel_nodes()
-	_generate_dungeon()
+	var stream_restored := false
+	if not saved_stream.is_empty() and int(saved_stream.get("floor_id", -1)) == _dlevel and int(saved_stream.get("act", -1)) == _act:
+		_world_stream = WorldStream.new()
+		stream_restored = _world_stream.restore(saved_stream)
+	if stream_restored:
+		var restored_layout := _world_stream.compose_active_grid()
+		_stream_grid_origin = restored_layout["grid_origin"]
+		_stream_chunk_rects = restored_layout["chunk_rects"]
+		_apply_dungeon_layout(restored_layout)
+	else:
+		_generate_dungeon()
 	_build_minimap_tex()
-	_player.gx = _ent_cell.x
-	_player.gy = _ent_cell.y
+	var saved_global: Array = state.get("player_global_tile", [])
+	if stream_restored and saved_global.size() == 2:
+		_player.gx = float(saved_global[0]) - _stream_grid_origin.x
+		_player.gy = float(saved_global[1]) - _stream_grid_origin.y
+	if not stream_restored or not _walkable(_player.gx, _player.gy):
+		_player.gx = _ent_cell.x
+		_player.gy = _ent_cell.y
 	_player.position = _iso(_player.gx, _player.gy)
 	if _merc != null:
 		_merc.gx = _player.gx + 1
