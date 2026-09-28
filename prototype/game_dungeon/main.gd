@@ -35,7 +35,8 @@ const CollectionBook := preload("res://collection_book.gd")
 const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
-const DEPLOYED_AT_KST := "2026-09-28 10:58 KST"
+const CombatFX := preload("res://combat_fx.gd")
+const DEPLOYED_AT_KST := "2026-09-28 12:55 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -86,6 +87,7 @@ var _spells_cast := 0
 var _spell_hits := 0
 
 var _world: Node2D
+var _fx: CombatFX
 var _cam: Camera2D
 var _player: ActorScript
 var _monsters: Array = []
@@ -874,6 +876,10 @@ func _start_game() -> void:
 	_world = Node2D.new()
 	_world.y_sort_enabled = true
 	add_child(_world)
+	_fx = CombatFX.new()
+	_fx.name = "CombatFX"
+	_fx.z_index = 70
+	_world.add_child(_fx)
 	_generate_dungeon()
 
 	if _class == "arcanist":
@@ -2306,6 +2312,7 @@ func _cast_bolt(target: ActorScript, element: String, color: Color, base_min: in
 		return
 	_player.attack_cd = CombatLib.frames_to_sec(CombatLib.sorc_fcr_frames(_player_fcr))  # FCR
 	_player.play_cast(Vector2(target.gx - _player.gx, target.gy - _player.gy))
+	_fx.cast_burst(_player.position, color)
 	_play_sfx("spell")
 	_spells_cast += 1
 	var lvl := _player.skill_level(skill_id)
@@ -2322,6 +2329,7 @@ func _cast_storm_lance(target: ActorScript) -> void:
 		return
 	_player.attack_cd = CombatLib.frames_to_sec(CombatLib.sorc_fcr_frames(_player_fcr))
 	_player.play_cast(Vector2(target.gx - _player.gx, target.gy - _player.gy))
+	_fx.cast_burst(_player.position, Color(1.0, 0.9, 0.3))
 	_play_sfx("spell")
 	_spells_cast += 1
 	var raw := _rng.randi_range(6, 30) + _player.skill_level("storm_lance") * 3
@@ -2329,7 +2337,7 @@ func _cast_storm_lance(target: ActorScript) -> void:
 	var dmg := CombatLib.apply_resistance(raw, target.res_light)
 	target.take_damage(dmg)
 	_spell_hits += 1
-	_flash(_player.position, target.position)
+	_fx.lightning(_player.position, target.position)
 	_spawn_text(target.position, "%d LIGHT" % dmg, Color(1, 1, 0.4))
 	_combat_log = "Storm Lance (dmg %d)" % dmg
 	if not target.alive:
@@ -2338,12 +2346,13 @@ func _cast_storm_lance(target: ActorScript) -> void:
 func _cast_phase_step(target: ActorScript) -> void:
 	if _player.skill_level("phase_step") <= 0:
 		return
-	if not _has_los(Vector2(_player.gx, _player.gy), Vector2(target.gx, target.gy)):
+	if target != null and not _has_los(Vector2(_player.gx, _player.gy), Vector2(target.gx, target.gy)):
 		_combat_log = "Line of sight blocked"
 		return
 	if not _player.spend_mana(Skills.mana_cost("phase_step")):
 		return
 	_spells_cast += 1
+	var origin := _player.position
 	var tx := _player.gx
 	var ty := _player.gy
 	if target != null:
@@ -2354,6 +2363,7 @@ func _cast_phase_step(target: ActorScript) -> void:
 		_player.gx = tx
 		_player.gy = ty
 		_player.position = _iso(tx, ty)
+		_fx.phase_step(origin, _player.position)
 	_combat_log = "Phase Step"
 
 func _blink_away(target: ActorScript) -> void:
@@ -2362,6 +2372,7 @@ func _blink_away(target: ActorScript) -> void:
 	if not _player.spend_mana(Skills.mana_cost("phase_step")):
 		return
 	_spells_cast += 1
+	var origin := _player.position
 	var dir := (Vector2(_player.gx, _player.gy) - Vector2(target.gx, target.gy)).normalized()
 	var tx := clampf(_player.gx + dir.x * 5.0, 1.0, GRID - 2)
 	var ty := clampf(_player.gy + dir.y * 5.0, 1.0, GRID - 2)
@@ -2369,31 +2380,51 @@ func _blink_away(target: ActorScript) -> void:
 		_player.gx = tx
 		_player.gy = ty
 		_player.position = _iso(tx, ty)
+		_fx.phase_step(origin, _player.position)
 	_combat_log = "Phase Step (kite)"
 
 func _spawn_projectile(from_pos: Vector2, target: ActorScript, dmg: int, element: String = "fire", color: Color = Color(1, 0.5, 0.15)) -> void:
 	var n := Sprite2D.new()
-	n.texture = _tex_rect(10, 10, color)
+	n.texture = _tex_rect(12, 12, color)
 	n.position = from_pos
+	n.rotation = PI * 0.25
 	n.z_index = 50
 	_world.add_child(n)
-	_projectiles.append({"node": n, "target": target, "dmg": dmg, "element": element})
+	var trail := Line2D.new()
+	trail.width = 5.0
+	trail.default_color = Color(color.r, color.g, color.b, 0.55)
+	trail.z_index = 49
+	trail.add_point(from_pos)
+	_world.add_child(trail)
+	_projectiles.append({"node": n, "trail": trail, "target": target, "dmg": dmg, "element": element, "color": color})
 
 func _update_projectiles(delta: float) -> void:
 	for p in _projectiles.duplicate():
 		var n = p["node"]
 		var t = p["target"]
 		if not is_instance_valid(n):
+			var stale_trail = p.get("trail")
+			if is_instance_valid(stale_trail): stale_trail.queue_free()
 			_projectiles.erase(p)
 			continue
 		if not is_instance_valid(t) or not t.alive:
 			n.queue_free()
+			var dead_trail = p.get("trail")
+			if is_instance_valid(dead_trail): dead_trail.queue_free()
 			_projectiles.erase(p)
 			continue
 		n.position = n.position.move_toward(t.position, 420.0 * delta)
+		n.rotation += delta * 9.0
+		var trail = p.get("trail") as Line2D
+		if is_instance_valid(trail):
+			trail.add_point(n.position)
+			while trail.get_point_count() > 6:
+				trail.remove_point(0)
 		var projectile_cell := _world_to_grid(n.position)
 		if not _walkable(projectile_cell.x, projectile_cell.y):
+			_fx.impact(n.position, p.get("color", Color.WHITE), false)
 			n.queue_free()
+			if is_instance_valid(trail): trail.queue_free()
 			_projectiles.erase(p)
 			continue
 		if n.position.distance_to(t.position) < 12.0:
@@ -2417,9 +2448,11 @@ func _update_projectiles(delta: float) -> void:
 			if tres < 0:
 				txt = "%d WEAK" % dmg
 			_spawn_text(t.position, txt, Color(1, 0.55, 0.15))
+			_fx.impact(t.position, p.get("color", Color.WHITE), false)
 			if not t.alive:
 				_grant_xp(t.level * 40)
 			n.queue_free()
+			if is_instance_valid(trail): trail.queue_free()
 			_projectiles.erase(p)
 
 func _player_attack(target: ActorScript, skill_id: String) -> void:
@@ -2471,6 +2504,7 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 		if _class == "warden" and _rng.randf() < 0.20:
 			cb = CombatLib.crushing_blow(target.life, false, String(target.get_meta("kind", "melee")) == "boss")
 		target.take_damage(dmg + cb)
+		_fx.impact(target.position, Color(1.0, 0.62, 0.22), crit or cb > 0)
 		# 무기 속성 데미지 (Fiery/Frozen/Shocking) — 대상 속성 저항 적용
 		var edmg := 0
 		var fd := int(_eq.get("fdmg", 0))
@@ -2548,6 +2582,7 @@ func _cast_iron_chant() -> void:
 	_player.bo_pct = Skills.iron_chant_bonus_pct(lvl) + Skills.synergy_bonus_pct("iron_chant", _player.skills)
 	_player.bo_timer = Skills.iron_chant_duration(lvl)
 	_recompute_vitals(_player)
+	_fx.buff_pulse(_player.position, Color(1.0, 0.75, 0.22))
 	_bo_casts += 1
 	_combat_log = "Iron Chant! +%.0f%%" % _player.bo_pct
 
@@ -2812,6 +2847,7 @@ func _spawn_ground(it: Dictionary, gx: float, gy: float) -> void:
 	n.set_meta("gy", gy)
 	_world.add_child(n)
 	_ground.append(n)
+	_fx.loot_drop(n, String(it.get("quality", "normal")), col)
 	_layout_ground_labels()
 
 func _layout_ground_labels() -> void:
@@ -2850,6 +2886,9 @@ func _pickup(n: Node) -> void:
 	if not _automation.accepts(it):
 		return
 	_play_sfx("pickup")
+	var pickup_sprite := n.get_child(0) as Sprite2D
+	if pickup_sprite != null:
+		_fx.pickup(pickup_sprite.texture, n.position + pickup_sprite.position, _player.position, pickup_sprite.modulate, pickup_sprite.scale)
 	_ground.erase(n)
 	n.queue_free()
 	_layout_ground_labels()
@@ -3632,24 +3671,12 @@ func _apply_large_panel_text(root: Node) -> void:
 		_apply_large_panel_text(child)
 
 func _flash(from: Vector2, to: Vector2) -> void:
-	_attack_line.clear_points()
-	_attack_line.add_point(from)
-	_attack_line.add_point(to)
-	_attack_ttl = 0.18
+	if _fx != null:
+		_fx.slash(from, to, Color(1.0, 0.9, 0.35))
 
 func _spawn_text(pos: Vector2, text: String, col: Color) -> void:
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.position = pos + Vector2(-90, -46)
-	lbl.size = Vector2(180, 28)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.z_index = 100
-	lbl.add_theme_color_override("font_color", col)
-	lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.95))
-	lbl.add_theme_constant_override("outline_size", 3)
-	lbl.add_theme_font_size_override("font_size", _accessibility.font_size(18))
-	_world.add_child(lbl)
-	var tw := create_tween()
-	tw.tween_property(lbl, "position", lbl.position + Vector2(0, -28), 0.8)
-	tw.parallel().tween_property(lbl, "modulate:a", 0.0, 0.8)
-	tw.finished.connect(lbl.queue_free)
+	if _fx == null:
+		return
+	var lower := text.to_lower()
+	var kind := "critical" if text.contains("!") or text.begins_with("CB ") else ("status" if lower in ["block", "skill unlocked", "all-seeing"] else "normal")
+	_fx.floating_text(pos, text, col, _accessibility.font_size(18), kind)
