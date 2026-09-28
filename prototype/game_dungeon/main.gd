@@ -36,7 +36,7 @@ const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
-const DEPLOYED_AT_KST := "2026-09-28 12:55 KST"
+const DEPLOYED_AT_KST := "2026-09-28 13:00 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -2384,8 +2384,12 @@ func _blink_away(target: ActorScript) -> void:
 	_combat_log = "Phase Step (kite)"
 
 func _spawn_projectile(from_pos: Vector2, target: ActorScript, dmg: int, element: String = "fire", color: Color = Color(1, 0.5, 0.15)) -> void:
-	var n := Sprite2D.new()
-	n.texture = _tex_rect(12, 12, color)
+	var n := Polygon2D.new()
+	if element == "cold":
+		n.polygon = PackedVector2Array([Vector2(0, -11), Vector2(6, 0), Vector2(0, 11), Vector2(-6, 0)])
+	else:
+		n.polygon = PackedVector2Array([Vector2(-7, -4), Vector2(0, -8), Vector2(7, -4), Vector2(7, 4), Vector2(0, 8), Vector2(-7, 4)])
+	n.color = color
 	n.position = from_pos
 	n.rotation = PI * 0.25
 	n.z_index = 50
@@ -2482,6 +2486,8 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 
 	_player.attack_cd = PLAYER_ATTACK_CD
 	_player.play_attack(Vector2(target.gx - _player.gx, target.gy - _player.gy))
+	if use_skill and skill_id in ["sundering_strike", "void_fury"]:
+		_fx.ground_skill(_player.position, target.position, skill_id)
 	_play_sfx("attack")
 	var eff_dex := _player.stat_dex + int(_eq["dex"])
 	var ar := CombatLib.character_ar(eff_dex, ar_bonus) + int(_eq["ar"])
@@ -2505,6 +2511,8 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 			cb = CombatLib.crushing_blow(target.life, false, String(target.get_meta("kind", "melee")) == "boss")
 		target.take_damage(dmg + cb)
 		_fx.impact(target.position, Color(1.0, 0.62, 0.22), crit or cb > 0)
+		if crit or cb > 0:
+			_camera_punch(3.0 if crit and cb > 0 else 2.0)
 		# 무기 속성 데미지 (Fiery/Frozen/Shocking) — 대상 속성 저항 적용
 		var edmg := 0
 		var fd := int(_eq.get("fdmg", 0))
@@ -2674,12 +2682,16 @@ func _apply_quest_kill(target: String, rank: String) -> void:
 func _on_monster_died(m: Node) -> void:
 	_kills += 1
 	_play_sfx("death")
-	_apply_quest_kill(String(m.get_meta("kind", "melee")), String(m.get_meta("rank", "")))
+	var rank := String(m.get_meta("rank", ""))
+	_apply_quest_kill(String(m.get_meta("kind", "melee")), rank)
+	var death_color := Color(0.95, 0.32, 0.18) if rank.is_empty() else (Color(0.45, 0.7, 1.0) if rank == "champion" else Color(1.0, 0.65, 0.18))
+	_fx.death_burst(m.position, death_color, not rank.is_empty())
+	if rank == "unique":
+		_camera_punch(3.0)
 	# 액트 보스 처치 → 퀘스트 완료
 	if _boss != null and m == _boss:
 		_complete_act(m)
 	# 등급별 강화 드롭 (챔피언/유니크 = 더 많은 롤 + MF + ilvl 보너스)
-	var rank := String(m.get_meta("rank", ""))
 	var rolls := 1
 	var mf := _player_mf
 	var mlvl := int(m.level)
@@ -3673,6 +3685,13 @@ func _apply_large_panel_text(root: Node) -> void:
 func _flash(from: Vector2, to: Vector2) -> void:
 	if _fx != null:
 		_fx.slash(from, to, Color(1.0, 0.9, 0.35))
+
+func _camera_punch(strength: float) -> void:
+	if not is_instance_valid(_cam):
+		return
+	_cam.offset = Vector2(strength, -strength * 0.6)
+	var tween := _cam.create_tween()
+	tween.tween_property(_cam, "offset", Vector2.ZERO, 0.11).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 func _spawn_text(pos: Vector2, text: String, col: Color) -> void:
 	if _fx == null:

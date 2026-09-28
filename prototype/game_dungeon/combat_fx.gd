@@ -134,6 +134,53 @@ func buff_pulse(pos: Vector2, color: Color) -> void:
 	_ring(pos, color, 46.0, 0.48, 4.0)
 	_ring(pos, color.lightened(0.25), 28.0, 0.32, 2.0)
 
+func ground_skill(from_pos: Vector2, to_pos: Vector2, kind: String) -> void:
+	var direction := (to_pos - from_pos).normalized()
+	if direction.length() < 0.1:
+		direction = Vector2.RIGHT
+	if kind == "void_fury":
+		_ring(from_pos, Color(0.58, 0.16, 0.72), 58.0, 0.42, 7.0)
+		_ring(from_pos, Color(0.95, 0.25, 0.45), 34.0, 0.30, 3.0)
+		return
+	var perpendicular := Vector2(-direction.y, direction.x)
+	for branch in 3:
+		var crack := Line2D.new()
+		crack.width = 4.0 - float(branch)
+		crack.default_color = Color(1.0, 0.36, 0.13, 0.9)
+		crack.z_index = 69
+		var side := float(branch - 1) * 7.0
+		crack.add_point(from_pos + perpendicular * side)
+		crack.add_point(from_pos + direction * 22.0 + perpendicular * (side - 5.0))
+		crack.add_point(from_pos + direction * 48.0 + perpendicular * (side + 8.0))
+		if not _track(crack):
+			crack.free()
+			continue
+		var tween := crack.create_tween().set_parallel(true)
+		tween.tween_property(crack, "modulate:a", 0.0, 0.48).set_delay(0.12)
+		tween.tween_property(crack, "width", 0.5, 0.48)
+		tween.finished.connect(crack.queue_free)
+
+func death_burst(pos: Vector2, color: Color, elite: bool = false) -> void:
+	impact(pos, color, elite)
+	var count := 10 if elite else 6
+	for index in count:
+		var angle := TAU * float(index) / float(count) + 0.19
+		var fragment := Polygon2D.new()
+		fragment.polygon = PackedVector2Array([Vector2(-3, -2), Vector2(4, 0), Vector2(-2, 3)])
+		fragment.color = color.darkened(0.12 * float(index % 3))
+		fragment.position = pos
+		fragment.rotation = angle
+		fragment.z_index = 74
+		if not _track(fragment):
+			fragment.free()
+			continue
+		var travel := Vector2(cos(angle), sin(angle) * 0.55) * (34.0 if elite else 23.0)
+		var tween := fragment.create_tween().set_parallel(true)
+		tween.tween_property(fragment, "position", pos + travel + Vector2(0, 10), 0.42).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tween.tween_property(fragment, "rotation", angle + PI * 1.5, 0.42)
+		tween.tween_property(fragment, "modulate:a", 0.0, 0.42).set_delay(0.16)
+		tween.finished.connect(fragment.queue_free)
+
 func floating_text(pos: Vector2, text: String, color: Color, font_size: int, kind: String = "normal") -> void:
 	var label := Label.new()
 	label.text = text
@@ -175,6 +222,19 @@ func loot_drop(node: Node2D, quality: String, color: Color) -> void:
 		tween.tween_property(label, "modulate:a", 1.0, 0.16).set_delay(0.16)
 	if quality in ["rare", "set", "unique"]:
 		_ring(node.position, color, 24.0 if quality == "rare" else 34.0, 0.5, 3.0)
+		var beam := Polygon2D.new()
+		var beam_height := 54.0 if quality == "rare" else 84.0
+		beam.polygon = PackedVector2Array([Vector2(-3, 0), Vector2(3, 0), Vector2(8, -beam_height), Vector2(-8, -beam_height)])
+		beam.color = Color(color.r, color.g, color.b, 0.65)
+		beam.position = node.position
+		beam.z_index = 68
+		if _track(beam):
+			var beam_tween := beam.create_tween().set_parallel(true)
+			beam_tween.tween_property(beam, "scale:x", 0.2, 0.65)
+			beam_tween.tween_property(beam, "modulate:a", 0.0, 0.65).set_delay(0.18)
+			beam_tween.finished.connect(beam.queue_free)
+		else:
+			beam.free()
 
 func pickup(texture: Texture2D, from_pos: Vector2, to_pos: Vector2, color: Color, initial_scale: Vector2) -> void:
 	if texture == null:
