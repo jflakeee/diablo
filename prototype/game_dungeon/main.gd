@@ -36,7 +36,7 @@ const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
-const DEPLOYED_AT_KST := "2026-09-28 14:15 KST"
+const DEPLOYED_AT_KST := "2026-09-28 15:04 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -909,7 +909,7 @@ func _start_game() -> void:
 		_player.block_val = 30   # 방패 블록
 		_player.leech_pct = 6    # 물리 생명 흡혈 6%
 	# 종단 검증은 모든 스킬 실행 경로와 기존 50초 층 클리어 기준을 함께 검사한다.
-	if _auto_quit:
+	if _auto_quit and not OS.get_cmdline_user_args().has("skill_book_visual_test"):
 		_player.skills = {"ember_bolt": 3, "frost_shard": 3, "storm_lance": 3, "phase_step": 1} if _class == "arcanist" else {"sundering_strike": 1, "void_fury": 1, "iron_chant": 1, "weapon_discipline": 1}
 	_player.is_player = true
 	_player.died.connect(_on_player_died)
@@ -1139,6 +1139,24 @@ func _start_game() -> void:
 
 func _run_skill_visual_test() -> void:
 	await get_tree().create_timer(0.75).timeout
+	var target: ActorScript = null
+	for monster in _monsters:
+		if monster.alive:
+			target = monster
+			break
+	if target != null:
+		var origin := Vector2i(roundi(_player.gx), roundi(_player.gy))
+		var test_offsets: Array[Vector2i] = [Vector2i(2, 0), Vector2i(0, 2), Vector2i(-2, 0), Vector2i(0, -2), Vector2i(1, 1), Vector2i(-1, -1)]
+		for offset: Vector2i in test_offsets:
+			var candidate: Vector2i = origin + offset
+			if _walkable(candidate.x, candidate.y) and _has_los(Vector2(origin), Vector2(candidate)):
+				target.gx = candidate.x
+				target.gy = candidate.y
+				target.position = _iso(target.gx, target.gy)
+				target.max_life = 10000
+				target.life = 10000
+				target.set_meta("witnessed", true)
+				break
 	for skill_id in _skill_slot_ids():
 		_player.skills[skill_id] = 1
 	_refresh_skill_buttons()
@@ -1172,7 +1190,8 @@ func _run_skill_book_visual_test() -> void:
 		var book_node := _ground.back() as Node
 		_combat_log = "DROPPED: %s" % String(book["name"])
 		await get_tree().create_timer(0.9).timeout
-		_pickup(book_node)
+		if is_instance_valid(book_node):
+			_pickup(book_node)
 		await get_tree().create_timer(0.9).timeout
 		var visible_count := 0
 		for button in _skill_buttons.values():
