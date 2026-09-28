@@ -36,7 +36,7 @@ const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
-const DEPLOYED_AT_KST := "2026-09-28 16:23 KST"
+const DEPLOYED_AT_KST := "2026-09-28 17:06 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -719,6 +719,7 @@ func _ready() -> void:
 		print("[VISIBILITY] selftest verdict=", "PASS" if Visibility.selftest() else "FAIL")
 		print("[MAP_VARIANTS] selftest verdict=", "PASS" if LevelGen.selftest() else "FAIL")
 		print("[ANIM] selftest verdict=", "PASS" if ActorScript.animation_selftest() else "FAIL")
+		print("[SKILL_UI] cooldown_arc=true press_pulse=true verdict=", "PASS" if SkillButtonScript.selftest() else "FAIL")
 		_ui_selftest_ok = MobileUI.selftest()
 		print("[MOBILE_UI] ratios=4 targets>=48 primary>=72 safe_margin=16 verdict=", "PASS" if _ui_selftest_ok else "FAIL")
 		print("[ACCESS] scales=80/100/120/140 text=normal/large persist=true verdict=", "PASS" if Accessibility.selftest() else "FAIL")
@@ -1146,7 +1147,7 @@ func _run_skill_visual_test() -> void:
 			break
 	if target != null:
 		var origin := Vector2i(roundi(_player.gx), roundi(_player.gy))
-		var test_offsets: Array[Vector2i] = [Vector2i(2, 0), Vector2i(0, 2), Vector2i(-2, 0), Vector2i(0, -2), Vector2i(1, 1), Vector2i(-1, -1)]
+		var test_offsets: Array[Vector2i] = [Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(0, -1), Vector2i(1, 1), Vector2i(-1, -1), Vector2i(2, 0), Vector2i(0, 2)]
 		for offset: Vector2i in test_offsets:
 			var candidate: Vector2i = origin + offset
 			if _walkable(candidate.x, candidate.y) and _has_los(Vector2(origin), Vector2(candidate)):
@@ -1165,11 +1166,17 @@ func _run_skill_visual_test() -> void:
 		_player.attack_cd = 0.0
 		_player.mana = _player.max_mana
 		var casts_before := _spells_cast
+		var attacks_before := _attacks
+		var buffs_before := _bo_casts
 		var position_before := Vector2(_player.gx, _player.gy)
 		_on_skill_used(skill_id)
-		var worked := _spells_cast > casts_before or Vector2(_player.gx, _player.gy) != position_before
+		var is_passive := skill_id == "weapon_discipline"
+		var action_worked: bool = _spells_cast > casts_before or _attacks > attacks_before or _bo_casts > buffs_before or Vector2(_player.gx, _player.gy) != position_before or is_passive
+		var skill_button = _skill_buttons.get(skill_id)
+		var cooldown_visible: bool = is_passive or skill_id == "iron_chant" or (is_instance_valid(skill_button) and skill_button.cooldown_ratio() > 0.0)
+		var worked: bool = action_worked and cooldown_visible
 		all_worked = all_worked and worked
-		print("[SKILL_VISUAL] id=%s worked=%s casts=%d log=%s" % [skill_id, str(worked), _spells_cast, _combat_log])
+		print("[SKILL_VISUAL] id=%s worked=%s cooldown=%s casts=%d attacks=%d buffs=%d log=%s" % [skill_id, str(worked), str(cooldown_visible), _spells_cast, _attacks, _bo_casts, _combat_log])
 		await get_tree().create_timer(1.25).timeout
 	print("[SKILL_VISUAL] slots=4 verdict=", "PASS" if all_worked else "FAIL")
 	await get_tree().create_timer(0.75).timeout
@@ -2300,7 +2307,15 @@ func _nearest_ground() -> Node:
 			best = n
 	return best
 
+func _start_skill_cooldown(skill_id: String, duration: float) -> void:
+	var button = _skill_buttons.get(skill_id)
+	if is_instance_valid(button):
+		button.start_cooldown(duration)
+
 func _on_skill_used(id: String) -> void:
+	var pressed_button = _skill_buttons.get(id)
+	if is_instance_valid(pressed_button):
+		pressed_button.press_feedback()
 	if _player.skill_level(id) <= 0:
 		_combat_log = "Skill not learned"
 		return
@@ -2349,6 +2364,7 @@ func _cast_bolt(target: ActorScript, element: String, color: Color, base_min: in
 		_combat_log = "no mana"
 		return
 	_player.attack_cd = CombatLib.frames_to_sec(CombatLib.sorc_fcr_frames(_player_fcr))  # FCR
+	_start_skill_cooldown(skill_id, _player.attack_cd)
 	_player.play_cast(Vector2(target.gx - _player.gx, target.gy - _player.gy))
 	_fx.cast_burst(_player.position, color)
 	_play_sfx("spell")
@@ -2366,6 +2382,7 @@ func _cast_storm_lance(target: ActorScript) -> void:
 	if not _player.spend_mana(Skills.mana_cost("storm_lance")):
 		return
 	_player.attack_cd = CombatLib.frames_to_sec(CombatLib.sorc_fcr_frames(_player_fcr))
+	_start_skill_cooldown("storm_lance", _player.attack_cd)
 	_player.play_cast(Vector2(target.gx - _player.gx, target.gy - _player.gy))
 	_fx.cast_burst(_player.position, Color(1.0, 0.9, 0.3))
 	_play_sfx("spell")
@@ -2402,6 +2419,7 @@ func _cast_phase_step(target: ActorScript) -> void:
 		_player.gy = ty
 		_player.position = _iso(tx, ty)
 		_fx.phase_step(origin, _player.position)
+	_start_skill_cooldown("phase_step", 0.35)
 	_combat_log = "Phase Step"
 
 func _blink_away(target: ActorScript) -> void:
@@ -2538,6 +2556,7 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 			ignore_def = true
 
 	_player.attack_cd = PLAYER_ATTACK_CD
+	_start_skill_cooldown(skill_id, _player.attack_cd)
 	_player.play_attack(Vector2(target.gx - _player.gx, target.gy - _player.gy))
 	if use_skill and skill_id in ["sundering_strike", "void_fury"]:
 		_fx.ground_skill(_player.position, target.position, skill_id)
