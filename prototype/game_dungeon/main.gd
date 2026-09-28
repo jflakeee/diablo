@@ -36,7 +36,7 @@ const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
-const DEPLOYED_AT_KST := "2026-09-28 19:57 KST"
+const DEPLOYED_AT_KST := "2026-09-28 20:19 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -80,7 +80,7 @@ const NOVA_RADIUS := 3.5
 const SPELL_RANGE := 7.0
 const FIREBALL_CD := 0.6
 const EQUIPMENT_SLOTS := ["weapon", "armor", "ring_left", "ring_right", "amulet"]
-const ITEM_TOAST_VISIBLE_LIMIT := 4
+const ITEM_TOAST_VISIBLE_LIMIT := 3
 const ITEM_EVENT_HISTORY_LIMIT := 24
 
 var _class := "warden"
@@ -1292,14 +1292,21 @@ func _run_auto_equip_sell_test() -> void:
 	var future_kept: bool = _inventory.has(locked)
 	pickup_test_item.call(protected)
 	var protected_kept: bool = _inventory.has(protected)
+	await get_tree().create_timer(5.3).timeout
 	var positive_power_event := false
 	for event in _item_event_history:
 		if float(event.get("delta", 0.0)) > 0.0 and not String(event.get("options", "")).is_empty():
 			positive_power_event = true
 			break
-	var toast_log_ok := _item_event_history.size() >= 5 and positive_power_event and _item_toast_box.get_child_count() <= ITEM_TOAST_VISIBLE_LIMIT
-	var ok: bool = empty_equipped and upgraded and lower_sold and future_kept and protected_kept and toast_log_ok
-	print("[AUTO_EQUIP_SELL] empty=%s upgrade=%s replaced_sold=%s lower_sold=%s future_kept=%s protected=%s toast_log=%s events=%d verdict=%s" % [str(empty_equipped), str(upgraded), str(_gold_sold > 0), str(lower_sold), str(future_kept), str(protected_kept), str(toast_log_ok), _item_event_history.size(), "PASS" if ok else "FAIL"])
+	var toast_log_ok := _item_event_history.size() >= 5 and positive_power_event and _item_toast_box.get_child_count() == ITEM_TOAST_VISIBLE_LIMIT
+	_show_item_log()
+	var history_view_ok := false
+	for child in _inv_vbox.get_children():
+		if child is Label and String((child as Label).text).begins_with("RECENT ITEM LOG"):
+			history_view_ok = true
+			break
+	var ok: bool = empty_equipped and upgraded and lower_sold and future_kept and protected_kept and toast_log_ok and history_view_ok
+	print("[AUTO_EQUIP_SELL] empty=%s upgrade=%s replaced_sold=%s lower_sold=%s future_kept=%s protected=%s toast_log=%s history_view=%s events=%d verdict=%s" % [str(empty_equipped), str(upgraded), str(_gold_sold > 0), str(lower_sold), str(future_kept), str(protected_kept), str(toast_log_ok), str(history_view_ok), _item_event_history.size(), "PASS" if ok else "FAIL"])
 	await get_tree().create_timer(1.0).timeout
 	get_tree().quit()
 
@@ -3106,7 +3113,7 @@ func _push_item_event(action: String, it: Dictionary, power_before: float, power
 	var lines := ["[%s] %s" % [action, Item.display_name(it)], "OPTIONS: %s" % options, power_line]
 	if not note.is_empty():
 		lines.append(note)
-	var entry: Dictionary = {"action": action, "name": Item.display_name(it), "options": options, "power_before": power_before, "power_after": power_after, "delta": delta, "note": note, "time": Time.get_ticks_msec()}
+	var entry: Dictionary = {"action": action, "name": Item.display_name(it), "quality": String(it.get("quality", "normal")), "options": options, "power_before": power_before, "power_after": power_after, "delta": delta, "note": note, "unix": int(Time.get_unix_time_from_system())}
 	_item_event_history.append(entry)
 	while _item_event_history.size() > ITEM_EVENT_HISTORY_LIMIT:
 		_item_event_history.pop_front()
@@ -3135,10 +3142,6 @@ func _push_item_event(action: String, it: Dictionary, power_before: float, power
 		var oldest := _item_toast_box.get_child(0)
 		_item_toast_box.remove_child(oldest)
 		oldest.queue_free()
-	var tween := panel.create_tween()
-	tween.tween_interval(4.8)
-	tween.tween_property(panel, "modulate:a", 0.0, 0.45)
-	tween.finished.connect(panel.queue_free)
 
 func _affix_power(affixes: Dictionary) -> float:
 	var mana_weight := 1.2 if _class == "arcanist" else 0.45
@@ -3683,6 +3686,44 @@ func _show_bag() -> void:
 	_inventory_view = "bag"
 	_rebuild_inv()
 
+func _show_item_log() -> void:
+	_inventory_view = "item_log"
+	_rebuild_inv()
+
+func _clear_item_log() -> void:
+	_item_event_history.clear()
+	_rebuild_inv()
+
+func _rebuild_item_log() -> void:
+	var nav := Button.new()
+	nav.text = "Back to Bag"
+	nav.pressed.connect(_show_bag)
+	_inv_vbox.add_child(nav)
+	var title := Label.new()
+	title.text = "RECENT ITEM LOG %d/%d\nPickup, options, equipment changes, and total combat power" % [_item_event_history.size(), ITEM_EVENT_HISTORY_LIMIT]
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title.add_theme_color_override("font_color", Color(0.95, 0.78, 0.3))
+	_inv_vbox.add_child(title)
+	var clear := Button.new()
+	clear.text = "Clear Item Log"
+	clear.disabled = _item_event_history.is_empty()
+	clear.pressed.connect(_clear_item_log)
+	_inv_vbox.add_child(clear)
+	if _item_event_history.is_empty():
+		var empty := Label.new()
+		empty.text = "No item changes recorded in this session."
+		_inv_vbox.add_child(empty)
+		return
+	for index in range(_item_event_history.size() - 1, -1, -1):
+		var event := _item_event_history[index]
+		var stamp := Time.get_datetime_dict_from_unix_time(int(event.get("unix", 0)))
+		var note := String(event.get("note", ""))
+		var line := Label.new()
+		line.text = "[%02d:%02d:%02d] %s - %s\nOPTIONS: %s\nTOTAL POWER %.0f -> %.0f (%+.0f)%s" % [int(stamp.get("hour", 0)), int(stamp.get("minute", 0)), int(stamp.get("second", 0)), String(event.get("action", "ITEM")), String(event.get("name", "Unknown")), String(event.get("options", "")), float(event.get("power_before", 0.0)), float(event.get("power_after", 0.0)), float(event.get("delta", 0.0)), "\n" + note if not note.is_empty() else ""]
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		line.add_theme_color_override("font_color", Item.quality_color(String(event.get("quality", "normal"))))
+		_inv_vbox.add_child(line)
+
 func _rebuild_collection() -> void:
 	var nav := Button.new()
 	nav.text = "Back to Bag"
@@ -3744,6 +3785,14 @@ func _rebuild_inv() -> void:
 		_rebuild_collection()
 		_apply_large_panel_text(_inv_vbox)
 		return
+	if _inventory_view == "item_log":
+		_rebuild_item_log()
+		_apply_large_panel_text(_inv_vbox)
+		return
+	var item_log_button := Button.new()
+	item_log_button.text = "Item Log (%d)" % _item_event_history.size()
+	item_log_button.pressed.connect(_show_item_log)
+	_inv_vbox.add_child(item_log_button)
 	var collection_button := Button.new()
 	collection_button.text = "Collection & Ranking Book (%d)" % _collection.records.size()
 	collection_button.pressed.connect(_show_collection)
