@@ -13,10 +13,16 @@ const PILLAR := 2
 const LOW_WALL := 3
 
 static func generate(seed_val: int, act: int = 1) -> Dictionary:
+	return _generate_region(seed_val, act, SLOTS)
+
+static func generate_chunk(seed_val: int, act: int = 1) -> Dictionary:
+	return _generate_region(seed_val, act, 3)
+
+static func _generate_region(seed_val: int, act: int, slots: int) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_val
-	var w := SLOTS * ROOM
-	var h := SLOTS * ROOM
+	var w := slots * ROOM
+	var h := slots * ROOM
 
 	var grid: Array = []
 	for y in h:
@@ -35,7 +41,7 @@ static func generate(seed_val: int, act: int = 1) -> Dictionary:
 		var neigh: Array = []
 		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 			var n: Vector2i = cur + d
-			if n.x >= 0 and n.x < SLOTS and n.y >= 0 and n.y < SLOTS and not visited.has(n):
+			if n.x >= 0 and n.x < slots and n.y >= 0 and n.y < slots and not visited.has(n):
 				neigh.append(n)
 		if neigh.is_empty():
 			stack.pop_back()
@@ -52,13 +58,13 @@ static func generate(seed_val: int, act: int = 1) -> Dictionary:
 	for edge in edges:
 		edge_keys[_edge_key(edge[0], edge[1])] = true
 	var loops := 0
-	for sy in SLOTS:
-		for sx in SLOTS:
+	for sy in slots:
+		for sx in slots:
 			var room := Vector2i(sx, sy)
 			for raw_direction in [Vector2i.RIGHT, Vector2i.DOWN]:
 				var direction: Vector2i = raw_direction
 				var neighbour: Vector2i = room + direction
-				if neighbour.x >= SLOTS or neighbour.y >= SLOTS:
+				if neighbour.x >= slots or neighbour.y >= slots:
 					continue
 				var key := _edge_key(room, neighbour)
 				if not edge_keys.has(key) and rng.randf() < LOOP_CHANCE:
@@ -66,8 +72,8 @@ static func generate(seed_val: int, act: int = 1) -> Dictionary:
 					edge_keys[key] = true
 					loops += 1
 
-	for sy in SLOTS:
-		for sx in SLOTS:
+	for sy in slots:
+		for sx in slots:
 			_carve_room(grid, sx, sy)
 	for e in edges:
 		_carve_door(grid, e[0], e[1], rng)
@@ -85,7 +91,7 @@ static func generate(seed_val: int, act: int = 1) -> Dictionary:
 		theme = "storm_ossuary"
 		for y in range(1, h - 1):
 			for x in range(1, w - 1): grid[y][x] = FLOOR
-		for i in SLOTS * SLOTS * 2:
+		for i in slots * slots * 2:
 			var px := rng.randi_range(2, w - 3)
 			var py := rng.randi_range(2, h - 3)
 			if Vector2(px, py).distance_to(Vector2(ROOM / 2, ROOM / 2)) > 3.0: grid[py][px] = PILLAR
@@ -99,7 +105,7 @@ static func generate(seed_val: int, act: int = 1) -> Dictionary:
 	return {
 		"w": w, "h": h, "grid": grid,
 		"entrance": _slot_center(start), "exit": _slot_center(exit_slot),
-		"rooms": SLOTS * SLOTS, "doors": edges.size(), "loops": loops,
+		"rooms": slots * slots, "doors": edges.size(), "loops": loops,
 		"critical_path_rooms": int(endpoint["distance"]),
 		"map_type": map_type, "theme": theme, "act": act,
 	}
@@ -108,7 +114,8 @@ static func selftest() -> bool:
 	var dungeon := generate(1000, 1)
 	var outdoor := generate(1001, 2)
 	var plains := generate(1002, 3)
-	return int(dungeon.get("rooms", 0)) == 81 and int(dungeon.get("doors", 0)) >= 80 and int(dungeon.get("loops", 0)) > 0 and String(dungeon.get("map_type", "")) == "cinder_catacombs" and String(outdoor.get("map_type", "")) == "outdoor" and String(plains.get("map_type", "")) == "pillar_plains" and _count_tile(outdoor["grid"], LOW_WALL) > 0 and _count_tile(plains["grid"], PILLAR) > 0
+	var chunk := generate_chunk(2000, 1)
+	return int(dungeon.get("rooms", 0)) == 81 and int(dungeon.get("doors", 0)) >= 80 and int(dungeon.get("loops", 0)) > 0 and int(chunk.get("rooms", 0)) == 9 and int(chunk.get("w", 0)) == 27 and int(chunk.get("h", 0)) == 27 and String(dungeon.get("map_type", "")) == "cinder_catacombs" and String(outdoor.get("map_type", "")) == "outdoor" and String(plains.get("map_type", "")) == "pillar_plains" and _count_tile(outdoor["grid"], LOW_WALL) > 0 and _count_tile(plains["grid"], PILLAR) > 0
 
 static func _count_tile(grid: Array, tile: int) -> int:
 	var count := 0

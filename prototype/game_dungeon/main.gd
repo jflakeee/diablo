@@ -36,7 +36,8 @@ const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
-const DEPLOYED_AT_KST := "2026-09-28 21:15 KST"
+const WorldStream := preload("res://world_stream.gd")
+const DEPLOYED_AT_KST := "2026-09-28 22:19 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -46,6 +47,11 @@ var _ent_cell := Vector2i(1, 1)
 var _exit_cell := Vector2i(1, 1)
 var _map_type := "dungeon"
 var _tiles_node: Node2D
+var _world_stream: WorldStream
+var _stream_grid_origin := Vector2i.ZERO
+var _stream_chunk_rects := {}
+var _stream_generation_pending := false
+var _stream_epoch := 0
 var _dlevel := 1
 var _levels_cleared := 0
 # ── 액트 구조(보스 클라이맥스 + 퀘스트) ──
@@ -244,6 +250,115 @@ func _update_visibility(force: bool = false) -> void:
 			m.set_meta("witnessed", true)
 	for n in _ground:
 		if is_instance_valid(n): n.visible = _visible_cells.has(Visibility.key(Vector2i(roundi(float(n.get_meta("gx"))), roundi(float(n.get_meta("gy"))))))
+	_update_stream_reveal()
+
+func _update_stream_reveal() -> void:
+	if _stream_generation_pending or _world_stream == null or _in_town:
+		return
+	for chunk in _world_stream.active_chunks:
+		var chunk_coord: Vector2i = chunk["coord"]
+		for room_y in WorldStream.CHUNK_ROOM_SIDE:
+			for room_x in WorldStream.CHUNK_ROOM_SIDE:
+				var global_center := chunk_coord * WorldStream.CHUNK_TILE_SIDE + Vector2i(room_x * WorldStream.ROOM_SIZE + WorldStream.ROOM_SIZE / 2, room_y * WorldStream.ROOM_SIZE + WorldStream.ROOM_SIZE / 2)
+				var local_center: Vector2i = global_center - _stream_grid_origin
+				if not _visible_cells.has(Visibility.key(local_center)):
+					continue
+				var transition := _world_stream.reveal_room(String(chunk["id"]), Vector2i(room_x, room_y))
+				if not transition.is_empty():
+					_stream_generation_pending = true
+					call_deferred("_apply_stream_transition", transition)
+					return
+
+func _apply_stream_transition(transition: Dictionary) -> void:
+	var old_origin := _stream_grid_origin
+	var retired: Dictionary = transition.get("retired", {})
+	if not retired.is_empty():
+		var retired_rect: Rect2i = _stream_chunk_rects.get(String(retired.get("id", "")), Rect2i())
+		_remove_stream_entities(retired_rect)
+	_clear_map_effects()
+	var composite: Dictionary = transition["composite"]
+	_stream_grid_origin = composite["grid_origin"]
+	_stream_chunk_rects = composite["chunk_rects"]
+	var delta: Vector2i = old_origin - _stream_grid_origin
+	if delta != Vector2i.ZERO:
+		_rebase_stream_entities(delta)
+	_apply_dungeon_layout(composite)
+	if _merc != null and not _walkable(_merc.gx, _merc.gy):
+		_merc.gx = _player.gx + 1.0 if _walkable(_player.gx + 1.0, _player.gy) else _player.gx
+		_merc.gy = _player.gy
+		_merc.position = _iso(_merc.gx, _merc.gy)
+	_build_minimap_tex()
+	var added: Dictionary = transition.get("added", {})
+	var added_rect: Rect2i = _stream_chunk_rects.get(String(added.get("id", "")), Rect2i())
+	_spawn_stream_monsters(String(added.get("id", "")), added_rect, 6)
+	_last_visibility_cell = Vector2i(-999, -999)
+	_stream_generation_pending = false
+	_update_visibility(true)
+	_combat_log = "NEW AREA OPENED / %d ACTIVE ROOMS" % int(composite.get("rooms", 9))
+
+func _remove_stream_entities(rect: Rect2i) -> void:
+	if rect.size == Vector2i.ZERO:
+		return
+	for monster in _monsters.duplicate():
+		var cell := Vector2i(roundi(monster.gx), roundi(monster.gy))
+		if rect.has_point(cell):
+			monster.queue_free()
+			_monsters.erase(monster)
+	for ground_item in _ground.duplicate():
+		if not is_instance_valid(ground_item):
+			_ground.erase(ground_item)
+			continue
+		var cell := Vector2i(roundi(float(ground_item.get_meta("gx"))), roundi(float(ground_item.get_meta("gy"))))
+		if rect.has_point(cell):
+			ground_item.queue_free()
+			_ground.erase(ground_item)
+
+func _rebase_stream_entities(delta: Vector2i) -> void:
+	var shift := Vector2(delta)
+	_player.gx += shift.x
+	_player.gy += shift.y
+	_player.position = _iso(_player.gx, _player.gy)
+	if _merc != null:
+		_merc.gx += shift.x
+		_merc.gy += shift.y
+		_merc.position = _iso(_merc.gx, _merc.gy)
+	for monster in _monsters:
+		monster.gx += shift.x
+		monster.gy += shift.y
+		monster.position = _iso(monster.gx, monster.gy)
+		monster.set_meta("path", [])
+	for ground_item in _ground:
+		if not is_instance_valid(ground_item): continue
+		var gx := float(ground_item.get_meta("gx")) + shift.x
+		var gy := float(ground_item.get_meta("gy")) + shift.y
+		ground_item.set_meta("gx", gx)
+		ground_item.set_meta("gy", gy)
+		ground_item.position = _iso(gx, gy)
+	var shifted_explored := {}
+	for raw_key in _floor_explored().keys():
+		var parts := String(raw_key).split(",")
+		if parts.size() != 2: continue
+		var shifted := Vector2i(int(parts[0]), int(parts[1])) + delta
+		if shifted.x >= 0 and shifted.y >= 0:
+			shifted_explored[Visibility.key(shifted)] = true
+	_explored_by_floor[str(_dlevel)] = shifted_explored
+
+func _spawn_stream_monsters(chunk_id: String, rect: Rect2i, count: int) -> void:
+	if rect.size == Vector2i.ZERO:
+		return
+	var pool: Array = []
+	for monster_def in Data.monsters():
+		if String(monster_def.get("kind", "melee")) != "boss":
+			pool.append(monster_def)
+	for index in count:
+		for attempt in 80:
+			var cell := Vector2i(_rng.randi_range(rect.position.x + 1, rect.end.x - 2), _rng.randi_range(rect.position.y + 1, rect.end.y - 2))
+			if not _walkable(cell.x, cell.y) or Vector2(cell).distance_to(Vector2(_player.gx, _player.gy)) < 7.0:
+				continue
+			_spawn_one(pool[_rng.randi_range(0, pool.size() - 1)], cell)
+			var monster: ActorScript = _monsters.back()
+			monster.set_meta("chunk_id", chunk_id)
+			break
 
 func _tex_rect(w: int, h: int, col: Color) -> Texture2D:
 	var img := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
@@ -335,11 +450,19 @@ func _build_astar(w: int, h: int, grid: Array) -> AStarGrid2D:
 	return astar
 
 func _generate_dungeon() -> void:
+	_stream_epoch += 1
+	_world_stream = WorldStream.new()
+	_world_stream.setup(1000 + _dlevel, _dlevel, _act, _stream_epoch)
+	var lvl := _world_stream.compose_active_grid()
+	_stream_grid_origin = lvl["grid_origin"]
+	_stream_chunk_rects = lvl["chunk_rects"]
+	_apply_dungeon_layout(lvl)
+
+func _apply_dungeon_layout(lvl: Dictionary) -> void:
 	if is_instance_valid(_tiles_node):
 		_tiles_node.queue_free()
 	_tiles_node = Node2D.new()
 	_world.add_child(_tiles_node)
-	var lvl := LevelGen.generate(1000 + _dlevel, _act)  # deterministic floor layout plus act biome
 	_gw = int(lvl["w"])
 	_gh = int(lvl["h"])
 	_grid = lvl["grid"]
@@ -364,6 +487,8 @@ func _generate_dungeon() -> void:
 	]
 	for y in _gh:
 		for x in _gw:
+			if _world_stream != null and not _stream_cell_active(Vector2i(x, y)):
+				continue
 			var s := Sprite2D.new()
 			var terrain := int(_grid[y][x])
 			if terrain == LevelGen.FLOOR:
@@ -384,6 +509,13 @@ func _generate_dungeon() -> void:
 	em.z_index = 2
 	_tiles_node.add_child(em)
 	_astar = _build_astar(_gw, _gh, _grid)
+
+func _stream_cell_active(cell: Vector2i) -> bool:
+	for raw_rect in _stream_chunk_rects.values():
+		var rect: Rect2i = raw_rect
+		if rect.has_point(cell):
+			return true
+	return false
 
 func _random_floor_cell() -> Vector2i:
 	for i in 300:
@@ -631,6 +763,8 @@ func _nav_toward(actor: ActorScript, tgx: float, tgy: float, delta: float) -> vo
 	_step(actor, dir.normalized(), delta)
 
 func _path_next(actor: ActorScript, from: Vector2i, to: Vector2i) -> Vector2i:
+	if not Visibility.in_bounds(_grid, from) or not Visibility.in_bounds(_grid, to):
+		return from
 	var now := Time.get_ticks_msec()
 	var last := int(actor.get_meta("path_ms", 0))
 	var cached_to: Vector2i = actor.get_meta("path_to", Vector2i(-1, -1))
@@ -1161,6 +1295,8 @@ func _start_game() -> void:
 		_run_vision_relic_test.call_deferred()
 	elif OS.get_cmdline_user_args().has("map_variant_test"):
 		_run_map_variant_test.call_deferred()
+	elif OS.get_cmdline_user_args().has("streaming_map_test"):
+		_run_streaming_map_test.call_deferred()
 
 func _run_skill_visual_test() -> void:
 	await get_tree().create_timer(0.75).timeout
@@ -1339,8 +1475,9 @@ func _run_collection_book_test() -> void:
 func _run_travel_system_test() -> void:
 	await get_tree().create_timer(0.5).timeout
 	var start_floor := _dlevel
-	var start_position := Vector2(_player.gx, _player.gy)
 	var start_monsters := _monsters.size()
+	var start_theme := String(_world_stream.frontier().get("theme", ""))
+	var start_seed := int(_world_stream.frontier().get("seed", 0))
 	_fx.cast_burst(_player.position, Color.WHITE)
 	var effect_was_spawned := _fx.active_count() > 0
 	var projectile_nodes: Array[Node] = []
@@ -1354,13 +1491,36 @@ func _run_travel_system_test() -> void:
 	for node in projectile_nodes:
 		effects_ok = effects_ok and (not is_instance_valid(node) or node.is_queued_for_deletion())
 	_toggle_town_portal()
-	var return_ok: bool = not _in_town and _dlevel == start_floor and Vector2(_player.gx, _player.gy).distance_to(start_position) < 0.1 and _monsters.size() == start_monsters
+	var return_ok: bool = not _in_town and _dlevel == start_floor and Vector2(_player.gx, _player.gy).distance_to(Vector2(_ent_cell)) < 0.1 and _monsters.size() == start_monsters and String(_world_stream.frontier().get("theme", "")) == start_theme and int(_world_stream.frontier().get("seed", 0)) != start_seed
 	_travel_to_floor(start_floor + 1, Vector2.INF)
 	_previous_floor()
 	var previous_ok: bool = _dlevel == start_floor and _floor_states.has(str(start_floor + 1))
 	var ok: bool = town_ok and effects_ok and return_ok and previous_ok
 	print("[TRAVEL] town=%s effects_cleared=%s return=%s previous=%s cached=%d verdict=%s" % [str(town_ok), str(effects_ok), str(return_ok), str(previous_ok), _floor_states.size(), "PASS" if ok else "FAIL"])
 	await get_tree().create_timer(0.5).timeout
+	get_tree().quit()
+
+func _run_streaming_map_test() -> void:
+	await get_tree().create_timer(0.4).timeout
+	var initial_ok := _world_stream.active_chunks.size() == 1 and _gw == 27 and _gh == 27
+	for generation in 3:
+		var front: Dictionary = _world_stream.frontier()
+		var front_coord: Vector2i = front["coord"]
+		var front_local: Vector2i = front_coord * WorldStream.CHUNK_TILE_SIDE - _stream_grid_origin + Vector2i(4, 4)
+		_player.gx = front_local.x
+		_player.gy = front_local.y
+		_player.position = _iso(_player.gx, _player.gy)
+		var transition := {}
+		for room_x in 3:
+			transition = _world_stream.reveal_room(String(front["id"]), Vector2i(room_x, generation % 3))
+		if not transition.is_empty():
+			_apply_stream_transition(transition)
+	var resident_ok := _world_stream.active_chunks.size() == 3 and _world_stream.retired_chunks.size() == 1
+	var tiles_ok := is_instance_valid(_tiles_node) and _tiles_node.get_child_count() <= WorldStream.MAX_ACTIVE_CHUNKS * WorldStream.CHUNK_TILE_SIDE * WorldStream.CHUNK_TILE_SIDE + 1
+	var path_ok := _astar != null and not _astar.get_id_path(Vector2i(roundi(_player.gx), roundi(_player.gy)), _exit_cell).is_empty()
+	var ok := initial_ok and resident_ok and tiles_ok and path_ok
+	print("[STREAM] initial=%s active=%d retired=%d tiles=%d path=%s verdict=%s" % [str(initial_ok), _world_stream.active_chunks.size(), _world_stream.retired_chunks.size(), _tiles_node.get_child_count(), str(path_ok), "PASS" if ok else "FAIL"])
+	await get_tree().create_timer(0.4).timeout
 	get_tree().quit()
 
 func _run_vision_relic_test() -> void:
@@ -1712,6 +1872,7 @@ func _gather_save_state(reason: String = "manual") -> Dictionary:
 		"floor_states": _floor_states.duplicate(true), "town_portal": _town_portal.duplicate(true),
 		"vision_relic_timer": _vision_relic_timer,
 		"arc_flasks": _arc_flasks,
+		"world_stream": _world_stream.snapshot() if _world_stream != null else {},
 	}
 
 func _save_game() -> void:
@@ -1776,6 +1937,19 @@ func _load_game() -> void:
 	_town_portal = (state.get("town_portal", {}) as Dictionary).duplicate(true)
 	_vision_relic_timer = clampf(float(state.get("vision_relic_timer", 0.0)), 0.0, VISION_RELIC_DURATION)
 	_arc_flasks = maxi(0, int(state.get("arc_flasks", 0)))
+	var saved_stream: Dictionary = state.get("world_stream", {})
+	_stream_epoch = int(saved_stream.get("generation_epoch", _stream_epoch))
+	_clear_travel_nodes()
+	_generate_dungeon()
+	_build_minimap_tex()
+	_player.gx = _ent_cell.x
+	_player.gy = _ent_cell.y
+	_player.position = _iso(_player.gx, _player.gy)
+	if _merc != null:
+		_merc.gx = _player.gx + 1
+		_merc.gy = _player.gy
+		_merc.position = _iso(_merc.gx, _merc.gy)
+	_spawn_dungeon_monsters()
 	_last_visibility_cell = Vector2i(-999, -999)
 	_update_visibility(true)
 	_spawn_corpse_marker()
@@ -3356,6 +3530,8 @@ func _travel_waypoint(direction: int) -> void:
 		return
 	_capture_floor_state()
 	_dlevel = (_act - 1) * ACT_LEN + int(target.get("floor", 1))
+	_floor_states.erase(str(_dlevel))
+	_explored_by_floor.erase(str(_dlevel))
 	Waypoint.unlock(_waypoint_defs, _waypoint_state, _act, _level_in_act())
 	for ground_item in _ground:
 		if is_instance_valid(ground_item):
@@ -3414,11 +3590,14 @@ func _travel_to_floor(target_level: int, return_position: Vector2) -> void:
 	if not _in_town: _capture_floor_state()
 	_clear_travel_nodes()
 	_dlevel = maxi(1, target_level)
+	_floor_states.erase(str(_dlevel))
+	_explored_by_floor.erase(str(_dlevel))
 	_in_town = false
 	_generate_dungeon()
 	_build_minimap_tex()
-	var arrival := return_position
-	if arrival == Vector2.INF or not _walkable(arrival.x, arrival.y): arrival = Vector2(_ent_cell.x, _ent_cell.y)
+	# Portals and waypoints preserve the destination theme, not the old layout.
+	# Every arrival starts just inside the newly generated boundary entrance.
+	var arrival := Vector2(_ent_cell.x, _ent_cell.y)
 	_player.gx = arrival.x; _player.gy = arrival.y; _player.position = _iso(arrival.x, arrival.y)
 	if _merc != null:
 		_merc.gx = _player.gx + 1; _merc.gy = _player.gy; _merc.position = _iso(_merc.gx, _merc.gy)

@@ -1,6 +1,6 @@
 extends RefCounted
 
-const CURRENT_VERSION := 14
+const CURRENT_VERSION := 15
 const DEFAULT_PATH := "user://ashen_depths_save.json"
 
 static func _migrate(raw: Dictionary) -> Dictionary:
@@ -60,6 +60,13 @@ static func _migrate(raw: Dictionary) -> Dictionary:
 	if version == 13:
 		state["arc_flasks"] = int(state.get("arc_flasks", 0))
 		version = 14
+	if version == 14:
+		# Legacy floor coordinates belong to the pre-streaming 81-room layout.
+		# Preserve character progression but start a fresh themed chunk stream.
+		state["world_stream"] = {}
+		state["floor_states"] = {}
+		state["explored_by_floor"] = {}
+		version = 15
 	state["schema_version"] = version
 	return state
 
@@ -202,6 +209,11 @@ static func selftest() -> Dictionary:
 	v13["schema_version"] = 13
 	var migrated_v13 := _migrate(v13)
 	if int(migrated_v13.get("schema_version", 0)) != CURRENT_VERSION or not migrated_v13.has("arc_flasks"): failures.append("v13 arc flask migration")
+	var v14 := state.duplicate(true)
+	v14["schema_version"] = 14
+	v14["floor_states"] = {"1": {"legacy": true}}
+	var migrated_v14 := _migrate(v14)
+	if int(migrated_v14.get("schema_version", 0)) != CURRENT_VERSION or not migrated_v14.get("world_stream", null) is Dictionary or not (migrated_v14.get("floor_states", {}) as Dictionary).is_empty(): failures.append("v14 stream migration")
 	var corrupt_path := "user://save_store_corrupt_%s.json" % suffix
 	var corrupt := FileAccess.open(corrupt_path, FileAccess.WRITE)
 	if corrupt != null:
@@ -211,4 +223,4 @@ static func selftest() -> Dictionary:
 	for cleanup in [path, path + ".tmp", path + ".bak", corrupt_path]:
 		var absolute := ProjectSettings.globalize_path(cleanup)
 		if FileAccess.file_exists(absolute): DirAccess.remove_absolute(absolute)
-	return {"ok": failures.is_empty(), "checks": 19, "failures": failures}
+	return {"ok": failures.is_empty(), "checks": 20, "failures": failures}
