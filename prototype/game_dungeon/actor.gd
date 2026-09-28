@@ -56,6 +56,7 @@ var _facings_seen := {Facing.SOUTH: true}
 var _anim_state: AnimState = AnimState.IDLE
 var _states_seen := {AnimState.IDLE: true}
 var _state_timer := 0.0
+var _state_duration := 0.0
 var _facing_hold := 0.0
 
 func setup(tex: Texture2D) -> void:
@@ -166,6 +167,7 @@ func _set_state(state: AnimState, duration: float = 0.0) -> void:
 	_anim_state = state
 	_states_seen[state] = true
 	_state_timer = duration
+	_state_duration = duration
 	_apply_animation()
 
 func set_motion(grid_velocity: Vector2) -> void:
@@ -193,7 +195,16 @@ func play_death() -> void:
 	_anim_state = AnimState.DEATH
 	_states_seen[AnimState.DEATH] = true
 	_state_timer = INF
+	_state_duration = INF
 	_apply_animation(true)
+	if _sprite != null:
+		_sprite.position = Vector2(0, 6)
+		_sprite.rotation = 0.28 if _facing in [Facing.SOUTH, Facing.EAST] else -0.28
+		_sprite.modulate = Color(0.65, 0.58, 0.58, 0.8)
+		_sprite.scale = Vector2.ONE * _base_scale * 0.78
+
+func _facing_screen_direction() -> Vector2:
+	return [Vector2(0.0, 1.0), Vector2(1.0, 0.0), Vector2(0.0, -1.0), Vector2(-1.0, 0.0)][_facing]
 
 func _apply_animation(force: bool = false) -> void:
 	if _sprite == null or _sprite.sprite_frames == null:
@@ -237,12 +248,37 @@ func animate(delta: float) -> void:
 	else:
 		_anim_t = 0.0
 		_sprite.offset.y = lerpf(_sprite.offset.y, 0.0, clampf(delta * 10.0, 0.0, 1.0))
+	var direction := _facing_screen_direction()
+	var progress := 0.0 if _state_duration <= 0.0 or _state_duration == INF else clampf(1.0 - _state_timer / _state_duration, 0.0, 1.0)
+	var pulse := sin(progress * PI)
+	_sprite.position = Vector2.ZERO
+	_sprite.rotation = 0.0
+	_sprite.modulate = Color.WHITE
+	var scale_factor := 1.0
+	match _anim_state:
+		AnimState.ATTACK:
+			_sprite.position = direction * (7.0 * pulse)
+			_sprite.rotation = (0.10 if _facing in [Facing.SOUTH, Facing.EAST] else -0.10) * pulse
+			scale_factor = 1.0 + 0.16 * pulse
+		AnimState.CAST:
+			_sprite.position = Vector2(0, -3.0 * pulse)
+			_sprite.modulate = Color.WHITE.lerp(Color(0.78, 0.68, 1.0), pulse * 0.55)
+			scale_factor = 1.0 + 0.22 * pulse
+		AnimState.HIT:
+			_sprite.position = -direction * (6.0 * pulse)
+			_sprite.rotation = (-0.08 if _facing in [Facing.SOUTH, Facing.EAST] else 0.08) * pulse
+			_sprite.modulate = Color.WHITE.lerp(Color(1.0, 0.28, 0.22), pulse * 0.8)
+			scale_factor = 1.0 - 0.10 * pulse
+		AnimState.DEATH:
+			_sprite.position = Vector2(0, 6)
+			_sprite.rotation = 0.28 if _facing in [Facing.SOUTH, Facing.EAST] else -0.28
+			_sprite.modulate = Color(0.65, 0.58, 0.58, 0.8)
+			scale_factor = 0.78
+	if slow_timer > 0.0 and _anim_state not in [AnimState.HIT, AnimState.DEATH]:
+		_sprite.modulate = _sprite.modulate.lerp(Color(0.62, 0.82, 1.0), 0.45)
 	if _pop_t > 0.0:
-		_pop_t -= delta
-		var s := _base_scale * (1.0 + 0.35 * maxf(_pop_t, 0.0) / 0.16)
-		_sprite.scale = Vector2(s, s)
-	else:
-		_sprite.scale = Vector2(_base_scale, _base_scale)
+		_pop_t = maxf(0.0, _pop_t - delta)
+	_sprite.scale = Vector2.ONE * _base_scale * scale_factor
 
 func skill_level(id: String) -> int:
 	return int(skills.get(id, 0))
