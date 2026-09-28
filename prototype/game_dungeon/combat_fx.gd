@@ -134,6 +134,84 @@ func buff_pulse(pos: Vector2, color: Color) -> void:
 	_ring(pos, color, 46.0, 0.48, 4.0)
 	_ring(pos, color.lightened(0.25), 28.0, 0.32, 2.0)
 
+func recovery_pulse(pos: Vector2, color: Color) -> void:
+	_ring(pos, color, 30.0, 0.34, 3.0)
+	var column := Line2D.new()
+	column.width = 6.0
+	column.default_color = Color(color.r, color.g, color.b, 0.75)
+	column.add_point(pos + Vector2(0, 10))
+	column.add_point(pos + Vector2(0, -34))
+	column.z_index = 69
+	if not _track(column):
+		column.free()
+		return
+	var tween := column.create_tween().set_parallel(true)
+	tween.tween_property(column, "position:y", -12.0, 0.32)
+	tween.tween_property(column, "modulate:a", 0.0, 0.32)
+	tween.finished.connect(column.queue_free)
+
+func block_impact(pos: Vector2) -> void:
+	_ring(pos, Color(0.55, 0.82, 1.0), 25.0, 0.22, 5.0)
+	var shield := Polygon2D.new()
+	shield.polygon = PackedVector2Array([Vector2(-10, -12), Vector2(10, -12), Vector2(8, 6), Vector2(0, 14), Vector2(-8, 6)])
+	shield.color = Color(0.55, 0.8, 1.0, 0.72)
+	shield.position = pos + Vector2(0, -10)
+	shield.z_index = 76
+	if not _track(shield):
+		shield.free()
+		return
+	var tween := shield.create_tween().set_parallel(true)
+	tween.tween_property(shield, "scale", Vector2(1.35, 1.35), 0.2)
+	tween.tween_property(shield, "modulate:a", 0.0, 0.2)
+	tween.finished.connect(shield.queue_free)
+
+func arc_throw(from_pos: Vector2, to_pos: Vector2) -> void:
+	var path := Line2D.new()
+	path.width = 3.0
+	path.default_color = Color(1.0, 0.42, 0.12, 0.7)
+	path.z_index = 73
+	for index in 12:
+		var ratio := float(index) / 11.0
+		path.add_point(from_pos.lerp(to_pos, ratio) + Vector2(0, -sin(ratio * PI) * 48.0))
+	if _track(path):
+		var path_tween := path.create_tween().set_parallel(true)
+		path_tween.tween_property(path, "modulate:a", 0.0, 0.42).set_delay(0.12)
+		path_tween.tween_property(path, "width", 0.5, 0.42)
+		path_tween.finished.connect(path.queue_free)
+	else:
+		path.free()
+	var flask := Polygon2D.new()
+	flask.polygon = PackedVector2Array([Vector2(-5, -7), Vector2(5, -7), Vector2(7, 5), Vector2(0, 9), Vector2(-7, 5)])
+	flask.color = Color(1.0, 0.32, 0.08)
+	flask.position = from_pos
+	flask.z_index = 78
+	if not _track(flask):
+		flask.free()
+		return
+	var tween := flask.create_tween().set_parallel(true)
+	tween.tween_method(func(ratio: float): flask.position = from_pos.lerp(to_pos, ratio) + Vector2(0, -sin(ratio * PI) * 48.0), 0.0, 1.0, 0.34)
+	tween.tween_property(flask, "rotation", TAU * 1.5, 0.34)
+	tween.finished.connect(func():
+		impact(to_pos, Color(1.0, 0.38, 0.1), true)
+		flask.queue_free())
+
+func level_up(pos: Vector2) -> void:
+	buff_pulse(pos, Color(1.0, 0.82, 0.26))
+	for side in [-1.0, 1.0]:
+		var ray := Line2D.new()
+		ray.width = 4.0
+		ray.default_color = Color(1.0, 0.9, 0.45)
+		ray.add_point(pos)
+		ray.add_point(pos + Vector2(22.0 * side, -58.0))
+		ray.z_index = 74
+		if not _track(ray):
+			ray.free()
+			continue
+		var tween := ray.create_tween().set_parallel(true)
+		tween.tween_property(ray, "modulate:a", 0.0, 0.55).set_delay(0.18)
+		tween.tween_property(ray, "width", 1.0, 0.55)
+		tween.finished.connect(ray.queue_free)
+
 func ground_skill(from_pos: Vector2, to_pos: Vector2, kind: String) -> void:
 	var direction := (to_pos - from_pos).normalized()
 	if direction.length() < 0.1:

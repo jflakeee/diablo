@@ -36,7 +36,7 @@ const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
-const DEPLOYED_AT_KST := "2026-09-28 13:15 KST"
+const DEPLOYED_AT_KST := "2026-09-28 13:33 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -1687,6 +1687,7 @@ func _quaff_health() -> void:
 	var heal := int(_player.max_life * POT_HEAL_PCT)
 	_player.life = mini(_player.max_life, _player.life + heal)
 	_player.queue_redraw()
+	_fx.recovery_pulse(_player.position, Color(0.35, 1.0, 0.4))
 	_spawn_text(_player.position, "+%d HP" % heal, Color(0.4, 0.9, 0.4))
 
 func _quaff_mana() -> void:
@@ -1696,6 +1697,7 @@ func _quaff_mana() -> void:
 	_potions_quaffed += 1
 	var gain := int(_player.max_mana * POT_MANA_PCT)
 	_player.mana = mini(_player.max_mana, _player.mana + gain)
+	_fx.recovery_pulse(_player.position, Color(0.3, 0.55, 1.0))
 	_spawn_text(_player.position, "+%d MP" % gain, Color(0.4, 0.6, 1.0))
 
 func _add_potion_to_belt(ptype: String) -> bool:
@@ -2246,7 +2248,7 @@ func _throw_arc_flask() -> void:
 			m.take_damage(CombatLib.apply_resistance(damage, m.res_fire))
 			total_hits += 1
 			_spawn_text(m.position, "%d ARC FIRE" % damage, Color(1.0, 0.4, 0.15))
-	_flash(_player.position, target.position)
+	_fx.arc_throw(_player.position, target.position)
 	_combat_log = "Skyfire Flask arced over low wall / hits %d" % total_hits
 	_rebuild_inv()
 
@@ -2548,14 +2550,17 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 func _monster_attack(m: ActorScript) -> void:
 	_attacks += 1
 	m.play_attack(Vector2(_player.gx - m.gx, _player.gy - m.gy))
+	_fx.slash(m.position, _player.position, Color(1.0, 0.3, 0.2, 0.8))
 	if CombatLib.roll_hit(_rng, m.attack_rating, _player.defense, m.level, _player.level):
 		# 플레이어 블록 판정 (Part 5 §3)
 		if _player.block_val > 0 and CombatLib.roll_block(_rng, _player.block_val, _player.stat_dex, _player.level):
+			_fx.block_impact(_player.position)
 			_spawn_text(_player.position, "BLOCK", Color(0.6, 0.8, 1.0))
 			return
 		var dmg := CombatLib.physical_damage(_rng, m.dmg_min, m.dmg_max, 0.0)
 		_player.take_damage(dmg)
 		_damage_armor()
+		_fx.impact(_player.position, Color(1.0, 0.24, 0.18), false)
 		_spawn_text(_player.position, str(dmg), Color(1, 0.4, 0.4))
 		_apply_enchant(m)
 	else:
@@ -2581,6 +2586,7 @@ func _apply_enchant(m: ActorScript) -> void:
 	if d > 0:
 		_player.take_damage(d)
 		var c := Color(1, 0.5, 0.2) if el == "fire" else (Color(0.5, 0.8, 1) if el == "cold" else Color(1, 1, 0.4))
+		_fx.impact(_player.position, c, false)
 		_spawn_text(_player.position + Vector2(0, -12), "+%d %s" % [d, el], c)
 
 func _cast_iron_chant() -> void:
@@ -2662,6 +2668,8 @@ func _grant_xp(amount: int) -> void:
 			_merc.level = _player.level
 			_merc_scale_stats()
 		_play_sfx("levelup", -3.0)
+		_fx.level_up(_player.position)
+		_spawn_text(_player.position + Vector2(0, -40), "LEVEL %d" % _player.level, Color(1.0, 0.86, 0.3))
 		_combat_log = "LEVEL UP / %d" % _player.level
 		need = _player.level * 100
 
