@@ -36,7 +36,7 @@ const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
-const DEPLOYED_AT_KST := "2026-09-28 15:15 KST"
+const DEPLOYED_AT_KST := "2026-09-28 16:23 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -2431,14 +2431,22 @@ func _spawn_projectile(from_pos: Vector2, target: ActorScript, dmg: int, element
 	n.position = from_pos
 	n.rotation = PI * 0.25
 	n.z_index = 50
+	var core := Polygon2D.new()
+	core.polygon = PackedVector2Array([Vector2(0, -5), Vector2(4, 0), Vector2(0, 5), Vector2(-4, 0)])
+	core.color = color.lightened(0.65)
+	core.z_index = 1
+	n.add_child(core)
 	_world.add_child(n)
 	var trail := Line2D.new()
-	trail.width = 5.0
-	trail.default_color = Color(color.r, color.g, color.b, 0.55)
+	trail.width = 6.0 if element == "fire" else 4.5
+	var trail_gradient := Gradient.new()
+	trail_gradient.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
+	trail_gradient.colors = PackedColorArray([Color(color.r, color.g, color.b, 0.0), Color(color.r, color.g, color.b, 0.35), color.lightened(0.35)])
+	trail.gradient = trail_gradient
 	trail.z_index = 49
 	trail.add_point(from_pos)
 	_world.add_child(trail)
-	_projectiles.append({"node": n, "trail": trail, "target": target, "dmg": dmg, "element": element, "color": color})
+	_projectiles.append({"node": n, "core": core, "trail": trail, "target": target, "dmg": dmg, "element": element, "color": color, "age": 0.0})
 
 func _update_projectiles(delta: float) -> void:
 	for p in _projectiles.duplicate():
@@ -2456,22 +2464,29 @@ func _update_projectiles(delta: float) -> void:
 			_projectiles.erase(p)
 			continue
 		n.position = n.position.move_toward(t.position, 420.0 * delta)
-		n.rotation += delta * 9.0
+		p["age"] = float(p.get("age", 0.0)) + delta
+		var element := String(p.get("element", "fire"))
+		n.rotation += delta * (5.0 if element == "cold" else 11.0)
+		var core = p.get("core") as Polygon2D
+		if is_instance_valid(core):
+			var pulse := 0.86 + sin(float(p["age"]) * 22.0) * 0.18
+			core.scale = Vector2.ONE * pulse
+			core.position.y = sin(float(p["age"]) * 17.0) * (1.5 if element == "fire" else 0.7)
 		var trail = p.get("trail") as Line2D
 		if is_instance_valid(trail):
 			trail.add_point(n.position)
-			while trail.get_point_count() > 6:
+			var trail_limit: int = [4, 7, 10][_accessibility.effect_quality]
+			while trail.get_point_count() > trail_limit:
 				trail.remove_point(0)
 		var projectile_cell := _world_to_grid(n.position)
 		if not _walkable(projectile_cell.x, projectile_cell.y):
-			_fx.impact(n.position, p.get("color", Color.WHITE), false)
+			_fx.elemental_impact(n.position, element, false)
 			n.queue_free()
 			if is_instance_valid(trail): trail.queue_free()
 			_projectiles.erase(p)
 			continue
 		if n.position.distance_to(t.position) < 12.0:
 			# 스펠 속성 데미지 → 대상 해당 속성 저항/약점 적용 (Part 5 §2)
-			var element := String(p.get("element", "fire"))
 			var tres := _target_resist(t, element)
 			var dmg: int = CombatLib.apply_resistance(int(p["dmg"]), tres)
 			t.take_damage(dmg)
@@ -2490,7 +2505,7 @@ func _update_projectiles(delta: float) -> void:
 			if tres < 0:
 				txt = "%d WEAK" % dmg
 			_spawn_text(t.position, txt, Color(1, 0.55, 0.15))
-			_fx.impact(t.position, p.get("color", Color.WHITE), false)
+			_fx.elemental_impact(t.position, element, false)
 			if not t.alive:
 				_grant_xp(t.level * 40)
 			n.queue_free()
