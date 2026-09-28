@@ -7,7 +7,9 @@ const ROOM_SIZE := 9
 const CHUNK_ROOM_SIDE := 3
 const CHUNK_TILE_SIDE := ROOM_SIZE * CHUNK_ROOM_SIDE
 const REVEAL_THRESHOLD := 3
-const MAX_ACTIVE_CHUNKS := 3
+## Keep six traversable maps resident. Generation and retirement are separate
+## transitions so a newly generated map is never removed in the same tick.
+const MAX_ACTIVE_CHUNKS := 6
 const DIRECTIONS: Array[Vector2i] = [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
 
 var run_seed := 0
@@ -69,10 +71,13 @@ func advance() -> Dictionary:
 	previous["gate_offset"] = gate_offset
 	var added := _append_chunk(next_coord, -direction, _side_name(-direction))
 	added["gate_offset"] = gate_offset
-	var retired: Dictionary = {}
-	if active_chunks.size() > MAX_ACTIVE_CHUNKS:
-		retired = _retire_oldest()
-	return {"added": added, "retired": retired, "composite": compose_active_grid()}
+	return {"added": added, "retired": {}, "composite": compose_active_grid()}
+
+func retire_farthest() -> Dictionary:
+	if active_chunks.size() <= MAX_ACTIVE_CHUNKS:
+		return {}
+	var retired := _retire_oldest()
+	return {"added": {}, "retired": retired, "composite": compose_active_grid()}
 
 func compose_active_grid() -> Dictionary:
 	if active_chunks.is_empty():
@@ -322,10 +327,10 @@ static func selftest() -> bool:
 			result = stream.reveal_room(String(front["id"]), Vector2i(room_x, generation % 3))
 		if result.is_empty():
 			return false
-	if stream.active_chunks.size() != 3 or stream.retired_chunks.size() != 1 or stream.next_sequence != 4:
+	if stream.active_chunks.size() != 4 or stream.retired_chunks.size() != 0 or stream.next_sequence != 4:
 		return false
 	var composite := stream.compose_active_grid()
-	if int(composite["rooms"]) != 27 or int(composite["w"]) * int(composite["h"]) > 81 * 81:
+	if int(composite["rooms"]) != 36 or int(composite["w"]) * int(composite["h"]) > 162 * 162:
 		return false
 	var directions := {}
 	for chunk in stream.active_chunks:
@@ -337,12 +342,16 @@ static func selftest() -> bool:
 	long_stream.setup(246810, 2, 2)
 	for index in 100:
 		var transition: Dictionary = long_stream.advance()
-		if transition.is_empty() or long_stream.active_chunks.size() > MAX_ACTIVE_CHUNKS:
+		if transition.is_empty():
 			return false
 		var long_composite: Dictionary = transition["composite"]
-		if int(long_composite["w"]) * int(long_composite["h"]) > 81 * 81:
+		if int(long_composite["w"]) * int(long_composite["h"]) > 162 * 162:
 			return false
-	if long_stream.next_sequence != 101 or long_stream.used_chunk_coords.size() != 101 or long_stream.retired_chunks.size() != 98:
+		if long_stream.active_chunks.size() > MAX_ACTIVE_CHUNKS:
+			var trim_transition := long_stream.retire_farthest()
+			if trim_transition.is_empty() or long_stream.active_chunks.size() != MAX_ACTIVE_CHUNKS:
+				return false
+	if long_stream.next_sequence != 101 or long_stream.used_chunk_coords.size() != 101 or long_stream.retired_chunks.size() != 95:
 		return false
 	var encoded := JSON.stringify(stream.snapshot())
 	var decoded = JSON.parse_string(encoded)
