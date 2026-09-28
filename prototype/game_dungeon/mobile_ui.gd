@@ -11,7 +11,9 @@ const DESKTOP_MENU_SIZE := Vector2(92, 42)
 const DESKTOP_SKILL_SIZE := Vector2(88, 88)
 const DESKTOP_POTION_SIZE := Vector2(64, 64)
 const DESKTOP_MINIMAP_SIZE := Vector2(180, 180)
-const MIN_LOGICAL := Vector2(960, 540)
+const DESKTOP_MIN_LOGICAL := Vector2(960, 540)
+const PHONE_PORTRAIT_MIN_LOGICAL := Vector2(360, 640)
+const PHONE_LANDSCAPE_MIN_LOGICAL := Vector2(640, 360)
 
 static func prefer_mobile(viewport: Vector2) -> bool:
 	if OS.get_name() in ["Android", "iOS"]:
@@ -23,8 +25,18 @@ static func prefer_mobile(viewport: Vector2) -> bool:
 				return true
 	return viewport.x < 1000.0
 
-static func effective_scale(requested: float, viewport: Vector2) -> float:
-	return minf(requested, minf(viewport.x / MIN_LOGICAL.x, viewport.y / MIN_LOGICAL.y))
+static func device_pixel_ratio() -> float:
+	if OS.has_feature("web"):
+		var value = JavaScriptBridge.eval("window.devicePixelRatio || 1", true)
+		if value is float or value is int:
+			return clampf(float(value), 1.0, 4.0)
+	return 1.0
+
+static func effective_scale(requested: float, viewport: Vector2, mobile: bool = false) -> float:
+	var minimum := DESKTOP_MIN_LOGICAL
+	if mobile:
+		minimum = PHONE_PORTRAIT_MIN_LOGICAL if viewport.y >= viewport.x else PHONE_LANDSCAPE_MIN_LOGICAL
+	return minf(requested, minf(viewport.x / minimum.x, viewport.y / minimum.y))
 
 static func logical_safe_area(viewport: Vector2) -> Rect2:
 	var window_size := Vector2(DisplayServer.window_get_size())
@@ -46,7 +58,17 @@ static func layout(viewport: Vector2, safe: Rect2 = Rect2(), mobile: bool = true
 	var skill_size := SKILL_SIZE if mobile else DESKTOP_SKILL_SIZE
 	var potion_size := POTION_SIZE if mobile else DESKTOP_POTION_SIZE
 	var minimap_size := MINIMAP_SIZE if mobile else DESKTOP_MINIMAP_SIZE
-	var minimap_x := (left + right - minimap_size.x) * 0.5 if mobile and area.size.y < 650.0 else right - minimap_size.x
+	var portrait_mobile := mobile and area.size.y >= area.size.x
+	var minimap_x := (left + right - minimap_size.x) * 0.5 if mobile and not portrait_mobile else right - minimap_size.x
+	var char_position := Vector2(right - menu_size.x * 3.0 - 16, top)
+	var shop_position := Vector2(right - menu_size.x * 2.0 - 8, top)
+	var bag_position := Vector2(right - menu_size.x, top)
+	var minimap_position := Vector2(minimap_x, top + menu_size.y + 16)
+	if portrait_mobile:
+		char_position = Vector2(right - menu_size.x, top)
+		shop_position = Vector2(right - menu_size.x, top + menu_size.y + 8)
+		bag_position = Vector2(right - menu_size.x, top + (menu_size.y + 8) * 2.0)
+		minimap_position = Vector2(right - minimap_size.x, top + (menu_size.y + 8) * 3.0 + 8)
 	var skill_primary := Vector2(right - skill_size.x, bottom - skill_size.y)
 	var skill_secondary := Vector2(right - skill_size.x * 2.0 - 8, bottom - skill_size.y)
 	var skill_utility := Vector2(right - skill_size.x, bottom - skill_size.y * 2.0 - 8)
@@ -57,8 +79,8 @@ static func layout(viewport: Vector2, safe: Rect2 = Rect2(), mobile: bool = true
 	return {
 		"mobile": mobile, "menu_size": menu_size, "skill_size": skill_size, "potion_size": potion_size, "minimap_size": minimap_size,
 		"hud": Vector2(left, top),
-		"char": Vector2(right - menu_size.x * 3.0 - 16, top), "shop": Vector2(right - menu_size.x * 2.0 - 8, top), "bag": Vector2(right - menu_size.x, top),
-		"minimap": Vector2(minimap_x, top + menu_size.y + 16),
+		"char": char_position, "shop": shop_position, "bag": bag_position,
+		"minimap": minimap_position,
 		"joystick": Vector2(left, bottom - JOYSTICK_SIZE.y),
 		"potion_hp": Vector2(left, bottom - (JOYSTICK_SIZE.y + potion_size.y + 8 if mobile else potion_size.y)),
 		"potion_mp": Vector2(left + potion_size.x + 14, bottom - (JOYSTICK_SIZE.y + potion_size.y + 8 if mobile else potion_size.y)),
@@ -108,8 +130,11 @@ static func selftest() -> bool:
 				push_error("Responsive UI layout failed %s mobile=%s: %s" % [str(viewport), str(mobile), str(validate(viewport, mobile)["failures"])])
 				return false
 	for requested in [0.8, 1.0, 1.2, 1.4]:
-		var applied := effective_scale(requested, Vector2(1280, 720))
-		if applied > requested or (Vector2(1280, 720) / applied).x < MIN_LOGICAL.x:
+		var applied := effective_scale(requested, Vector2(1280, 720), false)
+		if applied > requested or (Vector2(1280, 720) / applied).x < DESKTOP_MIN_LOGICAL.x:
 			return false
+	var retina_portrait := effective_scale(3.0, Vector2(1170, 2532), true)
+	if retina_portrait < 2.9 or (Vector2(1170, 2532) / retina_portrait).x < PHONE_PORTRAIT_MIN_LOGICAL.x:
+		return false
 	return SKILL_SIZE.x >= 72.0 and POTION_SIZE.x >= 48.0 and MENU_SIZE.y >= 48.0 and JOYSTICK_SIZE.x <= 240.0 \
 		and DESKTOP_SKILL_SIZE.x < SKILL_SIZE.x and DESKTOP_POTION_SIZE.x < POTION_SIZE.x

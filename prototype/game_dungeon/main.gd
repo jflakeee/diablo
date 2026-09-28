@@ -35,7 +35,7 @@ const CollectionBook := preload("res://collection_book.gd")
 const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
-const DEPLOYED_AT_KST := "2026-09-28 06:48 KST"
+const DEPLOYED_AT_KST := "2026-09-28 10:06 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -187,6 +187,7 @@ var _generated_monsters := 0
 var _run_start := 0
 var _auto_quit := false
 var _ui_selftest_ok := true
+var _mobile_profile := false
 var _identity_selftest_ok := true
 var _system_selftest_ok := true
 var _save_selftest_ok := true
@@ -759,12 +760,17 @@ func _ready() -> void:
 func _show_class_select() -> void:
 	_menu_layer = CanvasLayer.new()
 	add_child(_menu_layer)
-	var vp := get_viewport_rect().size
-	var mobile_profile := MobileUI.prefer_mobile(vp)
-	var title_font := 56 if mobile_profile else 44
-	var subtitle_font := 30 if mobile_profile else 22
-	var menu_font := 30 if mobile_profile else 26
-	var detail_font := 26 if mobile_profile else 20
+	var physical_vp := get_viewport_rect().size
+	var mobile_profile := MobileUI.prefer_mobile(physical_vp)
+	var display_scale := MobileUI.device_pixel_ratio() if mobile_profile else 1.0
+	var vp := physical_vp / display_scale
+	_menu_layer.transform = Transform2D.IDENTITY.scaled(Vector2(display_scale, display_scale))
+	var title_font := 34 if mobile_profile else 44
+	var subtitle_font := 18 if mobile_profile else 22
+	var menu_font := 20 if mobile_profile else 26
+	var detail_font := 16 if mobile_profile else 20
+	var content_width := minf(vp.x - 32.0, 440.0)
+	var content_x := (vp.x - content_width) * 0.5
 	var heading_y := vp.y * (0.16 if mobile_profile else 0.2)
 	var bg := ColorRect.new()
 	bg.color = Color(0.05, 0.04, 0.08, 1.0)
@@ -773,8 +779,8 @@ func _show_class_select() -> void:
 	var title := Label.new()
 	title.text = "ASHEN DEPTHS"
 	title.add_theme_font_size_override("font_size", _accessibility.font_size(title_font))
-	title.position = Vector2(vp.x * 0.5 - 240, heading_y)
-	title.size = Vector2(480, 70)
+	title.position = Vector2(content_x, heading_y)
+	title.size = Vector2(content_width, 54)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_menu_layer.add_child(title)
 	var sub := Label.new()
@@ -783,18 +789,19 @@ func _show_class_select() -> void:
 	sub.text = "CHOOSE YOUR CLASS\nDEPLOYED %s" % DEPLOYED_AT_KST
 	sub.add_theme_font_size_override("font_size", _accessibility.font_size(subtitle_font))
 	sub.add_theme_color_override("font_color", Color(0.88, 0.88, 0.88, 1.0))
-	sub.position = Vector2(vp.x * 0.5 - 220, heading_y + 72)
-	sub.size = Vector2(440, 88)
+	sub.position = Vector2(content_x, heading_y + 56)
+	sub.size = Vector2(content_width, 62)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_menu_layer.add_child(sub)
-	_add_class_button("Iron Warden / Melee / Defense", Color(0.9, 0.75, 0.2), Vector2(vp.x * 0.5 - 220, vp.y * 0.42), "warden", menu_font)
-	_add_class_button("Arcanist / Ranged / Arcane", Color(0.6, 0.5, 0.95), Vector2(vp.x * 0.5 - 220, vp.y * 0.42 + 90), "arcanist", menu_font)
+	_add_class_button("Iron Warden / Melee / Defense", Color(0.9, 0.75, 0.2), Vector2(content_x, vp.y * 0.42), "warden", menu_font, content_width)
+	_add_class_button("Arcanist / Ranged / Arcane", Color(0.6, 0.5, 0.95), Vector2(content_x, vp.y * 0.42 + 82), "arcanist", menu_font, content_width)
 	# Difficulty selection.
 	_diff_label = Label.new()
 	_diff_label.add_theme_font_size_override("font_size", _accessibility.font_size(detail_font))
-	_diff_label.position = Vector2(vp.x * 0.5 - 220, vp.y * 0.42 + 200)
+	_diff_label.position = Vector2(content_x, vp.y * 0.42 + 178)
+	_diff_label.size = Vector2(content_width, 34)
 	_menu_layer.add_child(_diff_label)
 	_update_diff_label()
 	var dnames := ["Normal", "Nightmare", "Hell"]
@@ -803,9 +810,10 @@ func _show_class_select() -> void:
 		var db := Button.new()
 		db.theme = _ui_theme
 		db.text = dnames[i]
-		db.position = Vector2(vp.x * 0.5 - 220 + i * 150, vp.y * 0.42 + 240)
-		db.custom_minimum_size = Vector2(140, 50)
-		db.size = Vector2(140, 50)
+		var difficulty_width := (content_width - 16.0) / 3.0
+		db.position = Vector2(content_x + i * (difficulty_width + 8.0), vp.y * 0.42 + 214)
+		db.custom_minimum_size = Vector2(difficulty_width, 50)
+		db.size = Vector2(difficulty_width, 50)
 		db.add_theme_font_size_override("font_size", _accessibility.font_size(detail_font))
 		db.add_theme_color_override("font_color", dcols[i])
 		db.pressed.connect(_set_difficulty.bind(i))
@@ -814,9 +822,9 @@ func _show_class_select() -> void:
 		var update_button := Button.new()
 		update_button.theme = _ui_theme
 		update_button.text = "FORCE LATEST UPDATE"
-		update_button.position = Vector2(vp.x * 0.5 - 220, minf(vp.y * 0.42 + 305, vp.y - 58))
-		update_button.custom_minimum_size = Vector2(440, 48)
-		update_button.size = Vector2(440, 48)
+		update_button.position = Vector2(content_x, minf(vp.y * 0.42 + 274, vp.y - 58))
+		update_button.custom_minimum_size = Vector2(content_width, 48)
+		update_button.size = Vector2(content_width, 48)
 		update_button.add_theme_font_size_override("font_size", _accessibility.font_size(detail_font))
 		update_button.pressed.connect(_force_latest_update)
 		_menu_layer.add_child(update_button)
@@ -830,13 +838,13 @@ func _update_diff_label() -> void:
 		var dn: String = ["Normal", "Nightmare", "Hell"][_difficulty]
 		_diff_label.text = "Difficulty: %s / Select below, then choose a class" % dn
 
-func _add_class_button(text: String, col: Color, pos: Vector2, cls: String, font_px: int = 26) -> void:
+func _add_class_button(text: String, col: Color, pos: Vector2, cls: String, font_px: int = 26, width: float = 440.0) -> void:
 	var btn := Button.new()
 	btn.theme = _ui_theme
 	btn.text = text
 	btn.position = pos
-	btn.custom_minimum_size = Vector2(440, 74)
-	btn.size = Vector2(440, 74)
+	btn.custom_minimum_size = Vector2(width, 66)
+	btn.size = Vector2(width, 66)
 	btn.add_theme_font_size_override("font_size", _accessibility.font_size(font_px))
 	btn.add_theme_color_override("font_color", col)
 	btn.pressed.connect(_choose_class.bind(cls))
@@ -931,6 +939,7 @@ func _start_game() -> void:
 
 	var physical_vp := get_viewport_rect().size
 	var mobile_profile := MobileUI.prefer_mobile(physical_vp)
+	_mobile_profile = mobile_profile
 	_cam = Camera2D.new()
 	_cam.position = _player.position
 	# Mobile uses exactly twice the desktop world scale so actors and dungeon
@@ -941,8 +950,8 @@ func _start_game() -> void:
 	_cam.make_current()
 
 	var ui := CanvasLayer.new()
-	var requested_ui_scale := maxf(_accessibility.ui_scale, 1.2) if mobile_profile else _accessibility.ui_scale
-	var ui_scale := MobileUI.effective_scale(requested_ui_scale, physical_vp)
+	var requested_ui_scale := _accessibility.ui_scale * MobileUI.device_pixel_ratio() if mobile_profile else _accessibility.ui_scale
+	var ui_scale := MobileUI.effective_scale(requested_ui_scale, physical_vp, mobile_profile)
 	ui.transform = Transform2D.IDENTITY.scaled(Vector2(ui_scale, ui_scale))
 	add_child(ui)
 	var vp := physical_vp / ui_scale
@@ -1051,10 +1060,11 @@ func _start_game() -> void:
 
 	var deploy_stamp := Label.new()
 	deploy_stamp.text = "DEPLOYED %s" % DEPLOYED_AT_KST
-	deploy_stamp.position = Vector2(mobile_layout["bag"].x - 224, mobile_layout["bag"].y + (mobile_layout["menu_size"] as Vector2).y + 2)
+	deploy_stamp.position = Vector2((vp.x - 328.0) * 0.5, mobile_layout["hud"].y)
 	deploy_stamp.size = Vector2(328, 30)
 	deploy_stamp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	deploy_stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	deploy_stamp.visible = not mobile_profile
 	deploy_stamp.add_theme_font_size_override("font_size", _accessibility.font_size(20 if mobile_profile else 16))
 	deploy_stamp.add_theme_color_override("font_color", Color(0.92, 0.92, 0.92, 1.0))
 	ui_root.add_child(deploy_stamp)
@@ -1078,9 +1088,9 @@ func _start_game() -> void:
 
 	_hud = Label.new()
 	_hud.position = mobile_layout["hud"]
-	_hud.size = Vector2(500, 0)
+	_hud.size = Vector2((mobile_layout["char"] as Vector2).x - (mobile_layout["hud"] as Vector2).x - 8.0, 0) if mobile_profile and vp.y >= vp.x else Vector2(500, 0)
 	_hud.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_hud.add_theme_font_size_override("font_size", _accessibility.font_size(18))
+	_hud.add_theme_font_size_override("font_size", _accessibility.font_size(13 if mobile_profile else 18))
 	ui_root.add_child(_hud)
 
 	# 포션 벨트 버튼(모바일): 좌하단, 조이스틱 위. 빨강=생명 / 파랑=마나
@@ -2126,11 +2136,16 @@ func _process(delta: float) -> void:
 	var wn := _equipped_label("weapon")
 	var an := _equipped_label("armor")
 	var elapsed := float(Time.get_ticks_msec() - _run_start) / 1000.0
-	_hud.text = "%s Lv%d  HP %d/%d  MP %d/%d  Gold %d\nWeapon %s (%d-%d)  Armor %s / DEF %d\nKills %d  Drops %d  Bag %d  MF %d  Belt HP%d MP%d\n%s" % [
-		_player.actor_name, _player.level, _player.life, _player.max_life, _player.mana, _player.max_mana, _gold,
-		wn, _player.dmg_min, _player.dmg_max, an, _player.defense,
-		_kills, _items_dropped, _inventory.size(), _player_mf, _belt_hp, _belt_mp, _combat_log]
-	_hud.text += "\nStamina %d/%d / %s / %s" % [roundi(_stamina), roundi(_stamina_max), "RUN" if _player_running else "WALK", _map_type.to_upper()]
+	if _mobile_profile:
+		_hud.text = "%s Lv%d\nHP %d/%d  MP %d/%d  Gold %d\nStamina %d/%d  %s\n%s" % [
+			_player.actor_name, _player.level, _player.life, _player.max_life, _player.mana, _player.max_mana, _gold,
+			roundi(_stamina), roundi(_stamina_max), "RUN" if _player_running else "WALK", _combat_log]
+	else:
+		_hud.text = "%s Lv%d  HP %d/%d  MP %d/%d  Gold %d\nWeapon %s (%d-%d)  Armor %s / DEF %d\nKills %d  Drops %d  Bag %d  MF %d  Belt HP%d MP%d\n%s" % [
+			_player.actor_name, _player.level, _player.life, _player.max_life, _player.mana, _player.max_mana, _gold,
+			wn, _player.dmg_min, _player.dmg_max, an, _player.defense,
+			_kills, _items_dropped, _inventory.size(), _player_mf, _belt_hp, _belt_mp, _combat_log]
+		_hud.text += "\nStamina %d/%d / %s / %s" % [roundi(_stamina), roundi(_stamina_max), "RUN" if _player_running else "WALK", _map_type.to_upper()]
 	if _vision_relic_timer > 0.0: _hud.text += " / ALL-SEEING %.0fs" % _vision_relic_timer
 	if _arc_flasks > 0: _hud.text += " / ARC FLASK %d" % _arc_flasks
 	if not _corpse_state.is_empty():
@@ -2139,13 +2154,16 @@ func _process(delta: float) -> void:
 		_pot_hp_btn.text = "HP\n%d" % _belt_hp
 	if _pot_mp_btn:
 		_pot_mp_btn.text = "MP\n%d" % _belt_mp
-	if _merc != null:
+	if _merc != null and not _mobile_profile:
 		var ms := ("HP %d/%d" % [_merc.life, _merc.max_life]) if _merc.alive else "DOWN"
 		_hud.text += "\nMerc Ember Scout %s  Kills %d" % [ms, _merc_kills]
 	if _stat_points > 0 or _player.skill_points > 0:
 		_hud.text += "  Points: Stat %d Skill %d" % [_stat_points, _player.skill_points]
 	var quest_gate := "DEFEAT BOSS" if _exit_locked else ("BOSS FLOOR" if _is_boss_level() else "EXPLORING")
-	_hud.text += "\nACT %d / Floor %d/%d / %s (Clears %d)\nQuest: %s / WP: %s" % [_act, _level_in_act(), ACT_LEN, quest_gate, _acts_cleared, Quest.objective_text(_quest_defs, _quest_state, _act), Waypoint.current_name(_waypoint_defs, _waypoint_state)]
+	if _mobile_profile:
+		_hud.text += "\nQuest: %s" % Quest.objective_text(_quest_defs, _quest_state, _act)
+	else:
+		_hud.text += "\nACT %d / Floor %d/%d / %s (Clears %d)\nQuest: %s / WP: %s" % [_act, _level_in_act(), ACT_LEN, quest_gate, _acts_cleared, Quest.objective_text(_quest_defs, _quest_state, _act), Waypoint.current_name(_waypoint_defs, _waypoint_state)]
 
 	if _auto_quit and elapsed >= 50.0 and not _quitting:
 		_quitting = true
