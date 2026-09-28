@@ -36,7 +36,7 @@ const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
-const DEPLOYED_AT_KST := "2026-09-28 20:19 KST"
+const DEPLOYED_AT_KST := "2026-09-28 20:50 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -339,7 +339,7 @@ func _generate_dungeon() -> void:
 		_tiles_node.queue_free()
 	_tiles_node = Node2D.new()
 	_world.add_child(_tiles_node)
-	var lvl := LevelGen.generate(1000 + _dlevel)  # 레벨별 결정론적 시드
+	var lvl := LevelGen.generate(1000 + _dlevel, _act)  # deterministic floor layout plus act biome
 	_gw = int(lvl["w"])
 	_gh = int(lvl["h"])
 	_grid = lvl["grid"]
@@ -347,14 +347,20 @@ func _generate_dungeon() -> void:
 	_ent_cell = lvl["entrance"]
 	_exit_cell = lvl["exit"]
 	# 제작기로 타일 변종 몇 개 미리 생성(성능: 재사용)
+	var palettes := {
+		1: [Color(0.26, 0.42, 0.28), Color(0.24, 0.40, 0.26), Color(0.28, 0.44, 0.30), Color(0.30, 0.28, 0.26), Color(0.26, 0.24, 0.23)],
+		2: [Color(0.42, 0.36, 0.22), Color(0.48, 0.40, 0.24), Color(0.36, 0.32, 0.20), Color(0.35, 0.25, 0.16), Color(0.28, 0.20, 0.14)],
+		3: [Color(0.24, 0.29, 0.39), Color(0.20, 0.25, 0.35), Color(0.29, 0.33, 0.43), Color(0.25, 0.24, 0.32), Color(0.18, 0.18, 0.26)],
+	}
+	var palette: Array = palettes[posmod(_act - 1, 3) + 1]
 	var floor_texs := [
-		PixelGen.iso_tile(TILE_W, TILE_H, Color(0.26, 0.42, 0.28), 1, true),
-		PixelGen.iso_tile(TILE_W, TILE_H, Color(0.24, 0.40, 0.26), 5, true),
-		PixelGen.iso_tile(TILE_W, TILE_H, Color(0.28, 0.44, 0.30), 9, false),
+		PixelGen.iso_tile(TILE_W, TILE_H, palette[0], 1 + _act * 11, true),
+		PixelGen.iso_tile(TILE_W, TILE_H, palette[1], 5 + _act * 11, true),
+		PixelGen.iso_tile(TILE_W, TILE_H, palette[2], 9 + _act * 11, false),
 	]
 	var wall_texs := [
-		PixelGen.iso_tile(TILE_W, TILE_H, Color(0.30, 0.28, 0.26), 2, true),
-		PixelGen.iso_tile(TILE_W, TILE_H, Color(0.26, 0.24, 0.23), 6, true),
+		PixelGen.iso_tile(TILE_W, TILE_H, palette[3], 2 + _act * 11, true),
+		PixelGen.iso_tile(TILE_W, TILE_H, palette[4], 6 + _act * 11, true),
 	]
 	for y in _gh:
 		for x in _gw:
@@ -555,7 +561,7 @@ func _next_level() -> void:
 		if is_instance_valid(g):
 			g.queue_free()
 	_ground.clear()
-	_projectiles.clear()
+	_clear_map_effects()
 	_generate_dungeon()
 	_build_minimap_tex()
 	_player.gx = _ent_cell.x
@@ -1333,15 +1339,25 @@ func _run_travel_system_test() -> void:
 	var start_floor := _dlevel
 	var start_position := Vector2(_player.gx, _player.gy)
 	var start_monsters := _monsters.size()
+	_fx.cast_burst(_player.position, Color.WHITE)
+	var effect_was_spawned := _fx.active_count() > 0
+	var projectile_nodes: Array[Node] = []
+	if not _monsters.is_empty():
+		_spawn_projectile(_player.position, _monsters[0], 1)
+		projectile_nodes.append(_projectiles.back().get("node", null))
+		projectile_nodes.append(_projectiles.back().get("trail", null))
 	_toggle_town_portal()
 	var town_ok: bool = _in_town and not _town_portal.is_empty() and _monsters.is_empty()
+	var effects_ok: bool = effect_was_spawned and _fx.active_count() == 0 and _projectiles.is_empty()
+	for node in projectile_nodes:
+		effects_ok = effects_ok and (not is_instance_valid(node) or node.is_queued_for_deletion())
 	_toggle_town_portal()
 	var return_ok: bool = not _in_town and _dlevel == start_floor and Vector2(_player.gx, _player.gy).distance_to(start_position) < 0.1 and _monsters.size() == start_monsters
 	_travel_to_floor(start_floor + 1, Vector2.INF)
 	_previous_floor()
 	var previous_ok: bool = _dlevel == start_floor and _floor_states.has(str(start_floor + 1))
-	var ok: bool = town_ok and return_ok and previous_ok
-	print("[TRAVEL] town=%s return=%s previous=%s cached=%d verdict=%s" % [str(town_ok), str(return_ok), str(previous_ok), _floor_states.size(), "PASS" if ok else "FAIL"])
+	var ok: bool = town_ok and effects_ok and return_ok and previous_ok
+	print("[TRAVEL] town=%s effects_cleared=%s return=%s previous=%s cached=%d verdict=%s" % [str(town_ok), str(effects_ok), str(return_ok), str(previous_ok), _floor_states.size(), "PASS" if ok else "FAIL"])
 	await get_tree().create_timer(0.5).timeout
 	get_tree().quit()
 
@@ -3343,11 +3359,7 @@ func _travel_waypoint(direction: int) -> void:
 		if is_instance_valid(ground_item):
 			ground_item.queue_free()
 	_ground.clear()
-	for projectile in _projectiles:
-		var projectile_node: Node = projectile.get("node", null)
-		if is_instance_valid(projectile_node):
-			projectile_node.queue_free()
-	_projectiles.clear()
+	_clear_map_effects()
 	_generate_dungeon()
 	_build_minimap_tex()
 	_player.gx = _ent_cell.x
@@ -3378,13 +3390,23 @@ func _clear_travel_nodes() -> void:
 	for n in _ground:
 		if is_instance_valid(n): n.queue_free()
 	_ground.clear()
-	for p in _projectiles:
-		var node: Node = p.get("node", null)
-		if is_instance_valid(node): node.queue_free()
-	_projectiles.clear()
+	_clear_map_effects()
 	for m in _monsters:
 		if is_instance_valid(m): m.queue_free()
 	_monsters.clear()
+
+func _clear_map_effects() -> void:
+	for p in _projectiles:
+		var node: Node = p.get("node", null)
+		if is_instance_valid(node): node.queue_free()
+		var trail: Node = p.get("trail", null)
+		if is_instance_valid(trail): trail.queue_free()
+	_projectiles.clear()
+	if is_instance_valid(_attack_line):
+		_attack_line.clear_points()
+	_attack_ttl = 0.0
+	if is_instance_valid(_fx):
+		_fx.clear_all()
 
 func _travel_to_floor(target_level: int, return_position: Vector2) -> void:
 	if not _in_town: _capture_floor_state()

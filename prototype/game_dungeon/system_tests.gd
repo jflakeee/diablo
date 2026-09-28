@@ -128,13 +128,14 @@ static func run() -> Dictionary:
 	_check(Craft.upgrade_rune("Ahn") == "Ahnor", "sigil upgrade", failures)
 	_check(Craft.upgrade_gem_quality("flawless") == "perfect", "gem upgrade", failures)
 
-	var level_a := LevelGen.generate(424242)
-	var level_b := LevelGen.generate(424242)
-	_check(int(level_a["w"]) == 27 and int(level_a["h"]) == 27, "level dimensions", failures)
-	_check(int(level_a["rooms"]) == 9 and int(level_a["doors"]) == 8, "level topology", failures)
+	var level_a := LevelGen.generate(424242, 1)
+	var level_b := LevelGen.generate(424242, 1)
+	_check(int(level_a["w"]) == 81 and int(level_a["h"]) == 81, "level dimensions", failures)
+	_check(int(level_a["rooms"]) == 81 and int(level_a["doors"]) >= 80 and int(level_a["loops"]) > 0, "level topology", failures)
 	_check(level_a["entrance"] != level_a["exit"], "distinct level endpoints", failures)
 	_check(level_a["entrance"] == level_b["entrance"] and level_a["exit"] == level_b["exit"] and level_a["grid"] == level_b["grid"], "level determinism", failures)
 	_check(_connected(level_a), "level connectivity", failures)
+	_check(String(LevelGen.generate(424242, 1)["theme"]) != String(LevelGen.generate(424242, 2)["theme"]) and String(LevelGen.generate(424242, 2)["theme"]) != String(LevelGen.generate(424242, 3)["theme"]), "act biome diversity", failures)
 
 	var unique_item := Item.generate(rng, Item.WEAPON_BASES[1], 20, "unique")
 	_check(Item.display_name(unique_item) == "Rift Cleaver (Hand Axe)", "unique identity", failures)

@@ -13,6 +13,21 @@ var quality := 1
 func set_quality(value: int) -> void:
 	quality = clampi(value, 0, 2)
 
+func clear_all() -> void:
+	for node in _active:
+		if is_instance_valid(node):
+			node.queue_free()
+	_active.clear()
+	_damage_batches.clear()
+	_recent_text_positions.clear()
+
+func active_count() -> int:
+	var count := 0
+	for node in _active:
+		if is_instance_valid(node) and not node.is_queued_for_deletion():
+			count += 1
+	return count
+
 func _active_limit() -> int:
 	return [36, 54, MAX_ACTIVE][quality]
 
