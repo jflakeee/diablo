@@ -27,10 +27,8 @@ static func generate(seed_val: int, act: int = 1) -> Dictionary:
 	# 스패닝 트리(randomized DFS) — 모든 룸 슬롯을 연결 보장
 	var visited := {}
 	var edges: Array = []
-	var depth := {}
 	var start := Vector2i(0, 0)
 	visited[start] = true
-	depth[start] = 0
 	var stack: Array = [start]
 	while not stack.is_empty():
 		var cur: Vector2i = stack[stack.size() - 1]
@@ -44,7 +42,6 @@ static func generate(seed_val: int, act: int = 1) -> Dictionary:
 			continue
 		var pick: Vector2i = neigh[rng.randi_range(0, neigh.size() - 1)]
 		visited[pick] = true
-		depth[pick] = int(depth[cur]) + 1
 		edges.append([cur, pick])
 		stack.append(pick)
 
@@ -94,17 +91,16 @@ static func generate(seed_val: int, act: int = 1) -> Dictionary:
 			if Vector2(px, py).distance_to(Vector2(ROOM / 2, ROOM / 2)) > 3.0: grid[py][px] = PILLAR
 
 	# 입구 = start 중심, 출구 = 트리 최심부 슬롯 중심
-	var exit_slot := start
-	var maxd := -1
-	for s in depth:
-		if int(depth[s]) > maxd:
-			maxd = int(depth[s])
-			exit_slot = s
+	# Use shortest-path distance on the final graph. Added loop connections can
+	# otherwise turn a deep DFS endpoint into a shortcut beside the entrance.
+	var endpoint := _farthest_slot(edges, start)
+	var exit_slot: Vector2i = endpoint["slot"]
 
 	return {
 		"w": w, "h": h, "grid": grid,
 		"entrance": _slot_center(start), "exit": _slot_center(exit_slot),
 		"rooms": SLOTS * SLOTS, "doors": edges.size(), "loops": loops,
+		"critical_path_rooms": int(endpoint["distance"]),
 		"map_type": map_type, "theme": theme, "act": act,
 	}
 
@@ -128,6 +124,29 @@ static func _edge_key(a: Vector2i, b: Vector2i) -> String:
 	if a.y < b.y or (a.y == b.y and a.x < b.x):
 		return "%d,%d:%d,%d" % [a.x, a.y, b.x, b.y]
 	return "%d,%d:%d,%d" % [b.x, b.y, a.x, a.y]
+
+static func _farthest_slot(edges: Array, start: Vector2i) -> Dictionary:
+	var adjacency := {}
+	for edge in edges:
+		var a: Vector2i = edge[0]
+		var b: Vector2i = edge[1]
+		if not adjacency.has(a): adjacency[a] = []
+		if not adjacency.has(b): adjacency[b] = []
+		adjacency[a].append(b)
+		adjacency[b].append(a)
+	var distances := {start: 0}
+	var queue: Array[Vector2i] = [start]
+	var farthest := start
+	while not queue.is_empty():
+		var current: Vector2i = queue.pop_front()
+		for raw_next in adjacency.get(current, []):
+			var next: Vector2i = raw_next
+			if distances.has(next): continue
+			distances[next] = int(distances[current]) + 1
+			queue.append(next)
+			if int(distances[next]) > int(distances[farthest]):
+				farthest = next
+	return {"slot": farthest, "distance": int(distances[farthest])}
 
 static func _carve_room(grid: Array, sx: int, sy: int) -> void:
 	var ox := sx * ROOM

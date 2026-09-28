@@ -36,7 +36,7 @@ const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
-const DEPLOYED_AT_KST := "2026-09-28 20:50 KST"
+const DEPLOYED_AT_KST := "2026-09-28 21:15 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -410,7 +410,9 @@ func _spawn_dungeon_monsters() -> void:
 	var boss_lv := _is_boss_level()
 	_exit_locked = boss_lv and not boss_def.is_empty()
 	# 잡몹 수: 일반 층은 4+레벨(최대 8), 보스 층은 줄여서 보스에 집중
-	var count := 3 if boss_lv else mini(4 + _dlevel, 8)
+	var count := clampi(12 + _dlevel * 2, 14, 26)
+	if boss_lv:
+		count = maxi(10, count - 5)
 	for i in count:
 		if pool.is_empty():
 			break

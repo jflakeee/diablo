@@ -132,6 +132,7 @@ static func run() -> Dictionary:
 	var level_b := LevelGen.generate(424242, 1)
 	_check(int(level_a["w"]) == 81 and int(level_a["h"]) == 81, "level dimensions", failures)
 	_check(int(level_a["rooms"]) == 81 and int(level_a["doors"]) >= 80 and int(level_a["loops"]) > 0, "level topology", failures)
+	_check(int(level_a["critical_path_rooms"]) >= 10, "expanded-map critical path", failures)
 	_check(level_a["entrance"] != level_a["exit"], "distinct level endpoints", failures)
 	_check(level_a["entrance"] == level_b["entrance"] and level_a["exit"] == level_b["exit"] and level_a["grid"] == level_b["grid"], "level determinism", failures)
 	_check(_connected(level_a), "level connectivity", failures)
