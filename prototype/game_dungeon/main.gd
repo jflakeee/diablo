@@ -36,7 +36,7 @@ const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
-const DEPLOYED_AT_KST := "2026-09-28 19:40 KST"
+const DEPLOYED_AT_KST := "2026-09-28 19:57 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -80,6 +80,8 @@ const NOVA_RADIUS := 3.5
 const SPELL_RANGE := 7.0
 const FIREBALL_CD := 0.6
 const EQUIPMENT_SLOTS := ["weapon", "armor", "ring_left", "ring_right", "amulet"]
+const ITEM_TOAST_VISIBLE_LIMIT := 4
+const ITEM_EVENT_HISTORY_LIMIT := 24
 
 var _class := "warden"
 var _projectiles: Array = []
@@ -109,6 +111,8 @@ var _attack_ttl := 0.0
 
 var _joy: JoystickScript
 var _hud: Label
+var _item_toast_box: VBoxContainer
+var _item_event_history: Array[Dictionary] = []
 var _skill_buttons: Dictionary = {}
 # ── 포션 & 벨트 (P6 생존) ──
 const BELT_MAX := 8
@@ -1104,6 +1108,16 @@ func _start_game() -> void:
 	_hud.add_theme_font_size_override("font_size", _accessibility.font_size(13 if mobile_profile else 18))
 	ui_root.add_child(_hud)
 
+	_item_toast_box = VBoxContainer.new()
+	_item_toast_box.name = "ItemToastLog"
+	_item_toast_box.z_index = 180
+	_item_toast_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var toast_width := minf(520.0, vp.x - 32.0)
+	_item_toast_box.position = Vector2((vp.x - toast_width) * 0.5, safe.position.y + 48.0)
+	_item_toast_box.size = Vector2(toast_width, 0)
+	_item_toast_box.add_theme_constant_override("separation", 6)
+	ui_root.add_child(_item_toast_box)
+
 	# 포션 벨트 버튼(모바일): 좌하단, 조이스틱 위. 빨강=생명 / 파랑=마나
 	_pot_hp_btn = _make_potion_button("HP", Color(0.75, 0.15, 0.15), mobile_layout["potion_hp"], _quaff_health, mobile_layout["potion_size"])
 	_pot_mp_btn = _make_potion_button("MP", Color(0.15, 0.3, 0.8), mobile_layout["potion_mp"], _quaff_mana, mobile_layout["potion_size"])
@@ -1278,8 +1292,14 @@ func _run_auto_equip_sell_test() -> void:
 	var future_kept: bool = _inventory.has(locked)
 	pickup_test_item.call(protected)
 	var protected_kept: bool = _inventory.has(protected)
-	var ok: bool = empty_equipped and upgraded and lower_sold and future_kept and protected_kept
-	print("[AUTO_EQUIP_SELL] empty=%s upgrade=%s replaced_sold=%s lower_sold=%s future_kept=%s protected=%s verdict=%s" % [str(empty_equipped), str(upgraded), str(_gold_sold > 0), str(lower_sold), str(future_kept), str(protected_kept), "PASS" if ok else "FAIL"])
+	var positive_power_event := false
+	for event in _item_event_history:
+		if float(event.get("delta", 0.0)) > 0.0 and not String(event.get("options", "")).is_empty():
+			positive_power_event = true
+			break
+	var toast_log_ok := _item_event_history.size() >= 5 and positive_power_event and _item_toast_box.get_child_count() <= ITEM_TOAST_VISIBLE_LIMIT
+	var ok: bool = empty_equipped and upgraded and lower_sold and future_kept and protected_kept and toast_log_ok
+	print("[AUTO_EQUIP_SELL] empty=%s upgrade=%s replaced_sold=%s lower_sold=%s future_kept=%s protected=%s toast_log=%s events=%d verdict=%s" % [str(empty_equipped), str(upgraded), str(_gold_sold > 0), str(lower_sold), str(future_kept), str(protected_kept), str(toast_log_ok), _item_event_history.size(), "PASS" if ok else "FAIL"])
 	await get_tree().create_timer(1.0).timeout
 	get_tree().quit()
 
@@ -3052,6 +3072,7 @@ func _pickup(n: Node) -> void:
 		_items_picked += int(it.get("amount", 1))
 		_spawn_text(_player.position, "+%s x%d" % [String(it["name"]), int(it.get("amount", 1))], Color.VIOLET)
 		return
+	var power_before := _loadout_combat_power(_equipped)
 	_inventory.append(it)
 	_items_picked += 1
 	if _collection.accepts(it):
@@ -3060,6 +3081,8 @@ func _pickup(n: Node) -> void:
 			_combat_log = "COLLECTION DISCOVERED: %s" % Item.display_name(it)
 	_spawn_text(_player.position, "+" + Item.display_name(it), Item.quality_color(String(it["quality"])))
 	var equip_result := _auto_equip(it)
+	var item_action := "AUTO EQUIPPED" if equip_result in ["EQUIPPED_EMPTY", "EQUIPPED_UPGRADE"] else "ADDED TO BAG"
+	var item_note := ""
 	if equip_result in ["KEPT_LOWER_POWER", "KEPT_REQUIREMENT_LOCKED"]:
 		var requirement_locked := equip_result == "KEPT_REQUIREMENT_LOCKED"
 		if _automation.should_auto_sell(it, _item_value(it), requirement_locked):
@@ -3068,8 +3091,54 @@ func _pickup(n: Node) -> void:
 			_gold += sale_value
 			_gold_sold += sale_value
 			_combat_log = "AUTO SOLD: %s / +%dg" % [Item.display_name(it), sale_value]
+			item_action = "AUTO SOLD"
+			item_note = "+%d GOLD" % sale_value
 			_spawn_text(_player.position + Vector2(0, -42), "+%dg AUTO SELL" % sale_value, Color(1.0, 0.85, 0.25))
+	_push_item_event(item_action, it, power_before, _loadout_combat_power(_equipped), item_note)
 	_rebuild_inv()
+
+func _push_item_event(action: String, it: Dictionary, power_before: float, power_after: float, note: String = "") -> void:
+	var options := Item.affix_text(it)
+	if options.is_empty():
+		options = "No additional options"
+	var delta := power_after - power_before
+	var power_line := "TOTAL POWER %.0f -> %.0f (%+.0f)" % [power_before, power_after, delta]
+	var lines := ["[%s] %s" % [action, Item.display_name(it)], "OPTIONS: %s" % options, power_line]
+	if not note.is_empty():
+		lines.append(note)
+	var entry: Dictionary = {"action": action, "name": Item.display_name(it), "options": options, "power_before": power_before, "power_after": power_after, "delta": delta, "note": note, "time": Time.get_ticks_msec()}
+	_item_event_history.append(entry)
+	while _item_event_history.size() > ITEM_EVENT_HISTORY_LIMIT:
+		_item_event_history.pop_front()
+	if not is_instance_valid(_item_toast_box):
+		return
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.025, 0.02, 0.035, 0.90)
+	style.border_color = Item.quality_color(String(it.get("quality", "normal")))
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(6)
+	style.content_margin_left = 12.0
+	style.content_margin_right = 12.0
+	style.content_margin_top = 7.0
+	style.content_margin_bottom = 7.0
+	panel.add_theme_stylebox_override("panel", style)
+	var label := Label.new()
+	label.text = "\n".join(lines)
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_size_override("font_size", _accessibility.font_size(14 if _mobile_profile else 17))
+	label.add_theme_color_override("font_color", Color(0.95, 0.94, 0.9))
+	panel.add_child(label)
+	_item_toast_box.add_child(panel)
+	while _item_toast_box.get_child_count() > ITEM_TOAST_VISIBLE_LIMIT:
+		var oldest := _item_toast_box.get_child(0)
+		_item_toast_box.remove_child(oldest)
+		oldest.queue_free()
+	var tween := panel.create_tween()
+	tween.tween_interval(4.8)
+	tween.tween_property(panel, "modulate:a", 0.0, 0.45)
+	tween.finished.connect(panel.queue_free)
 
 func _affix_power(affixes: Dictionary) -> float:
 	var mana_weight := 1.2 if _class == "arcanist" else 0.45
@@ -3139,12 +3208,14 @@ func _equip_from_inventory(it: Dictionary) -> void:
 		_combat_log = "EQUIP REQUIREMENTS NOT MET: %s" % ", ".join(requirement_failures)
 		return
 	var slot := _equipment_slot_for_item(it)
+	var power_before := _loadout_combat_power(_equipped)
 	var old: Dictionary = _equipped[slot]
 	if not old.is_empty() and old != it:
 		if not _automation.list_auction(old, int(Time.get_ticks_msec() / 1000)):
 			_inventory.append(old)
 	_inventory.erase(it)
 	_equip(it, slot)
+	_push_item_event("MANUAL EQUIP", it, power_before, _loadout_combat_power(_equipped))
 
 func _equipment_slot_for_item(it: Dictionary) -> String:
 	var item_slot := String(it.get("slot", ""))
@@ -3518,6 +3589,8 @@ func _gamble() -> void:
 	var it := Item.generate(_rng, base, ilvl, q)
 	_inventory.append(it)
 	_combat_log = "Gamble (%dg): %s" % [cost, Item.display_name(it)]
+	var current_power := _loadout_combat_power(_equipped)
+	_push_item_event("GAMBLE", it, current_power, current_power, "-%d GOLD" % cost)
 	_rebuild_inv()
 	_refresh_vendor()
 
@@ -3581,6 +3654,7 @@ func _equip_from_collection(it: Dictionary) -> void:
 		_combat_log = "Cannot equip: %s" % ", ".join(failures)
 		return
 	var slot := _equipment_slot_for_item(it)
+	var power_before := _loadout_combat_power(_equipped)
 	var old: Dictionary = _equipped[slot]
 	if not _collection.take(it):
 		return
@@ -3589,6 +3663,7 @@ func _equip_from_collection(it: Dictionary) -> void:
 		_inventory.append(old)
 	_equip(it, slot)
 	_combat_log = "COLLECTION EQUIPPED: %s" % Item.display_name(it)
+	_push_item_event("COLLECTION EQUIP", it, power_before, _loadout_combat_power(_equipped))
 	_rebuild_inv()
 
 func _buy_collection_page() -> void:
