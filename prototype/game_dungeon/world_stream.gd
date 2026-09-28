@@ -205,32 +205,36 @@ func _retire_oldest() -> Dictionary:
 	return summary
 
 func _choose_direction(previous: Dictionary) -> Vector2i:
-	var prior: Vector2i = previous.get("exit_direction", Vector2i.ZERO)
-	if prior == Vector2i.ZERO:
-		var entry_direction: Vector2i = previous.get("entry_direction", Vector2i.LEFT)
-		prior = -entry_direction
-	var candidates: Array[Vector2i] = []
-	for direction in DIRECTIONS:
-		var coord: Vector2i = previous["coord"] + direction
-		if used_chunk_coords.has(_coord_key(coord)):
-			continue
-		var weight := 4
-		if prior != Vector2i.ZERO:
-			if direction == prior: weight = 2
-			elif direction == -prior: weight = 1
-		for repeat in weight:
-			candidates.append(direction)
-	if candidates.is_empty():
-		# A self-avoiding stream normally has a free neighbour. Keep a deterministic
-		# fallback for corrupted snapshots instead of overlapping an active chunk.
-		for direction in DIRECTIONS:
-			var coord: Vector2i = previous["coord"] + direction
-			if not _active_has_coord(coord):
-				return direction
-		return Vector2i.RIGHT
-	var rng := RandomNumberGenerator.new()
-	rng.seed = _mixed_seed(next_sequence + 31)
-	return candidates[rng.randi_range(0, candidates.size() - 1)]
+	# A rotated square spiral varies all four wall directions and can extend
+	# forever without enclosing the frontier or revisiting an old chunk.
+	var direction := _spiral_direction(next_sequence)
+	var rotation := posmod(run_seed + floor_id + generation_epoch, 4)
+	for turn in rotation:
+		direction = Vector2i(-direction.y, direction.x)
+	if not used_chunk_coords.has(_coord_key(previous["coord"] + direction)):
+		return direction
+	# Corrupt/legacy snapshots may not follow the spiral. Prefer any unused
+	# neighbour; never overlap an active chunk.
+	for candidate in DIRECTIONS:
+		if not used_chunk_coords.has(_coord_key(previous["coord"] + candidate)):
+			return candidate
+	for candidate in DIRECTIONS:
+		if not _active_has_coord(previous["coord"] + candidate):
+			return candidate
+	return Vector2i.RIGHT
+
+func _spiral_direction(step: int) -> Vector2i:
+	var remaining := maxi(1, step)
+	var length := 1
+	var direction_index := 0
+	while true:
+		for pair in 2:
+			if remaining <= length:
+				return [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT, Vector2i.UP][direction_index % 4]
+			remaining -= length
+			direction_index += 1
+		length += 1
+	return Vector2i.RIGHT
 
 func _active_has_coord(coord: Vector2i) -> bool:
 	for chunk in active_chunks:
@@ -283,7 +287,9 @@ func _mixed_seed(sequence: int) -> int:
 	var value := int(run_seed) ^ int(floor_id * 73856093) ^ int(generation_epoch * 19349663) ^ int(sequence * 83492791)
 	value = int((value ^ (value >> 16)) * 0x45d9f3b)
 	value = int((value ^ (value >> 16)) * 0x45d9f3b)
-	return absi(value ^ (value >> 16))
+	# JSON stores numbers as doubles. Keep procedural seeds below 2^31 so Web
+	# save/load round-trips reproduce the exact same chunk layout.
+	return int(absi(value ^ (value >> 16)) % 2147483647)
 
 static func _coord_key(coord: Vector2i) -> String:
 	return "%d,%d" % [coord.x, coord.y]
@@ -338,5 +344,13 @@ static func selftest() -> bool:
 			return false
 	if long_stream.next_sequence != 101 or long_stream.used_chunk_coords.size() != 101 or long_stream.retired_chunks.size() != 98:
 		return false
+	var encoded := JSON.stringify(stream.snapshot())
+	var decoded = JSON.parse_string(encoded)
 	var restored := preload("res://world_stream.gd").new()
-	return restored.restore(stream.snapshot()) and restored.snapshot() == stream.snapshot() and restored.compose_active_grid()["grid"] == stream.compose_active_grid()["grid"]
+	if not decoded is Dictionary or not restored.restore(decoded):
+		return false
+	var sequence_ok: bool = restored.next_sequence == stream.next_sequence
+	var active_ok: bool = restored.active_chunks.size() == stream.active_chunks.size()
+	var used_ok: bool = restored.used_chunk_coords.size() == stream.used_chunk_coords.size()
+	var grid_ok: bool = restored.compose_active_grid()["grid"] == stream.compose_active_grid()["grid"]
+	return sequence_ok and active_ok and used_ok and grid_ok

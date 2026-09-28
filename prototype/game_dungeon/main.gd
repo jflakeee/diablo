@@ -37,7 +37,7 @@ const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
 const WorldStream := preload("res://world_stream.gd")
-const DEPLOYED_AT_KST := "2026-09-28 22:30 KST"
+const DEPLOYED_AT_KST := "2026-09-29 05:58 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -2454,6 +2454,9 @@ func _process(delta: float) -> void:
 			wn, _player.dmg_min, _player.dmg_max, an, _player.defense,
 			_kills, _items_dropped, _inventory.size(), _player_mf, _belt_hp, _belt_mp, _combat_log]
 		_hud.text += "\nStamina %d/%d / %s / %s" % [roundi(_stamina), roundi(_stamina_max), "RUN" if _player_running else "WALK", _map_type.to_upper()]
+	if _world_stream != null and not _in_town:
+		var frontier_revealed := (_world_stream.frontier().get("revealed_rooms", {}) as Dictionary).size()
+		_hud.text += "\nAREA %d/27 ROOMS / FRONTIER %d/3" % [_world_stream.active_chunks.size() * 9, mini(frontier_revealed, 3)]
 	if _vision_relic_timer > 0.0: _hud.text += " / ALL-SEEING %.0fs" % _vision_relic_timer
 	if _arc_flasks > 0: _hud.text += " / ARC FLASK %d" % _arc_flasks
 	if not _corpse_state.is_empty():
