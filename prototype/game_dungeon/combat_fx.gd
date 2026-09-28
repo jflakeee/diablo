@@ -3,7 +3,11 @@ extends Node2D
 ## Gameplay owns damage and timing; this node only visualizes confirmed events.
 
 const MAX_ACTIVE := 72
+const MAX_FLOATING_TEXT := 20
+const DAMAGE_BATCH_MS := 140
 var _active: Array[Node] = []
+var _damage_batches := {}
+var _recent_text_positions: Array[Dictionary] = []
 
 func _track(node: Node) -> bool:
 	for index in range(_active.size() - 1, -1, -1):
@@ -260,9 +264,41 @@ func death_burst(pos: Vector2, color: Color, elite: bool = false) -> void:
 		tween.finished.connect(fragment.queue_free)
 
 func floating_text(pos: Vector2, text: String, color: Color, font_size: int, kind: String = "normal") -> void:
+	var now := Time.get_ticks_msec()
+	for index in range(_recent_text_positions.size() - 1, -1, -1):
+		if now - int(_recent_text_positions[index]["time"]) >= 520:
+			_recent_text_positions.remove_at(index)
+	var split := text.split(" ", false, 1)
+	var numeric := not split.is_empty() and split[0].trim_suffix("!").is_valid_int()
+	var suffix := "" if split.size() < 2 else " " + split[1]
+	if numeric and kind == "normal":
+		var coarse := Vector2i(roundi(pos.x / 28.0), roundi(pos.y / 28.0))
+		var batch_key := "%d:%d:%s:%s" % [coarse.x, coarse.y, color.to_html(false), suffix]
+		var existing: Dictionary = _damage_batches.get(batch_key, {})
+		var existing_label = existing.get("label")
+		if is_instance_valid(existing_label) and now - int(existing.get("time", 0)) <= DAMAGE_BATCH_MS:
+			var total := int(existing.get("total", 0)) + int(split[0].trim_suffix("!"))
+			existing_label.text = "%d%s" % [total, suffix]
+			existing["total"] = total
+			existing["time"] = now
+			_damage_batches[batch_key] = existing
+			return
+	var text_count := 0
+	for entry in _active:
+		if is_instance_valid(entry) and entry is Label:
+			text_count += 1
+	if text_count >= MAX_FLOATING_TEXT and kind == "normal":
+		return
+	var nearby := 0
+	for entry in _recent_text_positions:
+		if (entry["pos"] as Vector2).distance_to(pos) < 44.0:
+			nearby += 1
+	var lane := nearby % 4
+	var lane_offsets: Array[Vector2] = [Vector2.ZERO, Vector2(-24, -12), Vector2(24, -20), Vector2(0, -30)]
+	var lane_offset: Vector2 = lane_offsets[lane]
 	var label := Label.new()
 	label.text = text
-	label.position = pos + Vector2(-90, -46)
+	label.position = pos + Vector2(-90, -46) + lane_offset
 	label.size = Vector2(180, 30)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.z_index = 100
@@ -275,6 +311,11 @@ func floating_text(pos: Vector2, text: String, color: Color, font_size: int, kin
 	if not _track(label):
 		label.free()
 		return
+	_recent_text_positions.append({"pos": pos, "time": now})
+	if numeric and kind == "normal":
+		var coarse := Vector2i(roundi(pos.x / 28.0), roundi(pos.y / 28.0))
+		var batch_key := "%d:%d:%s:%s" % [coarse.x, coarse.y, color.to_html(false), suffix]
+		_damage_batches[batch_key] = {"label": label, "total": int(split[0].trim_suffix("!")), "time": now}
 	var duration := 1.0 if kind in ["critical", "status"] else 0.75
 	var tween := label.create_tween().set_parallel(true)
 	tween.tween_property(label, "position", label.position + Vector2(0, -34 if kind == "critical" else -26), duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
@@ -313,6 +354,20 @@ func loot_drop(node: Node2D, quality: String, color: Color) -> void:
 			beam_tween.finished.connect(beam.queue_free)
 		else:
 			beam.free()
+	if quality in ["set", "unique"]:
+		var aura := Line2D.new()
+		aura.name = "PersistentLootAura"
+		aura.width = 2.0
+		aura.default_color = Color(color.r, color.g, color.b, 0.7)
+		aura.closed = true
+		aura.z_index = -1
+		for index in 12:
+			var angle := TAU * float(index) / 12.0
+			aura.add_point(Vector2(cos(angle) * 18.0, sin(angle) * 8.0))
+		node.add_child(aura)
+		var aura_tween := aura.create_tween().set_loops()
+		aura_tween.tween_property(aura, "modulate:a", 0.25, 0.7)
+		aura_tween.tween_property(aura, "modulate:a", 0.9, 0.7)
 
 func pickup(texture: Texture2D, from_pos: Vector2, to_pos: Vector2, color: Color, initial_scale: Vector2) -> void:
 	if texture == null:
@@ -333,4 +388,4 @@ func pickup(texture: Texture2D, from_pos: Vector2, to_pos: Vector2, color: Color
 	tween.finished.connect(sprite.queue_free)
 
 static func selftest() -> bool:
-	return MAX_ACTIVE >= 48 and MAX_ACTIVE <= 96
+	return MAX_ACTIVE >= 48 and MAX_ACTIVE <= 96 and MAX_FLOATING_TEXT <= 24 and DAMAGE_BATCH_MS >= 100
