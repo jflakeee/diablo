@@ -36,7 +36,7 @@ const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
-const DEPLOYED_AT_KST := "2026-09-28 13:40 KST"
+const DEPLOYED_AT_KST := "2026-09-28 14:15 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -142,6 +142,7 @@ var _char_vbox: VBoxContainer
 var _settings_panel: Panel
 var _settings_scale_button: Button
 var _settings_text_button: Button
+var _settings_effect_button: Button
 var _settings_fullscreen_button: Button
 var _minimap: Control
 var _inv_panel: Panel
@@ -879,6 +880,7 @@ func _start_game() -> void:
 	_fx = CombatFX.new()
 	_fx.name = "CombatFX"
 	_fx.z_index = 70
+	_fx.set_quality(_accessibility.effect_quality)
 	_world.add_child(_fx)
 	_generate_dungeon()
 
@@ -1496,6 +1498,11 @@ func _build_settings_panel() -> void:
 	_settings_text_button.add_theme_font_size_override("font_size", _accessibility.font_size(22))
 	_settings_text_button.pressed.connect(_cycle_text_scale)
 	box.add_child(_settings_text_button)
+	_settings_effect_button = Button.new()
+	_settings_effect_button.custom_minimum_size = Vector2(0, 60)
+	_settings_effect_button.add_theme_font_size_override("font_size", _accessibility.font_size(22))
+	_settings_effect_button.pressed.connect(_cycle_effect_quality)
+	box.add_child(_settings_effect_button)
 	_settings_fullscreen_button = Button.new()
 	_settings_fullscreen_button.custom_minimum_size = Vector2(0, 60)
 	_settings_fullscreen_button.add_theme_font_size_override("font_size", _accessibility.font_size(22))
@@ -1531,6 +1538,8 @@ func _refresh_settings_labels() -> void:
 		_settings_scale_button.text = "UI SCALE: %d%%" % roundi(_accessibility.ui_scale * 100.0)
 	if _settings_text_button:
 		_settings_text_button.text = "TEXT SIZE: %s" % ("LARGE" if _accessibility.text_scale > 1.0 else "NORMAL")
+	if _settings_effect_button:
+		_settings_effect_button.text = "EFFECT QUALITY: %s" % _accessibility.effect_quality_name()
 	if _settings_fullscreen_button:
 		var fullscreen := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
 		_settings_fullscreen_button.text = "EXIT FULLSCREEN (F11)" if fullscreen else "FULLSCREEN (F11)"
@@ -1546,6 +1555,12 @@ func _cycle_ui_scale() -> void:
 
 func _cycle_text_scale() -> void:
 	_accessibility.cycle_text_scale()
+	_refresh_settings_labels()
+
+func _cycle_effect_quality() -> void:
+	_accessibility.cycle_effect_quality()
+	if _fx != null:
+		_fx.set_quality(_accessibility.effect_quality)
 	_refresh_settings_labels()
 
 func _toggle_settings() -> void:
@@ -3695,7 +3710,7 @@ func _flash(from: Vector2, to: Vector2) -> void:
 		_fx.slash(from, to, Color(1.0, 0.9, 0.35))
 
 func _camera_punch(strength: float) -> void:
-	if not is_instance_valid(_cam):
+	if not is_instance_valid(_cam) or _accessibility.effect_quality <= 0:
 		return
 	_cam.offset = Vector2(strength, -strength * 0.6)
 	var tween := _cam.create_tween()

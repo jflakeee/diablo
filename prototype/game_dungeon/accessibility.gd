@@ -3,9 +3,11 @@ extends RefCounted
 const PATH := "user://accessibility.cfg"
 const UI_SCALES := [0.8, 1.0, 1.2, 1.4]
 const TEXT_SCALES := [1.0, 1.25]
+const EFFECT_QUALITIES := [0, 1, 2]
 
 var ui_scale := 1.0
 var text_scale := 1.0
+var effect_quality := 1
 
 func load_settings() -> void:
 	var config := ConfigFile.new()
@@ -13,13 +15,16 @@ func load_settings() -> void:
 		return
 	ui_scale = float(config.get_value("ui", "scale", 1.0))
 	text_scale = float(config.get_value("ui", "text_scale", 1.0))
+	effect_quality = int(config.get_value("effects", "quality", 1))
 	if not UI_SCALES.has(ui_scale): ui_scale = 1.0
 	if not TEXT_SCALES.has(text_scale): text_scale = 1.0
+	if not EFFECT_QUALITIES.has(effect_quality): effect_quality = 1
 
 func save_settings() -> bool:
 	var config := ConfigFile.new()
 	config.set_value("ui", "scale", ui_scale)
 	config.set_value("ui", "text_scale", text_scale)
+	config.set_value("effects", "quality", effect_quality)
 	return config.save(PATH) == OK
 
 func cycle_ui_scale() -> void:
@@ -30,6 +35,13 @@ func cycle_text_scale() -> void:
 	text_scale = TEXT_SCALES[(TEXT_SCALES.find(text_scale) + 1) % TEXT_SCALES.size()]
 	save_settings()
 
+func cycle_effect_quality() -> void:
+	effect_quality = EFFECT_QUALITIES[(EFFECT_QUALITIES.find(effect_quality) + 1) % EFFECT_QUALITIES.size()]
+	save_settings()
+
+func effect_quality_name() -> String:
+	return ["LOW", "MEDIUM", "HIGH"][effect_quality]
+
 func font_size(base: int) -> int:
 	# Browser text smaller than 16 logical pixels becomes difficult to read once
 	# the game canvas is fitted into a narrow mobile viewport.
@@ -37,4 +49,4 @@ func font_size(base: int) -> int:
 
 static func selftest() -> bool:
 	var access := new()
-	return UI_SCALES == [0.8, 1.0, 1.2, 1.4] and TEXT_SCALES == [1.0, 1.25] and access.font_size(10) == 16
+	return UI_SCALES == [0.8, 1.0, 1.2, 1.4] and TEXT_SCALES == [1.0, 1.25] and EFFECT_QUALITIES == [0, 1, 2] and access.font_size(10) == 16 and access.effect_quality_name() == "MEDIUM"

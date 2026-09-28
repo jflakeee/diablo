@@ -8,12 +8,22 @@ const DAMAGE_BATCH_MS := 140
 var _active: Array[Node] = []
 var _damage_batches := {}
 var _recent_text_positions: Array[Dictionary] = []
+var quality := 1
+
+func set_quality(value: int) -> void:
+	quality = clampi(value, 0, 2)
+
+func _active_limit() -> int:
+	return [36, 54, MAX_ACTIVE][quality]
+
+func _text_limit() -> int:
+	return [10, 15, MAX_FLOATING_TEXT][quality]
 
 func _track(node: Node) -> bool:
 	for index in range(_active.size() - 1, -1, -1):
 		if not is_instance_valid(_active[index]):
 			_active.remove_at(index)
-	if _active.size() >= MAX_ACTIVE:
+	if _active.size() >= _active_limit():
 		return false
 	_active.append(node)
 	add_child(node)
@@ -56,7 +66,7 @@ func cast_burst(pos: Vector2, color: Color) -> void:
 
 func impact(pos: Vector2, color: Color, heavy: bool = false) -> void:
 	_ring(pos, color, 34.0 if heavy else 24.0, 0.32 if heavy else 0.24, 4.0 if heavy else 2.5)
-	var shard_count := 9 if heavy else 5
+	var shard_count: int = ([4, 6, 9][quality] if heavy else [2, 4, 5][quality])
 	for index in shard_count:
 		var angle := TAU * float(index) / float(shard_count) + 0.27
 		var shard := Line2D.new()
@@ -244,7 +254,7 @@ func ground_skill(from_pos: Vector2, to_pos: Vector2, kind: String) -> void:
 
 func death_burst(pos: Vector2, color: Color, elite: bool = false) -> void:
 	impact(pos, color, elite)
-	var count := 10 if elite else 6
+	var count: int = ([5, 7, 10][quality] if elite else [3, 5, 6][quality])
 	for index in count:
 		var angle := TAU * float(index) / float(count) + 0.19
 		var fragment := Polygon2D.new()
@@ -287,7 +297,7 @@ func floating_text(pos: Vector2, text: String, color: Color, font_size: int, kin
 	for entry in _active:
 		if is_instance_valid(entry) and entry is Label:
 			text_count += 1
-	if text_count >= MAX_FLOATING_TEXT and kind == "normal":
+	if text_count >= _text_limit() and kind == "normal":
 		return
 	var nearby := 0
 	for entry in _recent_text_positions:
@@ -339,7 +349,7 @@ func loot_drop(node: Node2D, quality: String, color: Color) -> void:
 	tween.tween_property(sprite, "scale", final_scale, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	if label != null:
 		tween.tween_property(label, "modulate:a", 1.0, 0.16).set_delay(0.16)
-	if quality in ["rare", "set", "unique"]:
+	if quality in ["rare", "set", "unique"] and self.quality > 0:
 		_ring(node.position, color, 24.0 if quality == "rare" else 34.0, 0.5, 3.0)
 		var beam := Polygon2D.new()
 		var beam_height := 54.0 if quality == "rare" else 84.0
