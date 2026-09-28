@@ -71,6 +71,8 @@ var _anim_t := 0.0
 var _pop_t := 0.0
 var _idle_t := 0.0
 var _idle_phase := 0.0
+var _rank_aura: Line2D
+var _rank_aura_color := Color.WHITE
 
 func _new_frames() -> SpriteFrames:
 	var frames := SpriteFrames.new()
@@ -134,6 +136,26 @@ func set_directional_frames(sets: Dictionary, scale_v: float = 1.0) -> void:
 		_base_scale = scale_v
 		_sprite.scale = Vector2(scale_v, scale_v)
 		_rebuild_animations()
+
+func set_rank_visual(rank: String) -> void:
+	if is_instance_valid(_rank_aura):
+		_rank_aura.queue_free()
+	_rank_aura = Line2D.new()
+	_rank_aura.name = "RankAura"
+	_rank_aura.closed = true
+	_rank_aura.z_index = -2
+	_rank_aura.width = 3.5 if rank == "boss" else (2.8 if rank == "unique" else 2.0)
+	_rank_aura_color = Color(0.9, 0.2, 0.18, 0.85) if rank == "boss" else (Color(1.0, 0.72, 0.16, 0.82) if rank == "unique" else Color(0.35, 0.68, 1.0, 0.72))
+	_rank_aura.default_color = _rank_aura_color
+	var radius := 27.0 if rank == "boss" else (21.0 if rank == "unique" else 18.0)
+	for index in 16:
+		var angle := TAU * float(index) / 16.0
+		var notch := 1.0 if index % 2 == 0 else 0.82
+		_rank_aura.add_point(Vector2(cos(angle) * radius * notch, sin(angle) * radius * 0.42 * notch) + Vector2(0, 12))
+	add_child(_rank_aura)
+
+func has_rank_visual() -> bool:
+	return is_instance_valid(_rank_aura) and _rank_aura.get_point_count() == 16
 
 static func direction_for_motion(motion: Vector2, current: int) -> int:
 	if motion.length() < 0.05 or absf(absf(motion.x) - absf(motion.y)) < 0.05:
@@ -251,6 +273,13 @@ func animate(delta: float) -> void:
 	_prev_grid = grid_position
 	var moving := grid_motion.length() > 0.01
 	_idle_t += delta
+	if is_instance_valid(_rank_aura):
+		var life_ratio := clampf(float(life) / float(maxi(1, max_life)), 0.0, 1.0)
+		var danger := life_ratio <= 0.25
+		var aura_wave := (sin(_idle_t * (8.0 if danger else 3.2) + _idle_phase) + 1.0) * 0.5
+		_rank_aura.rotation = _idle_t * (0.8 if danger else 0.28)
+		_rank_aura.modulate.a = lerpf(0.32, 1.0, aura_wave)
+		_rank_aura.default_color = _rank_aura_color.lerp(Color(1.0, 0.08, 0.06, 0.95), 0.72 if danger else 0.0)
 	set_motion(grid_motion)
 	if moving:
 		_anim_t += delta * 12.0

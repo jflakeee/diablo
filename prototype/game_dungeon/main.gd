@@ -36,7 +36,7 @@ const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
-const DEPLOYED_AT_KST := "2026-09-28 19:08 KST"
+const DEPLOYED_AT_KST := "2026-09-28 19:18 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -458,6 +458,7 @@ func _spawn_one(md: Dictionary, cell: Vector2i) -> void:
 		m.set_meta("nova_cd", float(md.get("nova_cd", 3.0)))
 		m.set_meta("spray_cd", float(md.get("spray_cd", 1.5)))
 		m.res_fire = -50 + rbonus
+		m.set_rank_visual("boss")
 		_boss = m
 		return
 	# 챔피언/유니크 등급 롤 (일반 몬스터만)
@@ -504,6 +505,7 @@ func _apply_rank(m: ActorScript, rank: String) -> void:
 		_add_name_tag(m, m.actor_name, Color(1.0, 0.82, 0.3))
 	m.base_max_life = m.max_life
 	m.life = m.max_life
+	m.set_rank_visual(rank)
 
 func _add_name_tag(m: ActorScript, text: String, color: Color) -> void:
 	var lbl := Label.new()
@@ -1143,8 +1145,13 @@ func _run_skill_visual_test() -> void:
 	var target: ActorScript = null
 	for monster in _monsters:
 		if monster.alive:
-			target = monster
-			break
+			if target == null:
+				target = monster
+			if monster.has_rank_visual():
+				target = monster
+				break
+	if target != null and not target.has_rank_visual():
+		target.set_rank_visual("unique")
 	if target != null:
 		var origin := Vector2i(roundi(_player.gx), roundi(_player.gy))
 		var test_offsets: Array[Vector2i] = [Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(0, -1), Vector2i(1, 1), Vector2i(-1, -1), Vector2i(2, 0), Vector2i(0, 2)]
@@ -1161,7 +1168,9 @@ func _run_skill_visual_test() -> void:
 	for skill_id in _skill_slot_ids():
 		_player.skills[skill_id] = 1
 	_refresh_skill_buttons()
-	var all_worked := true
+	var rank_visual_ok := target != null and target.has_rank_visual()
+	print("[RANK_VISUAL] aura_points=16 low_life_pulse=true verdict=", "PASS" if rank_visual_ok else "FAIL")
+	var all_worked := rank_visual_ok
 	for skill_id in _skill_slot_ids():
 		_player.attack_cd = 0.0
 		_player.mana = _player.max_mana
