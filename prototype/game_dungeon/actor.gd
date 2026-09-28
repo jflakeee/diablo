@@ -62,12 +62,15 @@ var _facing_hold := 0.0
 func setup(tex: Texture2D) -> void:
 	_sprite = AnimatedSprite2D.new()
 	add_child(_sprite)
+	_idle_phase = float(get_instance_id() % 29) * 0.31
 	set_sprite_texture(tex)
 
 var _base_scale := 1.0
 var _prev_grid := Vector2.ZERO
 var _anim_t := 0.0
 var _pop_t := 0.0
+var _idle_t := 0.0
+var _idle_phase := 0.0
 
 func _new_frames() -> SpriteFrames:
 	var frames := SpriteFrames.new()
@@ -216,6 +219,7 @@ func _apply_animation(force: bool = false) -> void:
 		_sprite.play(animation)
 
 static func animation_selftest() -> bool:
+	var breath_peak := idle_breath_shape(PI * 0.5)
 	return direction_for_motion(Vector2(1, 0), Facing.SOUTH) == Facing.EAST \
 		and direction_for_motion(Vector2(-1, 0), Facing.SOUTH) == Facing.WEST \
 		and direction_for_motion(Vector2(0, -1), Facing.SOUTH) == Facing.NORTH \
@@ -223,7 +227,12 @@ static func animation_selftest() -> bool:
 		and direction_for_motion(Vector2(1, 1), Facing.NORTH) == Facing.NORTH \
 		and _priority(AnimState.DEATH) > _priority(AnimState.HIT) \
 		and _priority(AnimState.HIT) > _priority(AnimState.ATTACK) \
-		and _priority(AnimState.ATTACK) > _priority(AnimState.WALK)
+		and _priority(AnimState.ATTACK) > _priority(AnimState.WALK) \
+		and breath_peak.y > 1.0 and breath_peak.x < 1.0
+
+static func idle_breath_shape(phase: float) -> Vector2:
+	var breath := sin(phase)
+	return Vector2(1.0 - breath * 0.012, 1.0 + breath * 0.018)
 
 func state_count() -> int:
 	return _states_seen.size()
@@ -241,6 +250,7 @@ func animate(delta: float) -> void:
 	var grid_motion := grid_position - _prev_grid
 	_prev_grid = grid_position
 	var moving := grid_motion.length() > 0.01
+	_idle_t += delta
 	set_motion(grid_motion)
 	if moving:
 		_anim_t += delta * 12.0
@@ -255,7 +265,15 @@ func animate(delta: float) -> void:
 	_sprite.rotation = 0.0
 	_sprite.modulate = Color.WHITE
 	var scale_factor := 1.0
+	var scale_shape := Vector2.ONE
 	match _anim_state:
+		AnimState.IDLE:
+			var breath_phase := _idle_t * 2.2 + _idle_phase
+			scale_shape = idle_breath_shape(breath_phase)
+			_sprite.position.y = -maxf(0.0, sin(breath_phase)) * 0.7
+		AnimState.WALK:
+			var landing := absf(sin(_anim_t))
+			scale_shape = Vector2(1.0 + landing * 0.025, 1.0 - landing * 0.035)
 		AnimState.ATTACK:
 			_sprite.position = direction * (7.0 * pulse)
 			_sprite.rotation = (0.10 if _facing in [Facing.SOUTH, Facing.EAST] else -0.10) * pulse
@@ -278,7 +296,7 @@ func animate(delta: float) -> void:
 		_sprite.modulate = _sprite.modulate.lerp(Color(0.62, 0.82, 1.0), 0.45)
 	if _pop_t > 0.0:
 		_pop_t = maxf(0.0, _pop_t - delta)
-	_sprite.scale = Vector2.ONE * _base_scale * scale_factor
+	_sprite.scale = scale_shape * _base_scale * scale_factor
 
 func skill_level(id: String) -> int:
 	return int(skills.get(id, 0))

@@ -36,7 +36,7 @@ const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
-const DEPLOYED_AT_KST := "2026-09-28 17:06 KST"
+const DEPLOYED_AT_KST := "2026-09-28 19:08 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
