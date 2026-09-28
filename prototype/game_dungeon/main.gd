@@ -36,7 +36,7 @@ const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
-const DEPLOYED_AT_KST := "2026-09-28 19:18 KST"
+const DEPLOYED_AT_KST := "2026-09-28 19:40 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -1613,19 +1613,32 @@ func _force_latest_update() -> void:
 		_combat_log = "Latest-version update is available in the web build"
 		return
 	# Preserve IndexedDB/local save data. Only the PWA service worker and Cache
-	# Storage are reset before navigating to a unique network URL.
+	# Storage are refreshed before navigating to a unique network URL. Keep the
+	# current worker alive until its replacement claims this page; Godot depends
+	# on it for cross-origin-isolation headers on static hosts.
 	JavaScriptBridge.eval("""
 		(async () => {
+			const latestUrl = new URL(window.location.href);
+			latestUrl.searchParams.set('force_update', Date.now().toString());
 			try {
-				const registrations = navigator.serviceWorker ? await navigator.serviceWorker.getRegistrations() : [];
-				await Promise.all(registrations.map((registration) => registration.unregister()));
-				const cacheKeys = ('caches' in window) ? await caches.keys() : [];
-				await Promise.all(cacheKeys.map((key) => caches.delete(key)));
-				const latestUrl = new URL(window.location.href);
-				latestUrl.searchParams.set('force_update', Date.now().toString());
+				if ('serviceWorker' in navigator) {
+					const registration = await navigator.serviceWorker.getRegistration();
+					if (registration) {
+						const controllerChanged = new Promise((resolve) => {
+							const timer = setTimeout(resolve, 4000);
+							navigator.serviceWorker.addEventListener('controllerchange', () => {
+								clearTimeout(timer);
+								resolve();
+							}, { once: true });
+						});
+						await registration.update();
+						if (registration.waiting) registration.waiting.postMessage('claim');
+						await controllerChanged;
+					}
+				}
 				window.location.replace(latestUrl.toString());
 			} catch (error) {
-				window.location.reload();
+				window.location.replace(latestUrl.toString());
 			}
 		})();
 	""", true)

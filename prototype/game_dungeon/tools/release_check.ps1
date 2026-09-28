@@ -46,14 +46,14 @@ if ($exportExitCode -ne 0 -or $failureText) {
     Stop-ReleaseCheck "godot_export_failed exit_code=$exportExitCode"
 }
 
-# Activate each newly deployed PWA worker immediately. Without this, mobile
-# Safari can keep the previous worker (and its old index.pck) alive until every
-# tab using the site has been closed.
+# Activate each newly deployed PWA worker immediately and let it claim existing
+# tabs. Do not navigate clients from the activate handler: Godot's bootstrap may
+# also reload while establishing cross-origin isolation, creating a reload loop.
 $serviceWorkerPath = Join-Path $outputPath "index.service.worker.js"
 if (Test-Path -LiteralPath $serviceWorkerPath) {
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     $serviceWorker = [IO.File]::ReadAllText($serviceWorkerPath)
-    $activation = "// ASHEN_IMMEDIATE_UPDATE`nself.addEventListener('install', () => self.skipWaiting());`nself.addEventListener('activate', (event) => event.waitUntil(self.clients.claim().then(() => self.clients.matchAll({type: 'window'})).then((clients) => Promise.all(clients.map((client) => client.navigate(client.url))))));`n"
+    $activation = "// ASHEN_IMMEDIATE_UPDATE`nself.addEventListener('install', () => self.skipWaiting());`nself.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));`n"
     [IO.File]::WriteAllText($serviceWorkerPath, $activation + $serviceWorker, $utf8NoBom)
 }
 
@@ -79,6 +79,19 @@ foreach ($requiredFile in $requiredFiles) {
 
 if (-not (Select-String -LiteralPath $serviceWorkerPath -SimpleMatch "ASHEN_IMMEDIATE_UPDATE" -Quiet)) {
     Stop-ReleaseCheck "service_worker_immediate_update_missing"
+}
+if (-not (Select-String -LiteralPath $serviceWorkerPath -SimpleMatch "event.waitUntil(self.clients.claim())" -Quiet)) {
+    Stop-ReleaseCheck "service_worker_claim_missing"
+}
+if (Select-String -LiteralPath $serviceWorkerPath -SimpleMatch "self.clients.matchAll({type: 'window'})" -Quiet) {
+    Stop-ReleaseCheck "service_worker_activate_navigation_loop_risk"
+}
+$mainScriptPath = Join-Path $projectRoot "main.gd"
+if (Select-String -LiteralPath $mainScriptPath -SimpleMatch "registration.unregister()" -Quiet) {
+    Stop-ReleaseCheck "force_update_unregister_loop_risk"
+}
+if (-not (Select-String -LiteralPath $mainScriptPath -SimpleMatch "await registration.update()" -Quiet)) {
+    Stop-ReleaseCheck "force_update_registration_update_missing"
 }
 
 $pckPath = Join-Path $outputPath "index.pck"
