@@ -71,7 +71,7 @@ func advance() -> Dictionary:
 	previous["gate_offset"] = gate_offset
 	var added := _append_chunk(next_coord, -direction, _side_name(-direction))
 	added["gate_offset"] = gate_offset
-	return {"added": added, "retired": {}, "composite": compose_active_grid()}
+	return {"phase": "generate", "added": added, "retired": {}, "composite": compose_active_grid()}
 
 func retire_farthest(reference_global: Vector2i = Vector2i(2147483647, 2147483647)) -> Dictionary:
 	if active_chunks.size() <= MAX_ACTIVE_CHUNKS:
@@ -87,7 +87,7 @@ func retire_farthest(reference_global: Vector2i = Vector2i(2147483647, 214748364
 				farthest_distance = distance
 				retire_index = index
 	var retired := _retire_at(retire_index)
-	return {"added": {}, "retired": retired, "composite": compose_active_grid()}
+	return {"phase": "retire", "added": {}, "retired": retired, "composite": compose_active_grid()}
 
 func compose_active_grid() -> Dictionary:
 	if active_chunks.is_empty():

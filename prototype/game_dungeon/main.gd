@@ -294,10 +294,11 @@ func _apply_stream_transition(transition: Dictionary) -> void:
 	_last_visibility_cell = Vector2i(-999, -999)
 	_stream_generation_pending = false
 	_update_visibility(true)
-	if not added.is_empty() and _world_stream.active_chunks.size() > WorldStream.MAX_ACTIVE_CHUNKS:
+	var phase := String(transition.get("phase", ""))
+	if phase == "generate" and not added.is_empty() and _world_stream.active_chunks.size() > WorldStream.MAX_ACTIVE_CHUNKS:
 		# Retirement is intentionally deferred to a separate frame/transition.
 		call_deferred("_retire_farthest_stream_chunk")
-	_combat_log = ("NEW AREA OPENED / %d ACTIVE ROOMS" % int(composite.get("rooms", 9))) if not added.is_empty() else "FARTHEST AREA RETIRED"
+	_combat_log = ("NEW AREA OPENED / %d ACTIVE ROOMS" % int(composite.get("rooms", 9))) if phase == "generate" else "FARTHEST AREA RETIRED"
 
 func _retire_farthest_stream_chunk() -> void:
 	if _world_stream == null or _world_stream.active_chunks.size() <= WorldStream.MAX_ACTIVE_CHUNKS:
@@ -1563,10 +1564,10 @@ func _run_streaming_map_test() -> void:
 	var resident_before_trim := _world_stream.active_chunks.size() == 6 and _world_stream.retired_chunks.size() == 0
 	var front := _world_stream.frontier()
 	var transition := _world_stream.advance()
-	var generation_only := not transition.is_empty() and _world_stream.active_chunks.size() == 7 and _world_stream.retired_chunks.size() == 0
+	var generation_only := String(transition.get("phase", "")) == "generate" and not transition.is_empty() and _world_stream.active_chunks.size() == 7 and _world_stream.retired_chunks.size() == 0
 	_apply_stream_transition(transition)
 	var trim := _world_stream.retire_farthest()
-	var trim_only := not trim.is_empty() and _world_stream.active_chunks.size() == 6 and _world_stream.retired_chunks.size() == 1
+	var trim_only := String(trim.get("phase", "")) == "retire" and not trim.is_empty() and _world_stream.active_chunks.size() == 6 and _world_stream.retired_chunks.size() == 1
 	_apply_stream_transition(trim)
 	var exit_ready := _stream_exit_ready()
 	var tiles_ok := is_instance_valid(_tiles_node) and _tiles_node.get_child_count() <= WorldStream.MAX_ACTIVE_CHUNKS * WorldStream.CHUNK_TILE_SIDE * WorldStream.CHUNK_TILE_SIDE + 1
