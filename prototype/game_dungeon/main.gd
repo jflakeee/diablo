@@ -150,6 +150,7 @@ var _stat_points := 0
 var _char_panel: Panel
 var _char_vbox: VBoxContainer
 var _settings_panel: Panel
+var _modal_paused := false
 var _settings_scale_button: Button
 var _settings_text_button: Button
 var _settings_effect_button: Button
@@ -1175,17 +1176,6 @@ func _start_game() -> void:
 	_joy.visible = mobile_profile
 	ui_root.add_child(_joy)
 	# 스킬 버튼(확대): 우하단 2개 + 위 1개
-	if _class == "arcanist":
-		_add_skill_button(ui_root, "ember_bolt", "1 Ember", Color.ORANGE_RED, mobile_layout["skill_primary"], mobile_layout["skill_size"])
-		_add_skill_button(ui_root, "frost_shard", "2 Frost", Color.SKY_BLUE, mobile_layout["skill_secondary"], mobile_layout["skill_size"])
-		_add_skill_button(ui_root, "storm_lance", "3 Storm", Color.YELLOW, mobile_layout["skill_utility"], mobile_layout["skill_size"])
-		_add_skill_button(ui_root, "phase_step", "4 Phase", Color.MEDIUM_PURPLE, mobile_layout["skill_quaternary"], mobile_layout["skill_size"])
-	else:
-		_add_skill_button(ui_root, "sundering_strike", "1 Sunder", Color.ORANGE_RED, mobile_layout["skill_primary"], mobile_layout["skill_size"])
-		_add_skill_button(ui_root, "void_fury", "2 Fury", Color.CRIMSON, mobile_layout["skill_secondary"], mobile_layout["skill_size"])
-		_add_skill_button(ui_root, "iron_chant", "3 Chant", Color.GOLD, mobile_layout["skill_utility"], mobile_layout["skill_size"])
-		_add_skill_button(ui_root, "weapon_discipline", "4 Passive", Color.STEEL_BLUE, mobile_layout["skill_quaternary"], mobile_layout["skill_size"])
-
 	var bag := Button.new()
 	bag.text = "Bag"
 	bag.position = mobile_layout["bag"]
@@ -1711,9 +1701,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not _started or _auto_quit:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode >= KEY_1 and event.keycode <= KEY_4:
-			_on_skill_used(_skill_slot_ids()[event.keycode - KEY_1])
-		elif event.keycode == KEY_5:
+		if event.keycode == KEY_5:
 			_quaff_health()
 		elif event.keycode == KEY_6:
 			_quaff_mana()
@@ -1734,22 +1722,21 @@ func _skill_slot_ids() -> Array[String]:
 	return ["sundering_strike", "void_fury", "iron_chant", "weapon_discipline"]
 
 func _keyboard_move_vector() -> Vector2:
-	var left := Input.is_key_pressed(KEY_LEFT) or Input.is_physical_key_pressed(KEY_A)
-	var right := Input.is_key_pressed(KEY_RIGHT) or Input.is_physical_key_pressed(KEY_D)
-	var up := Input.is_key_pressed(KEY_UP) or Input.is_physical_key_pressed(KEY_W)
-	var down := Input.is_key_pressed(KEY_DOWN) or Input.is_physical_key_pressed(KEY_S)
+	var left := Input.is_key_pressed(KEY_LEFT)
+	var right := Input.is_key_pressed(KEY_RIGHT)
+	var up := Input.is_key_pressed(KEY_UP)
+	var down := Input.is_key_pressed(KEY_DOWN)
 	return _movement_vector_from_flags(left, right, up, down)
 
 func _movement_vector_from_flags(left: bool, right: bool, up: bool, down: bool) -> Vector2:
 	return Vector2(float(int(right) - int(left)), float(int(down) - int(up))).normalized()
 
 func _pc_input_selftest() -> void:
-	var slots_ok := _skill_slot_ids().size() == 4
 	var left_ok := _movement_vector_from_flags(true, false, false, false) == Vector2.LEFT
 	var diagonal := _movement_vector_from_flags(false, true, true, false)
 	var diagonal_ok := diagonal.x > 0.0 and diagonal.y < 0.0 and is_equal_approx(diagonal.length(), 1.0)
-	var ok := slots_ok and left_ok and diagonal_ok
-	print("[PC_INPUT] wasd=true arrows=true skill_keys=1/2/3/4 arc_skill=7 fullscreen=F11 verdict=", "PASS" if ok else "FAIL")
+	var ok := left_ok and diagonal_ok
+	print("[PC_INPUT] arrows=true wasd=false skill_buttons=false fullscreen=F11 verdict=", "PASS" if ok else "FAIL")
 	if not ok:
 		push_error("PC input self-test failed")
 
@@ -1860,11 +1847,13 @@ func _toggle_settings() -> void:
 	var opening := not _settings_panel.visible
 	_hide_modal_panels()
 	_settings_panel.visible = opening
+	_modal_paused = opening
 
 func _hide_modal_panels() -> void:
 	for panel in [_char_panel, _vendor_panel, _inv_panel, _settings_panel]:
 		if is_instance_valid(panel):
 			panel.visible = false
+	_modal_paused = false
 
 func _force_latest_update() -> void:
 	if not OS.has_feature("web"):
@@ -2083,6 +2072,8 @@ func _spawn_monster(nm: String, col: Color, w: int, h: int, lvl: int, hp: int, a
 
 func _physics_process(delta: float) -> void:
 	if not _started:
+		return
+	if _modal_paused:
 		return
 	_logic_ticks += 1
 	if not _player.alive:
@@ -2416,33 +2407,13 @@ func _auto_play(delta: float) -> void:
 	# 골드 여유 시 도박(검증)
 	if _gold > _gamble_cost() + 400:
 		_gamble()
-	if _class == "warden" and not _bo_done and _player.skill_level("iron_chant") > 0:
-		_cast_iron_chant()
-		_bo_done = true
 	var tgt := _nearest_monster()
 	# 소서리스: 적이 너무 가까우면 Teleport로 카이팅(생존)
-	if _class == "arcanist" and tgt != null:
-		if Vector2(_player.gx, _player.gy).distance_to(Vector2(tgt.gx, tgt.gy)) < 3.2 and _player.mana >= 8:
-			_blink_away(tgt)
-			return
 	if tgt != null:
 		var dd := Vector2(_player.gx, _player.gy).distance_to(Vector2(tgt.gx, tgt.gy))
-		var rng_use := SPELL_RANGE if _class == "arcanist" else ATTACK_RANGE
-		if dd <= rng_use:
+		if dd <= ATTACK_RANGE:
 			if _player.attack_cd <= 0.0:
-				if _class == "arcanist":
-					var learned_spells: Array = []
-					for spell_id in ["ember_bolt", "frost_shard", "storm_lance"]:
-						if _player.skill_level(spell_id) > 0: learned_spells.append(spell_id)
-					var selected_spell := String(learned_spells[_spells_cast % learned_spells.size()])
-					if selected_spell == "ember_bolt":
-						_cast_bolt(tgt, "fire", Color(1, 0.5, 0.15), 14, 26)
-					elif selected_spell == "frost_shard":
-						_cast_bolt(tgt, "cold", Color(0.4, 0.7, 1.0), 10, 20)
-					else:
-						_cast_storm_lance(tgt)
-				else:
-					_player_attack(tgt, "sundering_strike")
+				_player_attack(tgt, "basic_attack")
 		else:
 			_nav_toward(_player, tgt.gx, tgt.gy, delta)
 		return
@@ -2465,6 +2436,8 @@ func _check_pickup() -> void:
 
 func _process(delta: float) -> void:
 	if not _started:
+		return
+	if _modal_paused:
 		return
 	if _vision_relic_timer > 0.0:
 		_vision_relic_timer = maxf(0.0, _vision_relic_timer - delta)
@@ -3538,6 +3511,7 @@ func _toggle_bag() -> void:
 	var opening := not _inv_panel.visible
 	_hide_modal_panels()
 	_inv_panel.visible = opening
+	_modal_paused = opening
 	if opening:
 		_rebuild_inv()
 
@@ -3597,6 +3571,7 @@ func _toggle_vendor() -> void:
 	var opening := not _vendor_panel.visible
 	_hide_modal_panels()
 	_vendor_panel.visible = opening
+	_modal_paused = opening
 	_refresh_vendor()
 
 func _travel_waypoint(direction: int) -> void:
@@ -3761,6 +3736,7 @@ func _toggle_char() -> void:
 	var opening := not _char_panel.visible
 	_hide_modal_panels()
 	_char_panel.visible = opening
+	_modal_paused = opening
 	if opening:
 		_rebuild_char_panel()
 
