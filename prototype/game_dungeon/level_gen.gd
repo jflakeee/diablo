@@ -11,14 +11,17 @@ const WALL := 0
 const FLOOR := 1
 const PILLAR := 2
 const LOW_WALL := 3
+const MODE_STRAIGHT := "straight"
+const MODE_RANDOM := "random"
+const MODE_BLOCKED_RANDOM := "blocked_random"
 
 static func generate(seed_val: int, act: int = 1) -> Dictionary:
-	return _generate_region(seed_val, act, SLOTS)
+	return _generate_region(seed_val, act, SLOTS, MODE_RANDOM)
 
-static func generate_chunk(seed_val: int, act: int = 1) -> Dictionary:
-	return _generate_region(seed_val, act, 3)
+static func generate_chunk(seed_val: int, act: int = 1, mode: String = MODE_RANDOM) -> Dictionary:
+	return _generate_region(seed_val, act, 3, mode)
 
-static func _generate_region(seed_val: int, act: int, slots: int) -> Dictionary:
+static func _generate_region(seed_val: int, act: int, slots: int, mode: String = MODE_RANDOM) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_val
 	var w := slots * ROOM
@@ -50,6 +53,17 @@ static func _generate_region(seed_val: int, act: int, slots: int) -> Dictionary:
 		visited[pick] = true
 		edges.append([cur, pick])
 		stack.append(pick)
+	if mode == MODE_STRAIGHT:
+		edges.clear()
+		for sy in slots:
+			var row_start := 0 if sy % 2 == 0 else slots - 1
+			var row_step := 1 if sy % 2 == 0 else -1
+			for offset in range(slots - 1):
+				var sx := row_start + offset * row_step
+				edges.append([Vector2i(sx, sy), Vector2i(sx + row_step, sy)])
+			if sy < slots - 1:
+				var end_x := row_start + (slots - 1) * row_step
+				edges.append([Vector2i(end_x, sy), Vector2i(end_x, sy + 1)])
 
 	# Add deterministic cross-links so layouts are not a single winding tree.
 	# Scanning right/down considers every neighbour pair once and produces
@@ -101,6 +115,15 @@ static func _generate_region(seed_val: int, act: int, slots: int) -> Dictionary:
 	# otherwise turn a deep DFS endpoint into a shortcut beside the entrance.
 	var endpoint := _farthest_slot(edges, start)
 	var exit_slot: Vector2i = endpoint["slot"]
+	if mode == MODE_BLOCKED_RANDOM:
+		for i in slots * slots:
+			var bx := rng.randi_range(2, w - 3)
+			var by := rng.randi_range(2, h - 3)
+			var cell := Vector2i(bx, by)
+			if cell == _slot_center(start) or cell == _slot_center(exit_slot):
+				continue
+			if grid[by][bx] == FLOOR and (bx + by) % 5 != 0:
+				grid[by][bx] = PILLAR if i % 2 == 0 else LOW_WALL
 
 	return {
 		"w": w, "h": h, "grid": grid,
@@ -108,6 +131,7 @@ static func _generate_region(seed_val: int, act: int, slots: int) -> Dictionary:
 		"rooms": slots * slots, "doors": edges.size(), "loops": loops,
 		"critical_path_rooms": int(endpoint["distance"]),
 		"map_type": map_type, "theme": theme, "act": act,
+		"generation_mode": mode,
 	}
 
 static func selftest() -> bool:
@@ -115,7 +139,9 @@ static func selftest() -> bool:
 	var outdoor := generate(1001, 2)
 	var plains := generate(1002, 3)
 	var chunk := generate_chunk(2000, 1)
-	return int(dungeon.get("rooms", 0)) == 81 and int(dungeon.get("doors", 0)) >= 80 and int(dungeon.get("loops", 0)) > 0 and int(chunk.get("rooms", 0)) == 9 and int(chunk.get("w", 0)) == 27 and int(chunk.get("h", 0)) == 27 and String(dungeon.get("map_type", "")) == "cinder_catacombs" and String(outdoor.get("map_type", "")) == "outdoor" and String(plains.get("map_type", "")) == "pillar_plains" and _count_tile(outdoor["grid"], LOW_WALL) > 0 and _count_tile(plains["grid"], PILLAR) > 0
+	var straight := generate_chunk(2001, 1, MODE_STRAIGHT)
+	var blocked := generate_chunk(2002, 1, MODE_BLOCKED_RANDOM)
+	return int(dungeon.get("rooms", 0)) == 81 and int(dungeon.get("doors", 0)) >= 80 and int(dungeon.get("loops", 0)) > 0 and int(chunk.get("rooms", 0)) == 9 and int(chunk.get("w", 0)) == 27 and int(chunk.get("h", 0)) == 27 and String(dungeon.get("map_type", "")) == "cinder_catacombs" and String(outdoor.get("map_type", "")) == "outdoor" and String(plains.get("map_type", "")) == "pillar_plains" and _count_tile(outdoor["grid"], LOW_WALL) > 0 and _count_tile(plains["grid"], PILLAR) > 0 and String(straight.get("generation_mode", "")) == MODE_STRAIGHT and String(blocked.get("generation_mode", "")) == MODE_BLOCKED_RANDOM and (_count_tile(blocked["grid"], PILLAR) + _count_tile(blocked["grid"], LOW_WALL)) > 0
 
 static func _count_tile(grid: Array, tile: int) -> int:
 	var count := 0

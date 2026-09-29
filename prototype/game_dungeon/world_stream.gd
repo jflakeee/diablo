@@ -7,9 +7,9 @@ const ROOM_SIZE := 9
 const CHUNK_ROOM_SIDE := 3
 const CHUNK_TILE_SIDE := ROOM_SIZE * CHUNK_ROOM_SIDE
 const REVEAL_THRESHOLD := 3
-## Keep three traversable maps resident. Generation and retirement are separate
+## Keep one traversable map resident. Generation and retirement are separate
 ## transitions so a newly generated map is never removed in the same tick.
-const MAX_ACTIVE_CHUNKS := 3
+const MAX_ACTIVE_CHUNKS := 1
 const DIRECTIONS: Array[Vector2i] = [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
 
 var run_seed := 0
@@ -31,8 +31,6 @@ func setup(seed_value: int, new_floor_id: int, new_act: int, epoch: int = 0) -> 
 	used_chunk_coords.clear()
 	retired_chunks.clear()
 	_append_chunk(Vector2i.ZERO, Vector2i.LEFT, "west")
-	advance()
-	advance()
 
 func frontier() -> Dictionary:
 	return active_chunks.back() if not active_chunks.is_empty() else {}
@@ -140,7 +138,7 @@ func snapshot() -> Dictionary:
 		chunks.append({
 			"id": chunk["id"], "sequence": chunk["sequence"],
 			"coord": [chunk["coord"].x, chunk["coord"].y],
-			"seed": chunk["seed"], "entry_side": chunk["entry_side"],
+			"seed": chunk["seed"], "generation_mode": chunk.get("generation_mode", LevelGen.MODE_RANDOM), "entry_side": chunk["entry_side"],
 			"entry_direction": [chunk["entry_direction"].x, chunk["entry_direction"].y],
 			"exit_direction": [chunk["exit_direction"].x, chunk["exit_direction"].y],
 			"gate_offset": chunk["gate_offset"],
@@ -180,10 +178,12 @@ func restore(raw: Dictionary) -> bool:
 		if entry_values.size() == 2:
 			entry_direction = Vector2i(int(entry_values[0]), int(entry_values[1]))
 		var seed := int(raw_chunk.get("seed", 0))
-		var level := LevelGen.generate_chunk(seed, act)
+		var mode := String(raw_chunk.get("generation_mode", LevelGen.MODE_RANDOM))
+		var level := LevelGen.generate_chunk(seed, act, mode)
 		var chunk := {
 			"id": String(raw_chunk.get("id", "%d:%d:%d" % [floor_id, generation_epoch, int(raw_chunk.get("sequence", 0))])),
 			"sequence": int(raw_chunk.get("sequence", 0)), "coord": coord, "seed": seed,
+			"generation_mode": mode,
 			"entry_direction": entry_direction, "entry_side": String(raw_chunk.get("entry_side", "west")),
 			"exit_direction": Vector2i(int(exit_values[0]), int(exit_values[1])),
 			"gate_offset": int(raw_chunk.get("gate_offset", CHUNK_TILE_SIDE / 2)),
@@ -199,10 +199,13 @@ func _append_chunk(coord: Vector2i, entry_direction: Vector2i, entry_side: Strin
 	var sequence := next_sequence
 	next_sequence += 1
 	var seed := _mixed_seed(sequence)
-	var level := LevelGen.generate_chunk(seed, act)
+	var modes := [LevelGen.MODE_STRAIGHT, LevelGen.MODE_RANDOM, LevelGen.MODE_BLOCKED_RANDOM]
+	var mode: String = modes[posmod(sequence, modes.size())]
+	var level := LevelGen.generate_chunk(seed, act, mode)
 	var chunk := {
 		"id": "%d:%d:%d" % [floor_id, generation_epoch, sequence],
 		"sequence": sequence, "coord": coord, "seed": seed,
+		"generation_mode": mode,
 		"entry_direction": entry_direction, "entry_side": entry_side,
 		"exit_direction": Vector2i.ZERO, "gate_offset": CHUNK_TILE_SIDE / 2,
 		"revealed_rooms": {}, "frontier_consumed": false,
@@ -333,7 +336,7 @@ static func _side_direction(side: String) -> Vector2i:
 static func selftest() -> bool:
 	var stream := preload("res://world_stream.gd").new()
 	stream.setup(987654, 1, 1)
-	if stream.active_chunks.size() != 3 or int(stream.compose_active_grid()["rooms"]) != 27 or stream.next_sequence != 3:
+	if stream.active_chunks.size() != 1 or int(stream.compose_active_grid()["rooms"]) != 9 or stream.next_sequence != 1:
 		return false
 	for generation in 1:
 		var front: Dictionary = stream.frontier()
@@ -342,10 +345,10 @@ static func selftest() -> bool:
 			result = stream.reveal_room(String(front["id"]), Vector2i(room_x, generation % 3))
 		if result.is_empty():
 			return false
-	if stream.active_chunks.size() != 4 or stream.retired_chunks.size() != 0 or stream.next_sequence != 4:
+	if stream.active_chunks.size() != 2 or stream.retired_chunks.size() != 0 or stream.next_sequence != 2:
 		return false
 	var composite := stream.compose_active_grid()
-	if int(composite["rooms"]) != 36 or int(composite["w"]) * int(composite["h"]) > 81 * 81:
+	if int(composite["rooms"]) != 18 or int(composite["w"]) * int(composite["h"]) > 54 * 54:
 		return false
 	var initial_trim := stream.retire_farthest()
 	if initial_trim.is_empty() or stream.active_chunks.size() != MAX_ACTIVE_CHUNKS or stream.retired_chunks.size() != 1:
@@ -365,7 +368,7 @@ static func selftest() -> bool:
 			var trim_transition := long_stream.retire_farthest()
 			if trim_transition.is_empty() or long_stream.active_chunks.size() != MAX_ACTIVE_CHUNKS:
 				return false
-	if long_stream.next_sequence != 103 or long_stream.used_chunk_coords.size() != 103 or long_stream.retired_chunks.size() != 100:
+	if long_stream.next_sequence != 101 or long_stream.used_chunk_coords.size() != 101 or long_stream.retired_chunks.size() != 100:
 		return false
 	var encoded := JSON.stringify(stream.snapshot())
 	var decoded = JSON.parse_string(encoded)
