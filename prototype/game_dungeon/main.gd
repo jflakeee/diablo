@@ -1547,9 +1547,9 @@ func _run_travel_system_test() -> void:
 
 func _run_streaming_map_test() -> void:
 	await get_tree().create_timer(0.4).timeout
-	var initial_ok := _world_stream.active_chunks.size() == 1 and _gw == 27 and _gh == 27
+	var initial_ok := _world_stream.active_chunks.size() == 3 and _gw == 54 and _gh == 54
 	var initial_exit_gated := not _stream_exit_ready()
-	for generation in 5:
+	for generation in 3:
 		var front: Dictionary = _world_stream.frontier()
 		var front_coord: Vector2i = front["coord"]
 		var front_local: Vector2i = front_coord * WorldStream.CHUNK_TILE_SIDE - _stream_grid_origin + Vector2i(4, 4)

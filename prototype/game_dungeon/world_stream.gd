@@ -31,6 +31,10 @@ func setup(seed_value: int, new_floor_id: int, new_act: int, epoch: int = 0) -> 
 	used_chunk_coords.clear()
 	retired_chunks.clear()
 	_append_chunk(Vector2i.ZERO, Vector2i.LEFT, "west")
+	# Keep the first three maps resident so the third-map exploration event can
+	# generate the next map without coupling generation to retirement.
+	advance()
+	advance()
 
 func frontier() -> Dictionary:
 	return active_chunks.back() if not active_chunks.is_empty() else {}
@@ -331,19 +335,22 @@ static func _side_direction(side: String) -> Vector2i:
 static func selftest() -> bool:
 	var stream := preload("res://world_stream.gd").new()
 	stream.setup(987654, 1, 1)
-	if stream.active_chunks.size() != 1 or int(stream.compose_active_grid()["rooms"]) != 9:
+	if stream.active_chunks.size() != 3 or int(stream.compose_active_grid()["rooms"]) != 27 or stream.next_sequence != 3:
 		return false
-	for generation in 3:
+	for generation in 4:
 		var front: Dictionary = stream.frontier()
 		var result := {}
 		for room_x in 3:
 			result = stream.reveal_room(String(front["id"]), Vector2i(room_x, generation % 3))
 		if result.is_empty():
 			return false
-	if stream.active_chunks.size() != 4 or stream.retired_chunks.size() != 0 or stream.next_sequence != 4:
+	if stream.active_chunks.size() != 7 or stream.retired_chunks.size() != 0 or stream.next_sequence != 7:
 		return false
 	var composite := stream.compose_active_grid()
-	if int(composite["rooms"]) != 36 or int(composite["w"]) * int(composite["h"]) > 162 * 162:
+	if int(composite["rooms"]) != 63 or int(composite["w"]) * int(composite["h"]) > 162 * 162:
+		return false
+	var initial_trim := stream.retire_farthest()
+	if initial_trim.is_empty() or stream.active_chunks.size() != MAX_ACTIVE_CHUNKS or stream.retired_chunks.size() != 1:
 		return false
 	var directions := {}
 	for chunk in stream.active_chunks:
@@ -364,7 +371,7 @@ static func selftest() -> bool:
 			var trim_transition := long_stream.retire_farthest()
 			if trim_transition.is_empty() or long_stream.active_chunks.size() != MAX_ACTIVE_CHUNKS:
 				return false
-	if long_stream.next_sequence != 101 or long_stream.used_chunk_coords.size() != 101 or long_stream.retired_chunks.size() != 95:
+	if long_stream.next_sequence != 103 or long_stream.used_chunk_coords.size() != 103 or long_stream.retired_chunks.size() != 97:
 		return false
 	var encoded := JSON.stringify(stream.snapshot())
 	var decoded = JSON.parse_string(encoded)
