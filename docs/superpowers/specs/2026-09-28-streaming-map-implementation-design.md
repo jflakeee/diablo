@@ -134,7 +134,7 @@ const ROOM_SIZE := 9
 const CHUNK_ROOMS := Vector2i(3, 3)
 const CHUNK_TILES := Vector2i(27, 27)
 const REVEAL_THRESHOLD := 3
-const MAX_ACTIVE_CHUNKS := 6
+const MAX_ACTIVE_CHUNKS := 1
 
 var run_seed: int
 var floor_id: int

@@ -1547,9 +1547,9 @@ func _run_travel_system_test() -> void:
 
 func _run_streaming_map_test() -> void:
 	await get_tree().create_timer(0.4).timeout
-	var initial_ok := _world_stream.active_chunks.size() == 3 and _gw == 54 and _gh == 54
+	var initial_ok := _world_stream.active_chunks.size() == 1 and _gw == 27 and _gh == 27
 	var initial_exit_gated := not _stream_exit_ready()
-	for generation in 3:
+	for generation in 0:
 		var front: Dictionary = _world_stream.frontier()
 		var front_coord: Vector2i = front["coord"]
 		var front_local: Vector2i = front_coord * WorldStream.CHUNK_TILE_SIDE - _stream_grid_origin + Vector2i(4, 4)
@@ -1561,19 +1561,18 @@ func _run_streaming_map_test() -> void:
 			transition = _world_stream.reveal_room(String(front["id"]), Vector2i(room_x, generation % 3))
 		if not transition.is_empty():
 			_apply_stream_transition(transition)
-	var resident_before_trim := _world_stream.active_chunks.size() == 6 and _world_stream.retired_chunks.size() == 0
-	var front := _world_stream.frontier()
+	var resident_before_trim := _world_stream.active_chunks.size() == 1 and _world_stream.retired_chunks.size() == 0
 	var transition := _world_stream.advance()
-	var generation_only := String(transition.get("phase", "")) == "generate" and not transition.is_empty() and _world_stream.active_chunks.size() == 7 and _world_stream.retired_chunks.size() == 0
+	var generation_only := String(transition.get("phase", "")) == "generate" and not transition.is_empty() and _world_stream.active_chunks.size() == 2 and _world_stream.retired_chunks.size() == 0
 	_apply_stream_transition(transition)
 	var trim := _world_stream.retire_farthest()
-	var trim_only := String(trim.get("phase", "")) == "retire" and not trim.is_empty() and _world_stream.active_chunks.size() == 6 and _world_stream.retired_chunks.size() == 1
+	var trim_only := String(trim.get("phase", "")) == "retire" and not trim.is_empty() and _world_stream.active_chunks.size() == 1 and _world_stream.retired_chunks.size() == 1
 	_apply_stream_transition(trim)
 	var exit_ready := _stream_exit_ready()
 	var tiles_ok := is_instance_valid(_tiles_node) and _tiles_node.get_child_count() <= WorldStream.MAX_ACTIVE_CHUNKS * WorldStream.CHUNK_TILE_SIDE * WorldStream.CHUNK_TILE_SIDE + 1
-	var path_ok := _astar != null and not _astar.get_id_path(Vector2i(roundi(_player.gx), roundi(_player.gy)), _exit_cell).is_empty()
+	var path_ok := _astar != null and not _astar.get_id_path(_ent_cell, _exit_cell).is_empty()
 	var ok := initial_ok and initial_exit_gated and resident_before_trim and generation_only and trim_only and exit_ready and tiles_ok and path_ok
-	print("[STREAM] initial=%s gated=%s resident6=%s generation_only=%s trim_only=%s active=%d retired=%d exit_ready=%s tiles=%d path=%s verdict=%s" % [str(initial_ok), str(initial_exit_gated), str(resident_before_trim), str(generation_only), str(trim_only), _world_stream.active_chunks.size(), _world_stream.retired_chunks.size(), str(exit_ready), _tiles_node.get_child_count(), str(path_ok), "PASS" if ok else "FAIL"])
+	print("[STREAM] initial=%s gated=%s resident1=%s generation_only=%s trim_only=%s active=%d retired=%d exit_ready=%s tiles=%d path=%s verdict=%s" % [str(initial_ok), str(initial_exit_gated), str(resident_before_trim), str(generation_only), str(trim_only), _world_stream.active_chunks.size(), _world_stream.retired_chunks.size(), str(exit_ready), _tiles_node.get_child_count(), str(path_ok), "PASS" if ok else "FAIL"])
 	await get_tree().create_timer(0.4).timeout
 	get_tree().quit()
 
@@ -2513,8 +2512,8 @@ func _process(delta: float) -> void:
 		_hud.text += "\nStamina %d/%d / %s / %s" % [roundi(_stamina), roundi(_stamina_max), "RUN" if _player_running else "WALK", _map_type.to_upper()]
 	if _world_stream != null and not _in_town:
 		var frontier_revealed := (_world_stream.frontier().get("revealed_rooms", {}) as Dictionary).size()
-		_hud.text += "\nAREA %d/54 ROOMS / FRONTIER %d/3" % [_world_stream.active_chunks.size() * 9, mini(frontier_revealed, 3)]
-		if not _stream_exit_ready(): _hud.text += " / EXIT AFTER AREA 7"
+		_hud.text += "\nAREA %d/9 ROOMS / FRONTIER %d/3" % [_world_stream.active_chunks.size() * 9, mini(frontier_revealed, 3)]
+		if not _stream_exit_ready(): _hud.text += " / EXIT AFTER AREA 2"
 	if _vision_relic_timer > 0.0: _hud.text += " / ALL-SEEING %.0fs" % _vision_relic_timer
 	if _arc_flasks > 0: _hud.text += " / ARC FLASK %d" % _arc_flasks
 	if not _corpse_state.is_empty():
