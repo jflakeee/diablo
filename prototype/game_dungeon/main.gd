@@ -303,7 +303,8 @@ func _retire_farthest_stream_chunk() -> void:
 	if _world_stream == null or _world_stream.active_chunks.size() <= WorldStream.MAX_ACTIVE_CHUNKS:
 		return
 	_stream_generation_pending = true
-	var transition := _world_stream.retire_farthest()
+	var player_global := _stream_grid_origin + Vector2i(roundi(_player.gx), roundi(_player.gy))
+	var transition := _world_stream.retire_farthest(player_global)
 	if transition.is_empty():
 		_stream_generation_pending = false
 		return

@@ -73,10 +73,20 @@ func advance() -> Dictionary:
 	added["gate_offset"] = gate_offset
 	return {"added": added, "retired": {}, "composite": compose_active_grid()}
 
-func retire_farthest() -> Dictionary:
+func retire_farthest(reference_global: Vector2i = Vector2i(2147483647, 2147483647)) -> Dictionary:
 	if active_chunks.size() <= MAX_ACTIVE_CHUNKS:
 		return {}
-	var retired := _retire_oldest()
+	var retire_index := 0
+	if reference_global != Vector2i(2147483647, 2147483647):
+		var farthest_distance := -1.0
+		for index in active_chunks.size():
+			var chunk: Dictionary = active_chunks[index]
+			var center := Vector2(chunk["coord"] * CHUNK_TILE_SIDE + Vector2i(CHUNK_TILE_SIDE / 2, CHUNK_TILE_SIDE / 2))
+			var distance := center.distance_squared_to(Vector2(reference_global))
+			if distance > farthest_distance:
+				farthest_distance = distance
+				retire_index = index
+	var retired := _retire_at(retire_index)
 	return {"added": {}, "retired": retired, "composite": compose_active_grid()}
 
 func compose_active_grid() -> Dictionary:
@@ -201,7 +211,10 @@ func _append_chunk(coord: Vector2i, entry_direction: Vector2i, entry_side: Strin
 	return chunk
 
 func _retire_oldest() -> Dictionary:
-	var chunk: Dictionary = active_chunks.pop_front()
+	return _retire_at(0)
+
+func _retire_at(index: int) -> Dictionary:
+	var chunk: Dictionary = active_chunks.pop_at(index)
 	var summary := {
 		"id": chunk["id"], "coord": chunk["coord"], "theme": chunk["theme"],
 		"revealed_count": (chunk["revealed_rooms"] as Dictionary).size(),
