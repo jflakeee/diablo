@@ -2101,6 +2101,7 @@ func _physics_process(delta: float) -> void:
 			_recompute_vitals(_player)
 
 	_player.attack_cd = maxf(0.0, _player.attack_cd - delta)
+	_auto_cast_nearby_skill()
 
 	if _auto_quit:
 		_auto_play(delta)
@@ -2424,6 +2425,33 @@ func _auto_play(delta: float) -> void:
 	# 몬스터·아이템 없음 → 출구로 A* 이동(다음 레벨 워프)
 	var exploration_target := _stream_exploration_target()
 	_nav_toward(_player, exploration_target.x, exploration_target.y, delta)
+
+func _auto_cast_nearby_skill() -> void:
+	if _player.attack_cd > 0.0:
+		return
+	var target := _nearest_monster()
+	if target == null or not bool(target.get_meta("witnessed", false)):
+		return
+	var distance := Vector2(_player.gx, _player.gy).distance_to(Vector2(target.gx, target.gy))
+	if _class == "arcanist":
+		if distance > SPELL_RANGE:
+			return
+		var spells: Array[String] = []
+		for spell_id in ["ember_bolt", "frost_shard", "storm_lance"]:
+			if _player.skill_level(spell_id) > 0:
+				spells.append(spell_id)
+		if spells.is_empty():
+			return
+		var selected := spells[_spells_cast % spells.size()]
+		if selected == "ember_bolt":
+			_cast_bolt(target, "fire", Color(1, 0.5, 0.15), 14, 26)
+		elif selected == "frost_shard":
+			_cast_bolt(target, "cold", Color(0.4, 0.7, 1.0), 10, 20)
+		else:
+			_cast_storm_lance(target)
+	else:
+		if distance <= ATTACK_RANGE and _player.skill_level("sundering_strike") > 0:
+			_player_attack(target, "sundering_strike")
 
 func _check_pickup() -> void:
 	for n in _ground.duplicate():
