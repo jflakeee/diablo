@@ -37,7 +37,7 @@ const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
 const WorldStream := preload("res://world_stream.gd")
-const DEPLOYED_AT_KST := "2026-09-30 20:27 KST"
+const DEPLOYED_AT_KST := "2026-09-30 20:40 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
