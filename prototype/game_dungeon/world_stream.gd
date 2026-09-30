@@ -121,8 +121,9 @@ func compose_active_grid() -> Dictionary:
 	var first: Dictionary = active_chunks.front()
 	var last: Dictionary = active_chunks.back()
 	var first_origin: Vector2i = (first["coord"] - min_coord) * CHUNK_TILE_SIDE
-	var entrance: Vector2i = _carve_entry(grid, first_origin, String(first.get("entry_side", "west")), int(first.get("gate_offset", CHUNK_TILE_SIDE / 2)))
-	var exit: Vector2i = (last["coord"] - min_coord) * CHUNK_TILE_SIDE + Vector2i(CHUNK_TILE_SIDE - 2, CHUNK_TILE_SIDE / 2)
+	var entrance: Vector2i = first_origin + Vector2i(first.get("entrance_cell", Vector2i(1, CHUNK_TILE_SIDE / 2)))
+	var last_origin: Vector2i = (last["coord"] - min_coord) * CHUNK_TILE_SIDE
+	var exit: Vector2i = last_origin + Vector2i(last.get("exit_cell", Vector2i(CHUNK_TILE_SIDE - 2, CHUNK_TILE_SIDE / 2)))
 	return {
 		"grid": grid, "w": width, "h": height,
 		"grid_origin": min_coord * CHUNK_TILE_SIDE,
@@ -139,6 +140,8 @@ func snapshot() -> Dictionary:
 			"id": chunk["id"], "sequence": chunk["sequence"],
 			"coord": [chunk["coord"].x, chunk["coord"].y],
 			"seed": chunk["seed"], "generation_mode": chunk.get("generation_mode", LevelGen.MODE_RANDOM), "entry_side": chunk["entry_side"],
+			"entrance_cell": [chunk.get("entrance_cell", Vector2i(1, CHUNK_TILE_SIDE / 2)).x, chunk.get("entrance_cell", Vector2i(1, CHUNK_TILE_SIDE / 2)).y],
+			"exit_cell": [chunk.get("exit_cell", Vector2i(CHUNK_TILE_SIDE - 2, CHUNK_TILE_SIDE / 2)).x, chunk.get("exit_cell", Vector2i(CHUNK_TILE_SIDE - 2, CHUNK_TILE_SIDE / 2)).y],
 			"entry_direction": [chunk["entry_direction"].x, chunk["entry_direction"].y],
 			"exit_direction": [chunk["exit_direction"].x, chunk["exit_direction"].y],
 			"gate_offset": chunk["gate_offset"],
@@ -180,10 +183,19 @@ func restore(raw: Dictionary) -> bool:
 		var seed := int(raw_chunk.get("seed", 0))
 		var mode := String(raw_chunk.get("generation_mode", LevelGen.MODE_RANDOM))
 		var level := LevelGen.generate_chunk(seed, act, mode)
+		var entrance_cell: Vector2i = level["entrance"]
+		var exit_cell: Vector2i = level["exit"]
+		var entrance_values: Array = raw_chunk.get("entrance_cell", [])
+		var exit_cell_values: Array = raw_chunk.get("exit_cell", [])
+		if entrance_values.size() == 2:
+			entrance_cell = Vector2i(int(entrance_values[0]), int(entrance_values[1]))
+		if exit_cell_values.size() == 2:
+			exit_cell = Vector2i(int(exit_cell_values[0]), int(exit_cell_values[1]))
 		var chunk := {
 			"id": String(raw_chunk.get("id", "%d:%d:%d" % [floor_id, generation_epoch, int(raw_chunk.get("sequence", 0))])),
 			"sequence": int(raw_chunk.get("sequence", 0)), "coord": coord, "seed": seed,
 			"generation_mode": mode,
+			"entrance_cell": entrance_cell, "exit_cell": exit_cell,
 			"entry_direction": entry_direction, "entry_side": String(raw_chunk.get("entry_side", "west")),
 			"exit_direction": Vector2i(int(exit_values[0]), int(exit_values[1])),
 			"gate_offset": int(raw_chunk.get("gate_offset", CHUNK_TILE_SIDE / 2)),
@@ -206,6 +218,7 @@ func _append_chunk(coord: Vector2i, entry_direction: Vector2i, entry_side: Strin
 		"id": "%d:%d:%d" % [floor_id, generation_epoch, sequence],
 		"sequence": sequence, "coord": coord, "seed": seed,
 		"generation_mode": mode,
+		"entrance_cell": level["entrance"], "exit_cell": level["exit"],
 		"entry_direction": entry_direction, "entry_side": entry_side,
 		"exit_direction": Vector2i.ZERO, "gate_offset": CHUNK_TILE_SIDE / 2,
 		"revealed_rooms": {}, "frontier_consumed": false,

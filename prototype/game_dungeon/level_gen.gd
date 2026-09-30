@@ -130,7 +130,7 @@ static func _generate_region(seed_val: int, act: int, slots: int, mode: String =
 			if grid[by][bx] == FLOOR and (bx + by) % 5 != 0:
 				grid[by][bx] = PILLAR if i % 2 == 0 else LOW_WALL
 				blocked_cells.append(cell)
-		while not _tile_path_exists(grid, _slot_center(start), _slot_center(exit_slot)) and not blocked_cells.is_empty():
+		while (not _tile_path_exists(grid, _slot_center(start), _slot_center(exit_slot)) or not _all_room_centers_reachable(grid, slots, _slot_center(start))) and not blocked_cells.is_empty():
 			var restore: Vector2i = blocked_cells.pop_back()
 			grid[restore.y][restore.x] = FLOOR
 
@@ -189,6 +189,13 @@ static func _tile_path_exists(grid: Array, start: Vector2i, target: Vector2i) ->
 			seen[next] = true
 			queue.append(next)
 	return false
+
+static func _all_room_centers_reachable(grid: Array, slots: int, start: Vector2i) -> bool:
+	for sy in slots:
+		for sx in slots:
+			if not _tile_path_exists(grid, start, _slot_center(Vector2i(sx, sy))):
+				return false
+	return true
 
 static func _slot_center(s: Vector2i) -> Vector2i:
 	return Vector2i(s.x * ROOM + ROOM / 2, s.y * ROOM + ROOM / 2)
