@@ -113,10 +113,12 @@ static func _generate_region(seed_val: int, act: int, slots: int, mode: String =
 			if Vector2(px, py).distance_to(Vector2(ROOM / 2, ROOM / 2)) > 3.0: grid[py][px] = PILLAR
 
 	# 입구 = start 중심, 출구 = 트리 최심부 슬롯 중심
-	# Use shortest-path distance on the final graph. Added loop connections can
-	# otherwise turn a deep DFS endpoint into a shortcut beside the entrance.
-	var endpoint := _farthest_slot(edges, start)
-	var exit_slot: Vector2i = endpoint["slot"]
+	# Choose the goal room independently from the entrance. The room graph is
+	# connected by construction, so any distinct room remains reachable.
+	var exit_slot := start
+	while exit_slot == start:
+		exit_slot = Vector2i(rng.randi_range(0, slots - 1), rng.randi_range(0, slots - 1))
+	var path_distance := _slot_distance(edges, start, exit_slot)
 	if mode == MODE_BLOCKED_RANDOM:
 		for i in slots * slots:
 			var bx := rng.randi_range(2, w - 3)
@@ -131,7 +133,7 @@ static func _generate_region(seed_val: int, act: int, slots: int, mode: String =
 		"w": w, "h": h, "grid": grid,
 		"entrance": _slot_center(start), "exit": _slot_center(exit_slot),
 		"rooms": slots * slots, "doors": edges.size(), "loops": loops,
-		"critical_path_rooms": int(endpoint["distance"]),
+		"critical_path_rooms": path_distance,
 		"map_type": map_type, "theme": theme, "act": act,
 		"generation_mode": mode,
 	}
@@ -187,6 +189,31 @@ static func _farthest_slot(edges: Array, start: Vector2i) -> Dictionary:
 			if int(distances[next]) > int(distances[farthest]):
 				farthest = next
 	return {"slot": farthest, "distance": int(distances[farthest])}
+
+static func _slot_distance(edges: Array, start: Vector2i, target: Vector2i) -> int:
+	if start == target:
+		return 0
+	var adjacency := {}
+	for edge in edges:
+		var a: Vector2i = edge[0]
+		var b: Vector2i = edge[1]
+		if not adjacency.has(a): adjacency[a] = []
+		if not adjacency.has(b): adjacency[b] = []
+		adjacency[a].append(b)
+		adjacency[b].append(a)
+	var distances := {start: 0}
+	var queue: Array[Vector2i] = [start]
+	while not queue.is_empty():
+		var current: Vector2i = queue.pop_front()
+		for raw_next in adjacency.get(current, []):
+			var next: Vector2i = raw_next
+			if distances.has(next):
+				continue
+			distances[next] = int(distances[current]) + 1
+			if next == target:
+				return int(distances[next])
+			queue.append(next)
+	return -1
 
 static func _carve_room(grid: Array, sx: int, sy: int) -> void:
 	var ox := sx * ROOM
