@@ -36,7 +36,9 @@ static func _generate_region(seed_val: int, act: int, slots: int, mode: String =
 	# 스패닝 트리(randomized DFS) — 모든 룸 슬롯을 연결 보장
 	var visited := {}
 	var edges: Array = []
-	var start := Vector2i(0, 0)
+	# Randomize the entrance room per seed so every regenerated floor can begin
+	# from a different valid room while retaining deterministic replays.
+	var start := Vector2i(rng.randi_range(0, slots - 1), rng.randi_range(0, slots - 1))
 	visited[start] = true
 	var stack: Array = [start]
 	while not stack.is_empty():
@@ -141,7 +143,12 @@ static func selftest() -> bool:
 	var chunk := generate_chunk(2000, 1)
 	var straight := generate_chunk(2001, 1, MODE_STRAIGHT)
 	var blocked := generate_chunk(2002, 1, MODE_BLOCKED_RANDOM)
-	return int(dungeon.get("rooms", 0)) == 81 and int(dungeon.get("doors", 0)) >= 80 and int(dungeon.get("loops", 0)) > 0 and int(chunk.get("rooms", 0)) == 9 and int(chunk.get("w", 0)) == 27 and int(chunk.get("h", 0)) == 27 and String(dungeon.get("map_type", "")) == "cinder_catacombs" and String(outdoor.get("map_type", "")) == "outdoor" and String(plains.get("map_type", "")) == "pillar_plains" and _count_tile(outdoor["grid"], LOW_WALL) > 0 and _count_tile(plains["grid"], PILLAR) > 0 and String(straight.get("generation_mode", "")) == MODE_STRAIGHT and String(blocked.get("generation_mode", "")) == MODE_BLOCKED_RANDOM and (_count_tile(blocked["grid"], PILLAR) + _count_tile(blocked["grid"], LOW_WALL)) > 0
+	var another_seed := generate(3000, 1)
+	var entrance_a: Vector2i = dungeon["entrance"]
+	var entrance_b: Vector2i = another_seed["entrance"]
+	var endpoints_valid := dungeon["entrance"] != dungeon["exit"] and another_seed["entrance"] != another_seed["exit"]
+	var randomized_start := entrance_a != entrance_b
+	return int(dungeon.get("rooms", 0)) == 81 and int(dungeon.get("doors", 0)) >= 80 and int(dungeon.get("loops", 0)) > 0 and int(chunk.get("rooms", 0)) == 9 and int(chunk.get("w", 0)) == 27 and int(chunk.get("h", 0)) == 27 and String(dungeon.get("map_type", "")) == "cinder_catacombs" and String(outdoor.get("map_type", "")) == "outdoor" and String(plains.get("map_type", "")) == "pillar_plains" and _count_tile(outdoor["grid"], LOW_WALL) > 0 and _count_tile(plains["grid"], PILLAR) > 0 and String(straight.get("generation_mode", "")) == MODE_STRAIGHT and String(blocked.get("generation_mode", "")) == MODE_BLOCKED_RANDOM and (_count_tile(blocked["grid"], PILLAR) + _count_tile(blocked["grid"], LOW_WALL)) > 0 and endpoints_valid and randomized_start
 
 static func _count_tile(grid: Array, tile: int) -> int:
 	var count := 0
