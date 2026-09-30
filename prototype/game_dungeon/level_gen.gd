@@ -120,6 +120,7 @@ static func _generate_region(seed_val: int, act: int, slots: int, mode: String =
 		exit_slot = Vector2i(rng.randi_range(0, slots - 1), rng.randi_range(0, slots - 1))
 	var path_distance := _slot_distance(edges, start, exit_slot)
 	if mode == MODE_BLOCKED_RANDOM:
+		var blocked_cells: Array[Vector2i] = []
 		for i in slots * slots:
 			var bx := rng.randi_range(2, w - 3)
 			var by := rng.randi_range(2, h - 3)
@@ -128,6 +129,10 @@ static func _generate_region(seed_val: int, act: int, slots: int, mode: String =
 				continue
 			if grid[by][bx] == FLOOR and (bx + by) % 5 != 0:
 				grid[by][bx] = PILLAR if i % 2 == 0 else LOW_WALL
+				blocked_cells.append(cell)
+		while not _tile_path_exists(grid, _slot_center(start), _slot_center(exit_slot)) and not blocked_cells.is_empty():
+			var restore := blocked_cells.pop_back()
+			grid[restore.y][restore.x] = FLOOR
 
 	return {
 		"w": w, "h": h, "grid": grid,
@@ -150,7 +155,8 @@ static func selftest() -> bool:
 	var entrance_b: Vector2i = another_seed["entrance"]
 	var endpoints_valid := dungeon["entrance"] != dungeon["exit"] and another_seed["entrance"] != another_seed["exit"]
 	var randomized_start := entrance_a != entrance_b
-	return int(dungeon.get("rooms", 0)) == 81 and int(dungeon.get("doors", 0)) >= 80 and int(dungeon.get("loops", 0)) > 0 and int(chunk.get("rooms", 0)) == 9 and int(chunk.get("w", 0)) == 27 and int(chunk.get("h", 0)) == 27 and String(dungeon.get("map_type", "")) == "cinder_catacombs" and String(outdoor.get("map_type", "")) == "outdoor" and String(plains.get("map_type", "")) == "pillar_plains" and _count_tile(outdoor["grid"], LOW_WALL) > 0 and _count_tile(plains["grid"], PILLAR) > 0 and String(straight.get("generation_mode", "")) == MODE_STRAIGHT and String(blocked.get("generation_mode", "")) == MODE_BLOCKED_RANDOM and (_count_tile(blocked["grid"], PILLAR) + _count_tile(blocked["grid"], LOW_WALL)) > 0 and endpoints_valid and randomized_start
+	var blocked_path := _tile_path_exists(blocked["grid"], blocked["entrance"], blocked["exit"])
+	return int(dungeon.get("rooms", 0)) == 81 and int(dungeon.get("doors", 0)) >= 80 and int(dungeon.get("loops", 0)) > 0 and int(chunk.get("rooms", 0)) == 9 and int(chunk.get("w", 0)) == 27 and int(chunk.get("h", 0)) == 27 and String(dungeon.get("map_type", "")) == "cinder_catacombs" and String(outdoor.get("map_type", "")) == "outdoor" and String(plains.get("map_type", "")) == "pillar_plains" and _count_tile(outdoor["grid"], LOW_WALL) > 0 and _count_tile(plains["grid"], PILLAR) > 0 and String(straight.get("generation_mode", "")) == MODE_STRAIGHT and String(blocked.get("generation_mode", "")) == MODE_BLOCKED_RANDOM and (_count_tile(blocked["grid"], PILLAR) + _count_tile(blocked["grid"], LOW_WALL)) > 0 and endpoints_valid and randomized_start and blocked_path
 
 static func _count_tile(grid: Array, tile: int) -> int:
 	var count := 0
@@ -158,6 +164,31 @@ static func _count_tile(grid: Array, tile: int) -> int:
 		for value in row:
 			if int(value) == tile: count += 1
 	return count
+
+static func _tile_path_exists(grid: Array, start: Vector2i, target: Vector2i) -> bool:
+	if grid.is_empty():
+		return false
+	var height := grid.size()
+	var width := (grid[0] as PackedInt32Array).size()
+	if start.x < 0 or start.y < 0 or target.x < 0 or target.y < 0 or start.x >= width or target.x >= width or start.y >= height or target.y >= height:
+		return false
+	if int(grid[start.y][start.x]) != FLOOR or int(grid[target.y][target.x]) != FLOOR:
+		return false
+	var seen := {start: true}
+	var queue: Array[Vector2i] = [start]
+	while not queue.is_empty():
+		var current: Vector2i = queue.pop_front()
+		if current == target:
+			return true
+		for direction in [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]:
+			var next: Vector2i = current + direction
+			if next.x < 0 or next.y < 0 or next.x >= width or next.y >= height or seen.has(next):
+				continue
+			if int(grid[next.y][next.x]) != FLOOR:
+				continue
+			seen[next] = true
+			queue.append(next)
+	return false
 
 static func _slot_center(s: Vector2i) -> Vector2i:
 	return Vector2i(s.x * ROOM + ROOM / 2, s.y * ROOM + ROOM / 2)
