@@ -143,12 +143,14 @@ var _belt_mp := 2            # 시작 마나 포션
 var _potions_quaffed := 0
 var _pot_hp_btn: Button
 var _pot_mp_btn: Button
-# ── 동료(Ember Scout) — 원거리 화염 화살 아군 ──
+# ── 동료(용병) — 종류별 사거리/원소가 다른 아군 ──
 var _merc: ActorScript
 var _merc_cd := 0.0
 var _merc_kills := 0
 var _merc_revive_t := 0.0
 var _merc_equipped := Mercenary.empty_equipment()
+var _merc_type := Mercenary.TYPE_ORDER[0]
+var _merc_type_button: Button
 const MERC_RANGE := 6.0
 const MERC_CD := 1.1
 # ── 골드 경제 & 상인 ──
@@ -2029,6 +2031,7 @@ func _gather_save_state(reason: String = "manual") -> Dictionary:
 		"quest_state": _quest_state.duplicate(true),
 		"waypoint_state": _waypoint_state.duplicate(true),
 		"merc_equipped": _merc_equipped.duplicate(true),
+		"merc_type": _merc_type,
 		"stamina": _stamina,
 		"corpse_state": _corpse_state.duplicate(true), "player_deaths": _player_deaths,
 		"automation": _automation.snapshot(),
@@ -2093,6 +2096,7 @@ func _load_game() -> void:
 	_quest_state = Quest.normalize_state(_quest_defs, state.get("quest_state", {}))
 	_waypoint_state = Waypoint.normalize_state(_waypoint_defs, state.get("waypoint_state", {}))
 	_merc_equipped = Mercenary.normalize_equipment(state.get("merc_equipped", {}))
+	_merc_type = Mercenary.normalize_type(state.get("merc_type", Mercenary.TYPE_ORDER[0]))
 	Waypoint.unlock(_waypoint_defs, _waypoint_state, _act, _level_in_act())
 	_recompute_player()
 	var saved_stamina := float(state.get("stamina", -1.0))
@@ -2139,6 +2143,9 @@ func _load_game() -> void:
 	_update_visibility(true)
 	_spawn_corpse_marker()
 	if _merc != null:
+		var loaded_tmpl: Dictionary = Mercenary.TYPES[_merc_type]
+		_merc.actor_name = String(loaded_tmpl["display"])
+		_set_hero_art(_merc, String(loaded_tmpl["art_kind"]), loaded_tmpl["color"], int(loaded_tmpl["seed"]), 1.0)
 		_merc_scale_stats()
 	_rebuild_inv()
 	_rebuild_char_panel()
@@ -2281,16 +2288,29 @@ func _physics_process(delta: float) -> void:
 
 # 용병 스폰(플레이어 옆). 스탯은 플레이어 레벨에 스케일.
 func _spawn_merc() -> void:
-	_merc = _make_actor("Ember Scout", Color(0.55, 0.25, 0.35), 20, 32)
+	var tmpl: Dictionary = Mercenary.TYPES[_merc_type]
+	_merc = _make_actor(String(tmpl["display"]), tmpl["color"], 20, 32)
 	_merc.is_ally = true
 	_merc.died.connect(_on_merc_died)
-	var merc_col := Color(0.5, 0.15, 0.2)
-	_set_hero_art(_merc, "scout", merc_col, 7, 1.0)
+	_set_hero_art(_merc, String(tmpl["art_kind"]), tmpl["color"], int(tmpl["seed"]), 1.0)
 	_merc.level = _player.level
 	_merc_scale_stats()
 	_merc.gx = _player.gx + 1
 	_merc.gy = _player.gy
 	_merc.position = _iso(_merc.gx, _merc.gy)
+
+# 상인 패널에서 용병 종류를 순환 전환. 레벨/장비/킬/부활 상태는 그대로 유지.
+func _cycle_merc_type() -> void:
+	_merc_type = Mercenary.next_type(_merc_type)
+	var tmpl: Dictionary = Mercenary.TYPES[_merc_type]
+	if _merc != null:
+		_merc.actor_name = String(tmpl["display"])
+		_set_hero_art(_merc, String(tmpl["art_kind"]), tmpl["color"], int(tmpl["seed"]), 1.0)
+		_merc_scale_stats()
+		if _merc.alive:
+			_merc.life = mini(_merc.life, _merc.max_life)
+	_combat_log = "Mercenary: %s" % String(tmpl["display"])
+	_refresh_vendor()
 
 func _set_hero_art(actor: ActorScript, kind: String, color: Color, seed: int, scale_v: float) -> void:
 	var compiled := _assets.hero_directions(kind)
@@ -2311,7 +2331,7 @@ func _set_hero_art(actor: ActorScript, kind: String, color: Color, seed: int, sc
 
 func _merc_scale_stats() -> void:
 	var lv := _player.level
-	var stats := Mercenary.stats(lv, _merc_equipped, Item)
+	var stats := Mercenary.stats(lv, _merc_equipped, Item, _merc_type)
 	_merc.max_life = int(stats["life"])
 	_merc.base_max_life = _merc.max_life
 	if _merc.alive:
@@ -2340,12 +2360,17 @@ func _merc_ai(delta: float) -> void:
 	_merc_cd = maxf(0.0, _merc_cd - delta)
 	var tgt := _nearest_monster()
 	var pd := Vector2(_player.gx - _merc.gx, _player.gy - _merc.gy).length()
-	if tgt != null and Vector2(_merc.gx, _merc.gy).distance_to(Vector2(tgt.gx, tgt.gy)) <= MERC_RANGE:
+	var tmpl: Dictionary = Mercenary.TYPES[_merc_type]
+	var atk_range: float = tmpl["range"]
+	if tgt != null and Vector2(_merc.gx, _merc.gy).distance_to(Vector2(tgt.gx, tgt.gy)) <= atk_range:
 		if pd > 4.5:                       # 너무 멀면 플레이어에게 복귀 우선
 			_nav_toward(_merc, _player.gx, _player.gy, delta)
 		elif _merc_cd <= 0.0:
-			_merc_fire(tgt)
-			_merc_cd = MERC_CD
+			if bool(tmpl["melee"]):
+				_merc_melee(tgt)
+			else:
+				_merc_fire(tgt)
+			_merc_cd = tmpl["cooldown"]
 	elif pd > 2.2:                          # 몬스터 없음/사거리 밖 → 플레이어 추종
 		_nav_toward(_merc, _player.gx, _player.gy, delta)
 
@@ -2355,18 +2380,43 @@ func _merc_fire(tgt: ActorScript) -> void:
 	_merc.play_attack(Vector2(tgt.gx - _merc.gx, tgt.gy - _merc.gy))
 	if CombatLib.roll_hit(_rng, _merc.attack_rating, tgt.defense, _merc.level, tgt.level):
 		var phys := CombatLib.physical_damage(_rng, _merc.dmg_min, _merc.dmg_max, 0.0)
-		var fire := _rng.randi_range(3, 8) + _merc.level
-		# 물리 화살(저항 무시) 즉시 + 화염 부가(저항 적용)
 		var pre_alive := tgt.alive
 		tgt.take_damage(phys)
-		var fdmg := CombatLib.apply_resistance(fire, _target_resist(tgt, "fire"), 99)
-		if fdmg > 0 and tgt.alive:
-			tgt.take_damage(fdmg)
-		_spawn_text(tgt.position + Vector2(0, -8), "%d + FIRE %d" % [phys, fdmg], Color(1, 0.7, 0.3))
+		var element := String(Mercenary.TYPES[_merc_type]["element"])
+		var label := "%d" % phys
+		var text_col := Color(1, 1, 1)
+		if element == "fire":
+			var fire := _rng.randi_range(3, 8) + _merc.level
+			var fdmg := CombatLib.apply_resistance(fire, _target_resist(tgt, "fire"), 99)
+			if fdmg > 0 and tgt.alive:
+				tgt.take_damage(fdmg)
+			label = "%d + FIRE %d" % [phys, fdmg]
+			text_col = Color(1, 0.7, 0.3)
+		elif element == "cold":
+			var cold := _rng.randi_range(2, 6) + int(_merc.level * 0.6)
+			var cdmg := CombatLib.apply_resistance(cold, _target_resist(tgt, "cold"), 99)
+			if cdmg > 0 and tgt.alive:
+				tgt.take_damage(cdmg)
+				tgt.slow_timer = 1.4   # 냉기 슬로우(플레이어 냉기 무기와 동일 규칙)
+			label = "%d + COLD %d" % [phys, cdmg]
+			text_col = Color(0.6, 0.85, 1.0)
+		_spawn_text(tgt.position + Vector2(0, -8), label, text_col)
 		_flash(_merc.position, tgt.position)
 		if pre_alive and not tgt.alive:
 			_merc_kills += 1
 			_grant_xp(tgt.level * 40)     # 용병 킬도 플레이어 XP(D2)
+
+func _merc_melee(tgt: ActorScript) -> void:
+	_merc.play_attack(Vector2(tgt.gx - _merc.gx, tgt.gy - _merc.gy))
+	if CombatLib.roll_hit(_rng, _merc.attack_rating, tgt.defense, _merc.level, tgt.level):
+		var phys := CombatLib.physical_damage(_rng, _merc.dmg_min, _merc.dmg_max, 0.0)
+		var pre_alive := tgt.alive
+		tgt.take_damage(phys)
+		_spawn_text(tgt.position + Vector2(0, -8), "%d HIT" % phys, Color(0.85, 0.85, 0.9))
+		_flash(_merc.position, tgt.position)
+		if pre_alive and not tgt.alive:
+			_merc_kills += 1
+			_grant_xp(tgt.level * 40)
 
 func _on_merc_died(_a: Node) -> void:
 	_merc_revive_t = 8.0                    # 8초 후 부활
@@ -2662,7 +2712,7 @@ func _process(delta: float) -> void:
 		_pot_mp_btn.text = "MP\n%d" % _belt_mp
 	if _merc != null and not _mobile_profile:
 		var ms := ("HP %d/%d" % [_merc.life, _merc.max_life]) if _merc.alive else "DOWN"
-		_hud.text += "\nMerc Ember Scout %s  Kills %d" % [ms, _merc_kills]
+		_hud.text += "\nMerc %s %s  Kills %d" % [String(Mercenary.TYPES[_merc_type]["display"]), ms, _merc_kills]
 	if _stat_points > 0 or _player.skill_points > 0:
 		_hud.text += "  Points: Stat %d Skill %d" % [_stat_points, _player.skill_points]
 	var quest_gate := "DEFEAT BOSS" if _exit_locked else ("BOSS FLOOR" if _is_boss_level() else "EXPLORING")
@@ -2679,7 +2729,8 @@ func _process(delta: float) -> void:
 			_class, dn, _dlevel, _levels_cleared, _kills, _player.life, _player.max_life, _player.res_fire, _champs, _uniques])
 		print("[POT] quaffed=%d belt(HP%d MP%d)" % [_potions_quaffed, _belt_hp, _belt_mp])
 		var mstate := ("alive %d/%d" % [_merc.life, _merc.max_life]) if (_merc != null and _merc.alive) else "down"
-		print("[MERC] kills=%d state=%s" % [_merc_kills, mstate])
+		print("[MERC] kills=%d state=%s type=%s" % [_merc_kills, mstate, _merc_type])
+		print("[MERC_TYPE] selftest verdict=", "PASS" if Mercenary.selftest() else "FAIL")
 		print("[GOLD] gold=%d sold_total=%d gambles=%d" % [_gold, _gold_sold, _gambles])
 		print("[MAP] tex=%s grid=%dx%d monster_dots=%d" % [str(_minimap != null and _minimap.tex != null), _minimap.gw if _minimap else 0, _minimap.gh if _minimap else 0, _minimap.monster_cells.size() if _minimap else 0])
 		var ai_cull_ok := _ai_culled_far > 0
@@ -2703,7 +2754,7 @@ func _process(delta: float) -> void:
 		print("[ASSET] monsters compiled=%d fallback=%d runtime=%s" % [_compiled_monsters, _generated_monsters, str(asset_report)])
 		var perf_report := PerformanceBudget.evaluate(elapsed, _logic_ticks, _perf_peak_active, _perf_start_memory, _perf_peak_memory)
 		print("[PERF] logic_hz=%.2f peak_active=%d memory_growth_kib=%.1f failures=%s verdict=%s" % [float(perf_report["logic_hz"]), int(perf_report["peak_active"]), float(perf_report["memory_growth"]) / 1024.0, str(perf_report["failures"]), "PASS" if bool(perf_report["ok"]) else "FAIL"])
-		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and bool(perf_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok and _online_selftest_ok and _coverage_selftest_ok and _waypoint_selftest_ok and _pack_selftest_ok and _boss_room_selftest_ok and ai_cull_ok
+		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and bool(perf_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok and _online_selftest_ok and _coverage_selftest_ok and _waypoint_selftest_ok and _pack_selftest_ok and _boss_room_selftest_ok and ai_cull_ok and Mercenary.selftest()
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		_release_runtime_resources()
 		await get_tree().process_frame
@@ -3727,6 +3778,7 @@ func _build_vendor() -> void:
 	_vendor_btn(vb, "Buy Mana Potion (%dg)" % COST_MP_POT, func(): _buy_potion("mana"))
 	_vendor_btn(vb, "Repair Equipped Gear", func(): _repair_equipped())
 	_vendor_btn(vb, "Travel to Next Waypoint", func(): _travel_waypoint(0))
+	_merc_type_button = _vendor_btn(vb, "", _cycle_merc_type)
 	_vendor_btn(vb, "Sell All Bag Items", func(): _sell_all())
 	_vendor_btn(vb, "Gamble Random Item", func(): _gamble())
 	_vendor_btn(vb, "Cycle Auto Pickup", func(): _cycle_automation("pickup_min"))
@@ -3979,6 +4031,8 @@ func _refresh_vendor() -> void:
 		_vendor_gold_lbl.text = "Gold %d / Belt HP%d MP%d / Bag %d\nRepair %dg / Gamble %dg / Auto Sold %dg" % [_gold, _belt_hp, _belt_mp, _inventory.size(), _repair_equipped_cost(), _gamble_cost(), _gold_sold]
 	if _auto_sell_button:
 		_auto_sell_button.text = "Auto Sell: %s / Replaced: ON" % ("ON" if _automation.auto_sell else "OFF")
+	if _merc_type_button:
+		_merc_type_button.text = "Mercenary: %s (Cycle)" % String(Mercenary.TYPES[_merc_type]["display"])
 
 func _repair_equipped_cost() -> int:
 	var total := 0

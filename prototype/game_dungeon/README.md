@@ -182,11 +182,21 @@ loss and repair costs. Older saves load with empty jewelry slots.
 
 ### Mercenary equipment
 
-Ember Scout has persistent weapon and armor slots. Inventory rows expose a
+The mercenary has persistent weapon and armor slots. Inventory rows expose a
 separate mercenary equip action, and equipped base stats plus affixes contribute
 to companion damage, attack rating, defense, life, and elemental resistances.
 Broken equipment is ignored and save schema v5 migrates older saves with empty
 companion slots.
+
+### Mercenary type variety
+
+A vendor-panel button cycles the companion through three types that keep the
+shared weapon/armor slots but differ in combat role: Ember Scout (ranged,
+fire bolt), Iron Guard (melee, tankier life/defense), and Frost Acolyte
+(ranged, cold bolt that applies the same slow the player's cold weapons use).
+Switching preserves level, equipment, kill count, and revive timer — only
+stats and art are reapplied. Save schema v16 persists the selected type
+(`mercenary.gd` `TYPES`/`TYPE_ORDER`, defaults to Ember Scout for older saves).
 
 ### Run and stamina
 

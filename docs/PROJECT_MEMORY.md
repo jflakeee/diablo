@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-02 (보물방 배포)
+최종 갱신: 2026-10-02 (용병 종류 다양화 배포)
 
 ## 맵 생성 상태
 
@@ -17,19 +17,19 @@
 - `MAP_VARIANTS`: PASS
 - `STREAM`: PASS
 - `SYSTEM`: 108 checks PASS (큐브·감정·저항 효과 회귀 포함, 실행 횟수 자동 집계)
-- `SAVE`: 22 checks PASS
+- `SAVE`: 23 checks PASS
 - Web 릴리스 검사: PASS
 - 원격 PCK 해시 일치 확인: PASS
 
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 배포 표시 시각: `2026-10-02 07:58 KST`
-- 소스 커밋: 보물방(본 커밋)
-- 최신 배포 커밋: `bc86c9e` (gh-pages)
+- 배포 표시 시각: `2026-10-02 08:32 KST`
+- 소스 커밋: 용병 종류 다양화(본 커밋)
+- 최신 배포 커밋: `48985e7` (gh-pages)
 - Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`), 루트 HTTP 200 확인
-- 원격 기본 URL의 PCK SHA-256: `2c70669e4e0b2735446b644f1b084b0e65a044d01a1e06187b91c9b9e8cb1331`
-- 원격 PCK 1,253,660 bytes 및 로컬 빌드 해시 일치 확인.
+- 원격 기본 URL의 PCK SHA-256: `8cc24f8de7ffa60d2f0c0a0fed77f99b6aad6c86fc2f0d4c988dc9a540d69197`
+- 원격 PCK 1,257,388 bytes 및 로컬 빌드 해시 일치 확인.
 
 ## 다음 점검 항목
 
@@ -174,3 +174,20 @@
   더 이상 신뢰할 소스가 아니었음을 교훈으로 남김).
 - Web release export → gh-pages 배포 커밋 `bc86c9e`, Pages 빌드 `built`, 루트 HTTP 200,
   로컬/원격 PCK SHA-256(`2c70669e...`) 일치 확인.
+
+## 2026-10-02 용병 종류 다양화 (원격 배포 완료)
+
+- 설계 문서: `docs/superpowers/specs/2026-10-02-mercenary-type-variety-design.md`. 용병이
+  "Ember Scout"(원거리 화염) 1종으로 고정되어 있던 것을 상인 패널에서 순환 전환 가능한
+  3종(Ember Scout/Iron Guard 근접/Frost Acolyte 냉기+슬로우)으로 확장.
+- `mercenary.gd`: `TYPES`/`TYPE_ORDER` 스탯 템플릿, `normalize_type`/`next_type`, `stats()`에
+  `merc_type` 인자, `selftest()`(기본값 폴백·순환 순서·가드 탱크 특성·냉기 슬로우 플래그 검증).
+- `main.gd`: `_merc_type` 상태 + 상인 패널 "Mercenary: <종류> (Cycle)" 버튼(`_cycle_merc_type`,
+  레벨/장비/킬 수/부활 타이머 유지하고 스탯·아트만 재적용), `_merc_ai`가 종류 템플릿의
+  사거리/쿨다운을 읽어 근접(`_merc_melee`)/원거리(`_merc_fire`, 원소 부가피해) 분기.
+- `save_store.gd`: 스키마 v15→v16, `merc_type` 기본값 "scout" 마이그레이션(checks 22→23).
+- 검증: `[MERC_TYPE] selftest verdict=PASS` + `[SAVE] checks=23`가 오토퀴트 최종 `ok` 집계에
+  편입됨(barb/sorc 둘 다 PASS). 종류 전환 자체는 상인 패널 UI 경로라 인벤토리 그리드 UI 때와
+  동일하게 오토퀴트 최종 verdict에는 묶지 않음.
+- Web release export → gh-pages 배포 커밋 `48985e7`, Pages 빌드 `built`, 루트 HTTP 200,
+  로컬/원격 PCK SHA-256(`8cc24f8d...`) 일치 확인.
