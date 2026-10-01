@@ -1,6 +1,6 @@
 extends RefCounted
 
-const CURRENT_VERSION := 16
+const CURRENT_VERSION := 17
 const DEFAULT_PATH := "user://ashen_depths_save.json"
 
 static func _migrate(raw: Dictionary) -> Dictionary:
@@ -70,6 +70,12 @@ static func _migrate(raw: Dictionary) -> Dictionary:
 	if version == 15:
 		state["merc_type"] = state.get("merc_type", "scout")
 		version = 16
+	if version == 16:
+		var charm_equipped: Dictionary = state.get("equipped", {})
+		charm_equipped["charm_left"] = charm_equipped.get("charm_left", {})
+		charm_equipped["charm_right"] = charm_equipped.get("charm_right", {})
+		state["equipped"] = charm_equipped
+		version = 17
 	state["schema_version"] = version
 	return state
 
@@ -226,6 +232,10 @@ static func selftest() -> Dictionary:
 	v15["schema_version"] = 15
 	var migrated_v15 := _migrate(v15)
 	if int(migrated_v15.get("schema_version", 0)) != CURRENT_VERSION or String(migrated_v15.get("merc_type", "")) != "scout": failures.append("v15 mercenary type migration")
+	var v16 := state.duplicate(true)
+	v16["schema_version"] = 16
+	var migrated_v16 := _migrate(v16)
+	if int(migrated_v16.get("schema_version", 0)) != CURRENT_VERSION or not (migrated_v16.get("equipped", {}) as Dictionary).get("charm_left", null) is Dictionary or not (migrated_v16.get("equipped", {}) as Dictionary).get("charm_right", null) is Dictionary: failures.append("v16 charm slot migration")
 	var corrupt_path := "user://save_store_corrupt_%s.json" % suffix
 	var corrupt := FileAccess.open(corrupt_path, FileAccess.WRITE)
 	if corrupt != null:
@@ -235,4 +245,4 @@ static func selftest() -> Dictionary:
 	for cleanup in [path, path + ".tmp", path + ".bak", corrupt_path]:
 		var absolute := ProjectSettings.globalize_path(cleanup)
 		if FileAccess.file_exists(absolute): DirAccess.remove_absolute(absolute)
-	return {"ok": failures.is_empty(), "checks": 23, "failures": failures}
+	return {"ok": failures.is_empty(), "checks": 24, "failures": failures}

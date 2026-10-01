@@ -89,7 +89,7 @@ const RANGED_RANGE := 5.0
 const NOVA_RADIUS := 3.5
 const SPELL_RANGE := 7.0
 const FIREBALL_CD := 0.6
-const EQUIPMENT_SLOTS := ["weapon", "armor", "ring_left", "ring_right", "amulet"]
+const EQUIPMENT_SLOTS := ["weapon", "armor", "ring_left", "ring_right", "amulet", "charm_left", "charm_right"]
 const ITEM_TOAST_VISIBLE_LIMIT := 3
 const ITEM_EVENT_HISTORY_LIMIT := 24
 
@@ -191,7 +191,7 @@ var _mana_acc := 0.0
 
 var _inventory: Array = []
 var _stash: Array = []
-var _equipped := {"weapon": {}, "armor": {}, "ring_left": {}, "ring_right": {}, "amulet": {}}
+var _equipped := {"weapon": {}, "armor": {}, "ring_left": {}, "ring_right": {}, "amulet": {}, "charm_left": {}, "charm_right": {}}
 var _eq := {"str": 0, "dex": 0, "ar": 0, "ed": 0, "life": 0, "mana": 0, "def": 0, "res_all": 0}
 var _player_mf := 50
 var _automation := Automation.new()
@@ -615,7 +615,7 @@ func _spawn_treasure_loot() -> void:
 		return
 	_treasure_looted_cell = _treasure_anchor_cell
 	_treasure_rooms_spawned += 1
-	var bases: Array = Item.WEAPON_BASES + Item.ARMOR_BASES + Item.ACCESSORY_BASES
+	var bases: Array = Item.WEAPON_BASES + Item.ARMOR_BASES + Item.ACCESSORY_BASES + Item.CHARM_BASES
 	var drop_count := 3
 	for i in drop_count:
 		var base: Dictionary = bases[_rng.randi_range(0, bases.size() - 1)]
@@ -2024,7 +2024,7 @@ func _gather_save_state(reason: String = "manual") -> Dictionary:
 		"stat_vit": _player.stat_vit, "stat_energy": _player.stat_energy,
 		"skills": _player.skills.duplicate(true), "inventory": _inventory.duplicate(true),
 		"stash": _stash.duplicate(true),
-		"equipped": {"weapon": (_equipped["weapon"] as Dictionary).duplicate(true), "armor": (_equipped["armor"] as Dictionary).duplicate(true), "ring_left": (_equipped["ring_left"] as Dictionary).duplicate(true), "ring_right": (_equipped["ring_right"] as Dictionary).duplicate(true), "amulet": (_equipped["amulet"] as Dictionary).duplicate(true)},
+		"equipped": {"weapon": (_equipped["weapon"] as Dictionary).duplicate(true), "armor": (_equipped["armor"] as Dictionary).duplicate(true), "ring_left": (_equipped["ring_left"] as Dictionary).duplicate(true), "ring_right": (_equipped["ring_right"] as Dictionary).duplicate(true), "amulet": (_equipped["amulet"] as Dictionary).duplicate(true), "charm_left": (_equipped["charm_left"] as Dictionary).duplicate(true), "charm_right": (_equipped["charm_right"] as Dictionary).duplicate(true)},
 		"kills": _kills, "gold": _gold, "belt_hp": _belt_hp, "belt_mp": _belt_mp,
 		"difficulty": _difficulty, "act": _act, "acts_cleared": _acts_cleared,
 		"dungeon_level": _dlevel, "levels_cleared": _levels_cleared,
@@ -2083,7 +2083,7 @@ func _load_game() -> void:
 	_stash = Stash.normalize(state.get("stash", []))
 	var equipped: Dictionary = state.get("equipped", {})
 	var legacy_ring: Dictionary = equipped.get("ring", {})
-	_equipped = {"weapon": (equipped.get("weapon", {}) as Dictionary).duplicate(true), "armor": (equipped.get("armor", {}) as Dictionary).duplicate(true), "ring_left": (equipped.get("ring_left", legacy_ring) as Dictionary).duplicate(true), "ring_right": (equipped.get("ring_right", {}) as Dictionary).duplicate(true), "amulet": (equipped.get("amulet", {}) as Dictionary).duplicate(true)}
+	_equipped = {"weapon": (equipped.get("weapon", {}) as Dictionary).duplicate(true), "armor": (equipped.get("armor", {}) as Dictionary).duplicate(true), "ring_left": (equipped.get("ring_left", legacy_ring) as Dictionary).duplicate(true), "ring_right": (equipped.get("ring_right", {}) as Dictionary).duplicate(true), "amulet": (equipped.get("amulet", {}) as Dictionary).duplicate(true), "charm_left": (equipped.get("charm_left", {}) as Dictionary).duplicate(true), "charm_right": (equipped.get("charm_right", {}) as Dictionary).duplicate(true)}
 	_kills = int(state.get("kills", 0))
 	_gold = int(state.get("gold", 0))
 	_belt_hp = clampi(int(state.get("belt_hp", 2)), 0, BELT_MAX)
@@ -3701,15 +3701,22 @@ func _equip_from_inventory(it: Dictionary) -> void:
 
 func _equipment_slot_for_item(it: Dictionary) -> String:
 	var item_slot := String(it.get("slot", ""))
-	if item_slot != "ring":
-		return item_slot
-	if (_equipped["ring_left"] as Dictionary).is_empty():
-		return "ring_left"
-	if (_equipped["ring_right"] as Dictionary).is_empty():
-		return "ring_right"
-	var left_power := _power_with_item(it, "ring_left")
-	var right_power := _power_with_item(it, "ring_right")
-	return "ring_left" if left_power >= right_power else "ring_right"
+	if item_slot == "ring":
+		return _dual_slot_for_item(it, "ring_left", "ring_right")
+	if item_slot == "charm":
+		return _dual_slot_for_item(it, "charm_left", "charm_right")
+	return item_slot
+
+# ring/charm 둘 다 좌우 전용 슬롯 2개를 공유하는 동일한 선택 규칙을 쓴다:
+# 빈 슬롯 우선, 둘 다 차 있으면 교체 시 전투력이 더 높아지는 쪽을 고른다.
+func _dual_slot_for_item(it: Dictionary, left: String, right: String) -> String:
+	if (_equipped[left] as Dictionary).is_empty():
+		return left
+	if (_equipped[right] as Dictionary).is_empty():
+		return right
+	var left_power := _power_with_item(it, left)
+	var right_power := _power_with_item(it, right)
+	return left if left_power >= right_power else right
 
 func _equip(it: Dictionary, target_slot: String = "") -> void:
 	var slot := target_slot if not target_slot.is_empty() else _equipment_slot_for_item(it)
@@ -4079,12 +4086,14 @@ func _gamble() -> void:
 	_gambles += 1
 	var base: Dictionary
 	var base_roll := _rng.randf()
-	if base_roll < 0.42:
+	if base_roll < 0.38:
 		base = Item.WEAPON_BASES[_rng.randi_range(0, Item.WEAPON_BASES.size() - 1)]
-	elif base_roll < 0.84:
+	elif base_roll < 0.72:
 		base = Item.ARMOR_BASES[_rng.randi_range(0, Item.ARMOR_BASES.size() - 1)]
-	else:
+	elif base_roll < 0.86:
 		base = Item.ACCESSORY_BASES[_rng.randi_range(0, Item.ACCESSORY_BASES.size() - 1)]
+	else:
+		base = Item.CHARM_BASES[_rng.randi_range(0, Item.CHARM_BASES.size() - 1)]
 	var ilvl := _player.level + 5
 	var r := _rng.randf() * 100.0
 	var q := "magic"
@@ -4340,10 +4349,12 @@ func _rebuild_inv() -> void:
 	var rln := _equipped_label("ring_left")
 	var rrn := _equipped_label("ring_right")
 	var mn := _equipped_label("amulet")
+	var cln := _equipped_label("charm_left")
+	var crn := _equipped_label("charm_right")
 	var merc_weapon := Item.display_name(_merc_equipped["weapon"]) if not (_merc_equipped["weapon"] as Dictionary).is_empty() else "-"
 	var merc_armor := Item.display_name(_merc_equipped["armor"]) if not (_merc_equipped["armor"] as Dictionary).is_empty() else "-"
 	var head := Label.new()
-	head.text = "Weapon: %s\nArmor: %s\nLeft Ring: %s\nRight Ring: %s\nAmulet: %s\nMerc Weapon: %s\nMerc Armor: %s\nBag %d / Stash %d/%d / Materials %d" % [wn, an, rln, rrn, mn, merc_weapon, merc_armor, _inventory.size(), _stash.size(), Stash.CAPACITY, _automation.materials.size()]
+	head.text = "Weapon: %s\nArmor: %s\nLeft Ring: %s\nRight Ring: %s\nAmulet: %s\nLeft Charm: %s\nRight Charm: %s\nMerc Weapon: %s\nMerc Armor: %s\nBag %d / Stash %d/%d / Materials %d" % [wn, an, rln, rrn, mn, cln, crn, merc_weapon, merc_armor, _inventory.size(), _stash.size(), Stash.CAPACITY, _automation.materials.size()]
 	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_inv_vbox.add_child(head)
 	# 격자 탭 UI: 타일 하나 = 아이템 하나. 탭하면 아래에 그 아이템의 상세

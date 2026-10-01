@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-02 (용병 종류 다양화 배포)
+최종 갱신: 2026-10-02 (참 아이템 배포)
 
 ## 맵 생성 상태
 
@@ -16,20 +16,20 @@
 
 - `MAP_VARIANTS`: PASS
 - `STREAM`: PASS
-- `SYSTEM`: 108 checks PASS (큐브·감정·저항 효과 회귀 포함, 실행 횟수 자동 집계)
-- `SAVE`: 23 checks PASS
+- `SYSTEM`: 112 checks PASS (큐브·감정·저항 효과·참 듀얼 슬롯 회귀 포함, 실행 횟수 자동 집계)
+- `SAVE`: 24 checks PASS
 - Web 릴리스 검사: PASS
 - 원격 PCK 해시 일치 확인: PASS
 
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 배포 표시 시각: `2026-10-02 08:32 KST`
-- 소스 커밋: 용병 종류 다양화(본 커밋)
-- 최신 배포 커밋: `48985e7` (gh-pages)
+- 배포 표시 시각: `2026-10-02 08:46 KST`
+- 소스 커밋: 참 아이템(본 커밋)
+- 최신 배포 커밋: `48c9043` (gh-pages)
 - Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`), 루트 HTTP 200 확인
-- 원격 기본 URL의 PCK SHA-256: `8cc24f8de7ffa60d2f0c0a0fed77f99b6aad6c86fc2f0d4c988dc9a540d69197`
-- 원격 PCK 1,257,388 bytes 및 로컬 빌드 해시 일치 확인.
+- 원격 기본 URL의 PCK SHA-256: `08756363fa2570311148a253293b42cebce3de0270de3f76429012d14734be73`
+- 원격 PCK 1,258,940 bytes 및 로컬 빌드 해시 일치 확인.
 
 ## 다음 점검 항목
 
@@ -191,3 +191,25 @@
   동일하게 오토퀴트 최종 verdict에는 묶지 않음.
 - Web release export → gh-pages 배포 커밋 `48985e7`, Pages 빌드 `built`, 루트 HTTP 200,
   로컬/원격 PCK SHA-256(`8cc24f8d...`) 일치 확인.
+
+## 2026-10-02 참(Charm) 아이템 (원격 배포 완료)
+
+- 설계 문서: `docs/superpowers/specs/2026-10-02-charm-items-design.md`. advisor 자문으로
+  "참은 D2식 가방 패시브로 만들지 말 것"을 확정 — 이 프로젝트 Bag은 탭 그리드라 공간 비용이
+  없어 가방 패시브는 공짜로 쌓이는 스탯이 된다. 반지(`ring_left`/`ring_right`)와 동일하게
+  전용 슬롯 2개(`charm_left`/`charm_right`)로 구현.
+- `item.gd`: `CHARM_BASES`(2종) 추가, `indestructible`/`identify()` 허용 슬롯에 "charm"
+  추가, `roll_drop()` 베이스 버킷 재분배(무기38%/방어34%/장신구14%/참14%, 기존 42/42/16에서
+  참 몫 분리).
+- `main.gd`: `EQUIPMENT_SLOTS`/`_equipped`에 참 슬롯 추가, `_equipment_slot_for_item`을
+  반지/참이 공유하는 `_dual_slot_for_item` 헬퍼로 일반화(빈 슬롯 우선, 둘 다 차면 전투력
+  비교). `_recompute_player()`/`_loadout_combat_power`가 이미 `EQUIPMENT_SLOTS`를 순회하는
+  구조라 참 접사가 스탯·자동장착 비교에 추가 코드 없이 자동 편입됨. 도박/보물방 드롭
+  테이블에도 참 추가.
+- `save_store.gd`: 스키마 v16→v17, 구 세이브는 빈 참 슬롯으로 마이그레이션(checks 23→24).
+- `Coverage.validate()`의 베이스/슬롯 집계는 `data.gd`의 별도 정적 샘플만 보는 구조라
+  `item.gd` 런타임 테이블 변경과 무관함을 확인(변경 불필요, advisor가 짚은 위험 지점이었음).
+- 검증: `[SYSTEM] checks=112`(참 생성·감정·내구도 면제·듀얼 슬롯 접사 합산·용병 비장착
+  검증 추가), `[SAVE] checks=24` 둘 다 barb/sorc 오토퀴트 최종 `ok`에 PASS로 편입.
+- Web release export → gh-pages 배포 커밋 `48c9043`, Pages 빌드 `built`, 루트 HTTP 200,
+  로컬/원격 PCK SHA-256(`08756363...`) 일치 확인.

@@ -20,6 +20,12 @@ const ACCESSORY_BASES := [
 	{"name": "Moonstone Ring", "slot": "ring", "req_level": 4, "req_str": 0, "req_dex": 0},
 	{"name": "Ashen Pendant", "slot": "amulet", "req_level": 6, "req_str": 0, "req_dex": 0},
 ]
+# 참(Charm) — 반지처럼 좌/우 전용 슬롯 2개(가방 패시브 아님, 공간 비용 없는 탭 그리드라
+# 무제한 중첩을 막기 위해 장비 슬롯으로 구현했다).
+const CHARM_BASES := [
+	{"name": "Jagged Tooth Charm", "slot": "charm", "req_level": 3, "req_str": 0, "req_dex": 0},
+	{"name": "Sable Charm", "slot": "charm", "req_level": 7, "req_str": 0, "req_dex": 0},
+]
 
 # 유니크 아이템(고정 스탯) — 베이스명 → 유니크
 const UNIQUES := {
@@ -99,7 +105,7 @@ static func _roll_affixes(rng: RandomNumberGenerator, it: Dictionary, table: Arr
 # 접사 규칙(Part 1 §3): 매직 = 접미사만50% / 접두사만25% / 둘다25%. 레어 = pre 1~3 + suf 1~3.
 static func generate(rng: RandomNumberGenerator, base: Dictionary, ilvl: int, quality: String) -> Dictionary:
 	var slot := String(base["slot"])
-	var indestructible := slot in ["ring", "amulet"]
+	var indestructible := slot in ["ring", "amulet", "charm"]
 	var maximum_durability := 1 if indestructible else (24 if slot == "weapon" else 32)
 	var it := {
 		"name": String(base["name"]), "slot": slot, "quality": quality, "ilvl": ilvl,
@@ -164,12 +170,14 @@ static func roll_drop(rng: RandomNumberGenerator, monster_level: int, magic_find
 		return {}
 	var base: Dictionary
 	var base_roll := rng.randf()
-	if base_roll < 0.42:
+	if base_roll < 0.38:
 		base = WEAPON_BASES[rng.randi_range(0, WEAPON_BASES.size() - 1)]
-	elif base_roll < 0.84:
+	elif base_roll < 0.72:
 		base = ARMOR_BASES[rng.randi_range(0, ARMOR_BASES.size() - 1)]
-	else:
+	elif base_roll < 0.86:
 		base = ACCESSORY_BASES[rng.randi_range(0, ACCESSORY_BASES.size() - 1)]
+	else:
+		base = CHARM_BASES[rng.randi_range(0, CHARM_BASES.size() - 1)]
 	var ilvl := monster_level + 8   # 데모: 접사 다양성 위해 상향(정식은 mlvl 그대로)
 	var eff_mf := (magic_find * 600.0) / (magic_find + 600.0) if magic_find > 0 else 0.0
 	var rare_chance := 4.0 * (1.0 + eff_mf / 100.0)
@@ -198,7 +206,7 @@ static func is_identified(it: Dictionary) -> bool:
 	return bool(it.get("identified", true))
 
 static func identify(it: Dictionary) -> bool:
-	if is_identified(it) or String(it.get("slot", "")) not in ["weapon", "armor", "ring", "amulet"]:
+	if is_identified(it) or String(it.get("slot", "")) not in ["weapon", "armor", "ring", "amulet", "charm"]:
 		return false
 	it["identified"] = true
 	return true

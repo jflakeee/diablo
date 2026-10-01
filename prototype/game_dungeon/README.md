@@ -237,6 +237,17 @@ when both are occupied, automatic and one-tap equipment replaces the lower-score
 ring. Both rings contribute affixes and resistances. Save schema v9 migrates the
 former single `ring` entry into `ring_left` and initializes `ring_right` empty.
 
+### Charm items
+
+A new accessory category drops, gambles, and identifies like rings, but is
+deliberately not a bag passive: this Bag is a tap grid with no inventory
+space cost, so a stackable passive would be free stat hoarding. Charms
+instead use dedicated `charm_left`/`charm_right` slots sharing the same
+empty-slot-first / power-comparison swap rule as dual rings
+(`main.gd _dual_slot_for_item`). Charm affixes feed into the same stat and
+auto-equip comparison pipeline as every other slot. Save schema v17
+initializes both charm slots empty for older saves.
+
 ### Compact mobile presentation
 
 Combat controls, minimap, menu buttons, and HUD typography use a denser mobile
