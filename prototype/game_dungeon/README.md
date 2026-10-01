@@ -114,6 +114,19 @@ roll turns the whole pack gold/blue together and uniques share the same
 spawned monsters by pack id and verifies cluster distance and rank consistency,
 printing `[PACK] packs=N min_size=.. max_size=.. verdict=..`.
 
+### Preset room variety
+
+Each generated room rolls one of three authored pillar presets: none (50%),
+four pillars at the inner corners (25%), or four pillars at the inner edge
+midpoints (25%). Presets only touch the inner 5x5 of a room's 7x7 interior,
+leaving the 1-tile perimeter (where doors open) always clear, so connectivity
+holds regardless of door placement. Boss arena carving and act3's full-room
+pillar_plains theme both run after preset placement and simply overwrite it
+where they apply. Fixed a latent act3 (pillar_plains) bug found while testing
+this: its global pillar scatter had no connectivity repair, unlike
+`MODE_BLOCKED_RANDOM`; it now restores pillars the same way until the
+entrance-exit path and all room centers stay reachable.
+
 ### Boss room arena
 
 The entrance chunk of a boss floor (last level in an act) carves its center

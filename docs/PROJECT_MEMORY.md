@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-01 (보스룸 전용 아레나 배포)
+최종 갱신: 2026-10-01 (프리셋 룸 다양화 배포)
 
 ## 맵 생성 상태
 
@@ -24,12 +24,12 @@
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 배포 표시 시각: `2026-10-01 23:12 KST`
-- 소스 커밋: 보스룸 전용 아레나(본 커밋)
-- 최신 배포 커밋: `481a74d` (gh-pages)
+- 배포 표시 시각: `2026-10-01 23:27 KST`
+- 소스 커밋: 프리셋 룸 다양화 + act3 연결성 복구 버그 수정(본 커밋)
+- 최신 배포 커밋: `f01fefb` (gh-pages)
 - Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`), 루트 HTTP 200 확인
-- 원격 기본 URL의 PCK SHA-256: `f7754bc428763070f725a07b34cce2a2bcf4b67f3aa4c6d5622f2a8f787d0cae`
-- 원격 PCK 1,248,396 bytes 및 로컬 빌드 해시 일치 확인.
+- 원격 기본 URL의 PCK SHA-256: `3813252a11de57e0d2857229c43ccb8f4f603671fab7e9f8cfd159397eb2c44e`
+- 원격 PCK 1,249,564 bytes 및 로컬 빌드 해시 일치 확인.
 
 ## 다음 점검 항목
 
@@ -93,3 +93,20 @@
   verdict=PASS`를 양 클래스에서 확인, 전체 `[GD][RESULT] verdict=PASS`.
 - Web release export → gh-pages 배포 커밋 `481a74d`, Pages 빌드 `built`, 루트 HTTP 200,
   로컬/원격 PCK SHA-256(`f7754bc4...`) 일치 확인.
+
+## 2026-10-01 프리셋 룸 다양화 + act3 연결성 복구 버그 수정 (원격 배포 완료)
+
+- 설계 문서: `docs/superpowers/specs/2026-10-01-preset-room-variety-design.md`.
+- `level_gen.gd _apply_room_preset`: 룸마다 무장식(50%)/안쪽 5x5 모서리 4기둥(25%)/안쪽
+  5x5 변 중앙 4기둥(25%) 중 하나를 결정론적으로 롤. 테두리 1칸과 중심 타일의 상하좌우
+  이웃은 항상 비워 둬 문 위치·연결 그래프와 무관하게 우회로를 보장.
+- 부수 발견: 프리셋이 RNG 소비 시점을 바꾸면서 act3(pillar_plains)의 전역 기둥 산포가
+  입구-출구 경로를 끊을 수 있는 **기존 잠재 버그**(`MODE_BLOCKED_RANDOM`과 달리 연결성
+  복구 루프가 없었음)가 테스트에서 드러남 — `[MAP_VARIANTS] selftest verdict=FAIL`로 검출.
+  동일한 복구 패턴을 act3 산포에도 적용해 수정(act3를 쓰는 모든 생성 경로에 적용되는
+  일반적인 안전성 개선, 프리셋 전용 수정 아님).
+- 셀프테스트: 시드 5001~5006(act1) 연결성+프리셋 등장 확인, 시드 6001~6006(act3) 연결성
+  회귀 감시. 양 클래스 `autoquit`에서 `[MAP_VARIANTS] selftest verdict=PASS` 포함 전체
+  `[GD][RESULT] verdict=PASS` 재확인(최초 수정 전 FAIL 재현 후 수정 확인 과정 거침).
+- Web release export → gh-pages 배포 커밋 `f01fefb`, Pages 빌드 `built`, 루트 HTTP 200,
+  로컬/원격 PCK SHA-256(`3813252a...`) 일치 확인.

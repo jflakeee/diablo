@@ -91,6 +91,7 @@ static func _generate_region(seed_val: int, act: int, slots: int, mode: String =
 	for sy in slots:
 		for sx in slots:
 			_carve_room(grid, sx, sy)
+			_apply_room_preset(grid, sx, sy, rng)
 	for e in edges:
 		_carve_door(grid, e[0], e[1], rng)
 	var act_cycle := posmod(act - 1, 3) + 1
@@ -102,7 +103,8 @@ static func _generate_region(seed_val: int, act: int, slots: int, mode: String =
 		for y in h:
 			for x in w:
 				if grid[y][x] == WALL: grid[y][x] = LOW_WALL
-	elif act_cycle == 3:
+	var plains_pillar_cells: Array[Vector2i] = []
+	if act_cycle == 3:
 		map_type = "pillar_plains"
 		theme = "storm_ossuary"
 		for y in range(1, h - 1):
@@ -110,7 +112,9 @@ static func _generate_region(seed_val: int, act: int, slots: int, mode: String =
 		for i in slots * slots * 2:
 			var px := rng.randi_range(2, w - 3)
 			var py := rng.randi_range(2, h - 3)
-			if Vector2(px, py).distance_to(Vector2(ROOM / 2, ROOM / 2)) > 3.0: grid[py][px] = PILLAR
+			if Vector2(px, py).distance_to(Vector2(ROOM / 2, ROOM / 2)) > 3.0:
+				grid[py][px] = PILLAR
+				plains_pillar_cells.append(Vector2i(px, py))
 
 	# 입구 = start 중심, 출구 = 트리 최심부 슬롯 중심
 	# Choose the goal room independently from the entrance. The room graph is
@@ -119,6 +123,11 @@ static func _generate_region(seed_val: int, act: int, slots: int, mode: String =
 	while exit_slot == start:
 		exit_slot = Vector2i(rng.randi_range(0, slots - 1), rng.randi_range(0, slots - 1))
 	var path_distance := _slot_distance(edges, start, exit_slot)
+	# pillar_plains은 테두리 없이 전역에 기둥을 흩뿌리므로 드물게 입구-출구
+	# 경로를 끊을 수 있다 — blocked_random과 동일한 방식으로 복구한다.
+	while (not _tile_path_exists(grid, _slot_center(start), _slot_center(exit_slot)) or not _all_room_centers_reachable(grid, slots, _slot_center(start))) and not plains_pillar_cells.is_empty():
+		var plains_restore: Vector2i = plains_pillar_cells.pop_back()
+		grid[plains_restore.y][plains_restore.x] = FLOOR
 	if mode == MODE_BLOCKED_RANDOM:
 		var blocked_cells: Array[Vector2i] = []
 		for i in slots * slots:
@@ -178,7 +187,29 @@ static func selftest() -> bool:
 			arena_clean = false
 		if not _tile_path_exists(boss_level["grid"], boss_level["entrance"], boss_level["exit"]):
 			arena_clean = false
-	return int(dungeon.get("rooms", 0)) == 81 and int(dungeon.get("doors", 0)) >= 80 and int(dungeon.get("loops", 0)) > 0 and int(chunk.get("rooms", 0)) == 9 and int(chunk.get("w", 0)) == 27 and int(chunk.get("h", 0)) == 27 and String(dungeon.get("map_type", "")) == "cinder_catacombs" and String(outdoor.get("map_type", "")) == "outdoor" and String(plains.get("map_type", "")) == "pillar_plains" and _count_tile(outdoor["grid"], LOW_WALL) > 0 and _count_tile(plains["grid"], PILLAR) > 0 and String(straight.get("generation_mode", "")) == MODE_STRAIGHT and String(blocked.get("generation_mode", "")) == MODE_BLOCKED_RANDOM and (_count_tile(blocked["grid"], PILLAR) + _count_tile(blocked["grid"], LOW_WALL)) > 0 and endpoints_valid and randomized_start and blocked_path and boss_anchor_ok and arena_clean
+	# 프리셋 룸 다양화: 여러 시드에서 전부 연결성이 유지되는지, 그리고 실제로
+	# PILLAR 장식이 등장하는지(act1은 테마 자체가 장애물을 추가하지 않으므로
+	# 발견되면 전부 프리셋 기여분) 확인.
+	var preset_connectivity_ok := true
+	var preset_pillar_seen := false
+	for preset_seed in [5001, 5002, 5003, 5004, 5005, 5006]:
+		var sample := generate_chunk(preset_seed, 1, MODE_RANDOM)
+		if not _tile_path_exists(sample["grid"], sample["entrance"], sample["exit"]):
+			preset_connectivity_ok = false
+		if not _all_room_centers_reachable(sample["grid"], 3, sample["entrance"]):
+			preset_connectivity_ok = false
+		if _count_tile(sample["grid"], PILLAR) > 0:
+			preset_pillar_seen = true
+	# pillar_plains(act3)의 전역 기둥 산포는 자체 복구 루프를 갖기 전까지
+	# 입구-출구 경로를 끊을 수 있었다 — 여러 시드로 회귀를 감시한다.
+	var plains_connectivity_ok := true
+	for plains_seed in [6001, 6002, 6003, 6004, 6005, 6006]:
+		var plains_sample := generate_chunk(plains_seed, 3, MODE_RANDOM)
+		if not _tile_path_exists(plains_sample["grid"], plains_sample["entrance"], plains_sample["exit"]):
+			plains_connectivity_ok = false
+		if not _all_room_centers_reachable(plains_sample["grid"], 3, plains_sample["entrance"]):
+			plains_connectivity_ok = false
+	return int(dungeon.get("rooms", 0)) == 81 and int(dungeon.get("doors", 0)) >= 80 and int(dungeon.get("loops", 0)) > 0 and int(chunk.get("rooms", 0)) == 9 and int(chunk.get("w", 0)) == 27 and int(chunk.get("h", 0)) == 27 and String(dungeon.get("map_type", "")) == "cinder_catacombs" and String(outdoor.get("map_type", "")) == "outdoor" and String(plains.get("map_type", "")) == "pillar_plains" and _count_tile(outdoor["grid"], LOW_WALL) > 0 and _count_tile(plains["grid"], PILLAR) > 0 and String(straight.get("generation_mode", "")) == MODE_STRAIGHT and String(blocked.get("generation_mode", "")) == MODE_BLOCKED_RANDOM and (_count_tile(blocked["grid"], PILLAR) + _count_tile(blocked["grid"], LOW_WALL)) > 0 and endpoints_valid and randomized_start and blocked_path and boss_anchor_ok and arena_clean and preset_connectivity_ok and preset_pillar_seen and plains_connectivity_ok
 
 # 3x3 청크의 중앙 슬롯(1,1)과 그 4개 인접 슬롯 내부에 남은 PILLAR/LOW_WALL 수.
 # _carve_boss_arena가 올바르게 비웠다면 0이어야 한다.
@@ -333,6 +364,22 @@ static func _open_full_wall(grid: Array, a: Vector2i, b: Vector2i) -> void:
 		for dx in range(1, ROOM - 1):
 			grid[ay][ax + dx] = FLOOR
 			grid[by + ROOM - 1][bx + dx] = FLOOR
+
+# 프리셋 룸 다양화: 룸 내부 안쪽 5x5(테두리 1칸 통로는 항상 비워 둠)에
+# 작가가 설계한 기둥 배치를 확률적으로 얹는다. 중심(4,4)의 4방향 이웃과
+# 바깥 테두리(1,1~7,7의 1·7행/열)는 항상 비어 있으므로 문 위치·연결성과
+# 무관하게 항상 우회로가 존재한다 — act3(필러 평원)처럼 룸 내부를 통째로
+# 다시 까는 테마가 이후 단계에서 덮어써도 안전하다.
+static func _apply_room_preset(grid: Array, sx: int, sy: int, rng: RandomNumberGenerator) -> void:
+	var roll := rng.randf()
+	var ox := sx * ROOM
+	var oy := sy * ROOM
+	if roll < 0.25:
+		for p in [Vector2i(2, 2), Vector2i(6, 2), Vector2i(2, 6), Vector2i(6, 6)]:
+			grid[oy + p.y][ox + p.x] = PILLAR
+	elif roll < 0.5:
+		for p in [Vector2i(4, 2), Vector2i(4, 6), Vector2i(2, 4), Vector2i(6, 4)]:
+			grid[oy + p.y][ox + p.x] = PILLAR
 
 static func _carve_room(grid: Array, sx: int, sy: int) -> void:
 	var ox := sx * ROOM
