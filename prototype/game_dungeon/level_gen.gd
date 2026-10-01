@@ -18,10 +18,10 @@ const MODE_BLOCKED_RANDOM := "blocked_random"
 static func generate(seed_val: int, act: int = 1) -> Dictionary:
 	return _generate_region(seed_val, act, SLOTS, MODE_RANDOM, false)
 
-static func generate_chunk(seed_val: int, act: int = 1, mode: String = MODE_RANDOM, carve_boss_arena: bool = false) -> Dictionary:
-	return _generate_region(seed_val, act, 3, mode, carve_boss_arena)
+static func generate_chunk(seed_val: int, act: int = 1, mode: String = MODE_RANDOM, carve_boss_arena: bool = false, carve_treasure_room: bool = false) -> Dictionary:
+	return _generate_region(seed_val, act, 3, mode, carve_boss_arena, carve_treasure_room)
 
-static func _generate_region(seed_val: int, act: int, slots: int, mode: String = MODE_RANDOM, carve_boss_arena: bool = false) -> Dictionary:
+static func _generate_region(seed_val: int, act: int, slots: int, mode: String = MODE_RANDOM, carve_boss_arena: bool = false, carve_treasure_room: bool = false) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_val
 	var w := slots * ROOM
@@ -150,13 +150,23 @@ static func _generate_region(seed_val: int, act: int, slots: int, mode: String =
 	if carve_boss_arena:
 		boss_anchor = _carve_boss_arena(grid, slots)
 
+	# 보물방: 입구/출구가 아닌 임의의 방 하나를 완전히 비워(장식 제거) 보너스
+	# 드롭 전용 공간으로 만든다. 보스 아레나 뒤에 실행해 서로 겹치지 않는다.
+	var treasure_anchor := Vector2i(-1, -1)
+	if carve_treasure_room and slots * slots > 2:
+		var treasure_slot := start
+		while treasure_slot == start or treasure_slot == exit_slot:
+			treasure_slot = Vector2i(rng.randi_range(0, slots - 1), rng.randi_range(0, slots - 1))
+		_open_room_interior(grid, treasure_slot)
+		treasure_anchor = _slot_center(treasure_slot)
+
 	return {
 		"w": w, "h": h, "grid": grid,
 		"entrance": _slot_center(start), "exit": _slot_center(exit_slot),
 		"rooms": slots * slots, "doors": edges.size(), "loops": loops,
 		"critical_path_rooms": path_distance,
 		"map_type": map_type, "theme": theme, "act": act,
-		"generation_mode": mode, "boss_anchor": boss_anchor,
+		"generation_mode": mode, "boss_anchor": boss_anchor, "treasure_anchor": treasure_anchor,
 	}
 
 static func selftest() -> bool:
@@ -209,7 +219,40 @@ static func selftest() -> bool:
 			plains_connectivity_ok = false
 		if not _all_room_centers_reachable(plains_sample["grid"], 3, plains_sample["entrance"]):
 			plains_connectivity_ok = false
-	return int(dungeon.get("rooms", 0)) == 81 and int(dungeon.get("doors", 0)) >= 80 and int(dungeon.get("loops", 0)) > 0 and int(chunk.get("rooms", 0)) == 9 and int(chunk.get("w", 0)) == 27 and int(chunk.get("h", 0)) == 27 and String(dungeon.get("map_type", "")) == "cinder_catacombs" and String(outdoor.get("map_type", "")) == "outdoor" and String(plains.get("map_type", "")) == "pillar_plains" and _count_tile(outdoor["grid"], LOW_WALL) > 0 and _count_tile(plains["grid"], PILLAR) > 0 and String(straight.get("generation_mode", "")) == MODE_STRAIGHT and String(blocked.get("generation_mode", "")) == MODE_BLOCKED_RANDOM and (_count_tile(blocked["grid"], PILLAR) + _count_tile(blocked["grid"], LOW_WALL)) > 0 and endpoints_valid and randomized_start and blocked_path and boss_anchor_ok and arena_clean and preset_connectivity_ok and preset_pillar_seen and plains_connectivity_ok
+	# 보물방: 입구/출구 방을 피해 고르고, 그 방 내부에 PILLAR/LOW_WALL이 남지
+	# 않으며, 연결성이 유지되는지 여러 시드·액트·모드에서 확인.
+	var treasure_room_ok := true
+	var treasure_seed_cases := [
+		[7001, 1, MODE_RANDOM], [7002, 2, MODE_RANDOM], [7003, 3, MODE_RANDOM],
+		[7004, 1, MODE_BLOCKED_RANDOM], [7005, 1, MODE_STRAIGHT],
+	]
+	for treasure_case in treasure_seed_cases:
+		var treasure_sample := generate_chunk(int(treasure_case[0]), int(treasure_case[1]), String(treasure_case[2]), false, true)
+		var treasure_anchor: Vector2i = treasure_sample.get("treasure_anchor", Vector2i(-1, -1))
+		if treasure_anchor == Vector2i(-1, -1) or treasure_anchor == treasure_sample["entrance"] or treasure_anchor == treasure_sample["exit"]:
+			treasure_room_ok = false
+		if _room_obstacle_count(treasure_sample["grid"], treasure_anchor) > 0:
+			treasure_room_ok = false
+		if not _tile_path_exists(treasure_sample["grid"], treasure_sample["entrance"], treasure_sample["exit"]):
+			treasure_room_ok = false
+		if not _all_room_centers_reachable(treasure_sample["grid"], 3, treasure_sample["entrance"]):
+			treasure_room_ok = false
+	return int(dungeon.get("rooms", 0)) == 81 and int(dungeon.get("doors", 0)) >= 80 and int(dungeon.get("loops", 0)) > 0 and int(chunk.get("rooms", 0)) == 9 and int(chunk.get("w", 0)) == 27 and int(chunk.get("h", 0)) == 27 and String(dungeon.get("map_type", "")) == "cinder_catacombs" and String(outdoor.get("map_type", "")) == "outdoor" and String(plains.get("map_type", "")) == "pillar_plains" and _count_tile(outdoor["grid"], LOW_WALL) > 0 and _count_tile(plains["grid"], PILLAR) > 0 and String(straight.get("generation_mode", "")) == MODE_STRAIGHT and String(blocked.get("generation_mode", "")) == MODE_BLOCKED_RANDOM and (_count_tile(blocked["grid"], PILLAR) + _count_tile(blocked["grid"], LOW_WALL)) > 0 and endpoints_valid and randomized_start and blocked_path and boss_anchor_ok and arena_clean and preset_connectivity_ok and preset_pillar_seen and plains_connectivity_ok and treasure_room_ok
+
+# anchor 타일이 속한 단일 룸 내부에 남은 PILLAR/LOW_WALL 수.
+# _carve_treasure_room(_open_room_interior)이 올바르게 비웠다면 0이어야 한다.
+static func _room_obstacle_count(grid: Array, anchor: Vector2i) -> int:
+	if anchor.x < 0 or anchor.y < 0:
+		return 0
+	var ox := (anchor.x / ROOM) * ROOM
+	var oy := (anchor.y / ROOM) * ROOM
+	var count := 0
+	for y in range(1, ROOM - 1):
+		for x in range(1, ROOM - 1):
+			var v := int(grid[oy + y][ox + x])
+			if v == PILLAR or v == LOW_WALL:
+				count += 1
+	return count
 
 # 3x3 청크의 중앙 슬롯(1,1)과 그 4개 인접 슬롯 내부에 남은 PILLAR/LOW_WALL 수.
 # _carve_boss_arena가 올바르게 비웠다면 0이어야 한다.

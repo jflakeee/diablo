@@ -38,6 +38,16 @@ func setup(seed_value: int, new_floor_id: int, new_act: int, epoch: int = 0) -> 
 func _is_boss_floor() -> bool:
 	return ((floor_id - 1) % ACT_LEN) + 1 == ACT_LEN
 
+const TREASURE_CHANCE := 0.25
+
+# 청크 자체의 시드로 독립적인 1회 판정을 내려 보물방 여부를 결정한다. LevelGen
+# 내부 rng와는 별도 인스턴스라 생성 시퀀스를 건드리지 않고, 동일 시드이므로
+# setup()/restore() 양쪽에서 항상 같은 결론을 낸다.
+func _rolls_treasure(seed_val: int) -> bool:
+	var roll_rng := RandomNumberGenerator.new()
+	roll_rng.seed = seed_val
+	return roll_rng.randf() < TREASURE_CHANCE
+
 func frontier() -> Dictionary:
 	return active_chunks.back() if not active_chunks.is_empty() else {}
 
@@ -134,10 +144,17 @@ func compose_active_grid() -> Dictionary:
 	var first_boss_anchor := Vector2i(first.get("boss_anchor", Vector2i(-1, -1)))
 	if first_boss_anchor != Vector2i(-1, -1):
 		boss_anchor = first_origin + first_boss_anchor
+	# 보물방은 (보스 아레나와 달리) 어떤 청크에든 생길 수 있다. MAX_ACTIVE_CHUNKS가
+	# 1이라 활성 청크는 항상 하나뿐이므로 "현재" 청크는 first==last다.
+	var treasure_anchor := Vector2i(-1, -1)
+	var last_treasure_anchor := Vector2i(last.get("treasure_anchor", Vector2i(-1, -1)))
+	if last_treasure_anchor != Vector2i(-1, -1):
+		treasure_anchor = last_origin + last_treasure_anchor
 	return {
 		"grid": grid, "w": width, "h": height,
 		"grid_origin": min_coord * CHUNK_TILE_SIDE,
 		"chunk_rects": rects, "entrance": entrance, "exit": exit, "boss_anchor": boss_anchor,
+		"treasure_anchor": treasure_anchor,
 		"rooms": active_chunks.size() * CHUNK_ROOM_SIDE * CHUNK_ROOM_SIDE,
 		"map_type": String(last.get("map_type", "cinder_catacombs")),
 		"theme": String(last.get("theme", "cinder")),
@@ -193,7 +210,8 @@ func restore(raw: Dictionary) -> bool:
 		var seed := int(raw_chunk.get("seed", 0))
 		var mode := String(raw_chunk.get("generation_mode", LevelGen.MODE_RANDOM))
 		var carve_boss := int(raw_chunk.get("sequence", 0)) == 0 and _is_boss_floor()
-		var level := LevelGen.generate_chunk(seed, act, mode, carve_boss)
+		var carve_treasure := not _is_boss_floor() and _rolls_treasure(seed)
+		var level := LevelGen.generate_chunk(seed, act, mode, carve_boss, carve_treasure)
 		var entrance_cell: Vector2i = level["entrance"]
 		var exit_cell: Vector2i = level["exit"]
 		var entrance_values: Array = raw_chunk.get("entrance_cell", [])
@@ -214,6 +232,7 @@ func restore(raw: Dictionary) -> bool:
 			"frontier_consumed": bool(raw_chunk.get("frontier_consumed", false)),
 			"grid": level["grid"], "map_type": level["map_type"], "theme": level["theme"],
 			"boss_anchor": level.get("boss_anchor", Vector2i(-1, -1)),
+			"treasure_anchor": level.get("treasure_anchor", Vector2i(-1, -1)),
 		}
 		active_chunks.append(chunk)
 		used_chunk_coords[_coord_key(coord)] = true
@@ -228,7 +247,8 @@ func _append_chunk(coord: Vector2i, entry_direction: Vector2i, entry_side: Strin
 	# 보스 아레나는 층의 첫 청크(입구 청크)에만 둔다 — 출구가 보스 처치 전까지
 	# 잠겨 있어 플레이어가 그 청크를 벗어나기 전에 보스와 마주치는 것이 보통이다.
 	var carve_boss := sequence == 0 and _is_boss_floor()
-	var level := LevelGen.generate_chunk(seed, act, mode, carve_boss)
+	var carve_treasure := not _is_boss_floor() and _rolls_treasure(seed)
+	var level := LevelGen.generate_chunk(seed, act, mode, carve_boss, carve_treasure)
 	var chunk := {
 		"id": "%d:%d:%d" % [floor_id, generation_epoch, sequence],
 		"sequence": sequence, "coord": coord, "seed": seed,
@@ -239,6 +259,7 @@ func _append_chunk(coord: Vector2i, entry_direction: Vector2i, entry_side: Strin
 		"revealed_rooms": {}, "frontier_consumed": false,
 		"grid": level["grid"], "map_type": level["map_type"], "theme": level["theme"],
 		"boss_anchor": level.get("boss_anchor", Vector2i(-1, -1)),
+		"treasure_anchor": level.get("treasure_anchor", Vector2i(-1, -1)),
 	}
 	active_chunks.append(chunk)
 	used_chunk_coords[_coord_key(coord)] = true
@@ -386,6 +407,7 @@ static func selftest() -> bool:
 		return false
 	var long_stream := preload("res://world_stream.gd").new()
 	long_stream.setup(246810, 2, 2)
+	var long_treasure_seen := false
 	for index in 100:
 		var transition: Dictionary = long_stream.advance()
 		if transition.is_empty():
@@ -393,6 +415,8 @@ static func selftest() -> bool:
 		var long_composite: Dictionary = transition["composite"]
 		if int(long_composite["w"]) * int(long_composite["h"]) > 81 * 81:
 			return false
+		if Vector2i(long_composite.get("treasure_anchor", Vector2i(-1, -1))) != Vector2i(-1, -1):
+			long_treasure_seen = true
 		if long_stream.active_chunks.size() > MAX_ACTIVE_CHUNKS:
 			var trim_transition := long_stream.retire_farthest()
 			if trim_transition.is_empty() or long_stream.active_chunks.size() != MAX_ACTIVE_CHUNKS:
@@ -428,4 +452,7 @@ static func selftest() -> bool:
 	var non_boss_stream := preload("res://world_stream.gd").new()
 	non_boss_stream.setup(55668, 1, 1)
 	var non_boss_absent: bool = Vector2i(non_boss_stream.compose_active_grid().get("boss_anchor", Vector2i.ZERO)) == Vector2i(-1, -1)
-	return boss_anchor_present and boss_anchor_matches and boss_grid_matches and non_boss_absent
+	# 보물방은 비보스 층에서 100개 청크를 생성하면 25% 확률상 적어도 한 번은
+	# 등장해야 하고, 보스 층 입구 청크에는 절대 생기지 않아야 한다.
+	var boss_treasure_absent: bool = Vector2i(boss_composite.get("treasure_anchor", Vector2i.ZERO)) == Vector2i(-1, -1)
+	return boss_anchor_present and boss_anchor_matches and boss_grid_matches and non_boss_absent and long_treasure_seen and boss_treasure_absent

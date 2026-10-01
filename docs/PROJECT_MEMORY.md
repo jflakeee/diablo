@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-01 (인벤토리 그리드 Bag UI 배포 — 2026-10-01 미착수 작업 백로그 완료)
+최종 갱신: 2026-10-02 (보물방 배포)
 
 ## 맵 생성 상태
 
@@ -24,12 +24,12 @@
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 배포 표시 시각: `2026-10-01 23:50 KST`
-- 소스 커밋: 인벤토리 그리드 Bag UI(본 커밋)
-- 최신 배포 커밋: `2fbdee2` (gh-pages)
+- 배포 표시 시각: `2026-10-02 07:58 KST`
+- 소스 커밋: 보물방(본 커밋)
+- 최신 배포 커밋: `bc86c9e` (gh-pages)
 - Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`), 루트 HTTP 200 확인
-- 원격 기본 URL의 PCK SHA-256: `5287701e90d5b2904f102b62e848b036f4e4483daec4d52864b5b9b64f5bf0b9`
-- 원격 PCK 1,250,780 bytes 및 로컬 빌드 해시 일치 확인.
+- 원격 기본 URL의 PCK SHA-256: `2c70669e4e0b2735446b644f1b084b0e65a044d01a1e06187b91c9b9e8cb1331`
+- 원격 PCK 1,253,660 bytes 및 로컬 빌드 해시 일치 확인.
 
 ## 다음 점검 항목
 
@@ -148,4 +148,29 @@
 - Web release export → gh-pages 배포 커밋 `2fbdee2`, Pages 빌드 `built`, 루트 HTTP 200,
   로컬/원격 PCK SHA-256(`5287701e...`) 일치 확인.
 - 2026-10-01 "미착수 작업 확인" 세션에서 식별한 5개 항목(pack 배치·보스룸·프리셋 룸·
-  A* 컬링·인벤토리 그리드) 전부 완료. 다음 미착수 작업은 신규 탐색 필요.
+  A* 컬링·인벤토리 그리드) 전부 완료.
+
+## 2026-10-02 보물방 (원격 배포 완료)
+
+- 설계 문서: `docs/superpowers/specs/2026-10-02-treasure-room-design.md`. 보스룸 설계 당시
+  "별도 미착수 항목"으로 분리해 둔 특수룸(보물방)을 이번에 구현.
+- `level_gen.gd`: `carve_treasure_room` 인자 추가. 보스 아레나 카빙 뒤, 입구/출구가 아닌
+  임의 슬롯 하나를 `_open_room_interior`로 비워 `treasure_anchor` 반환.
+- `world_stream.gd`: 청크마다(입구 청크 한정 아님, 스트리밍 후속 청크 포함) 그 청크 자신의
+  시드로 독립 판정(`_rolls_treasure`, 25%), 보스 층은 전면 배제. `compose_active_grid()`가
+  "현재(=유일한) 활성 청크" 기준 `treasure_anchor`를 전역 좌표로 노출(보스 아레나는 항상
+  "첫 청크" 기준이었던 것과 차이).
+- `main.gd`: `_treasure_anchor_cell`/`_treasure_looted_cell` 상태, `_spawn_treasure_loot()`
+  (레어 3개 + 골드 150+dlevel*40)를 몬스터가 새로 스폰되는 모든 지점(최초 진입·다음 층·
+  웨이포인트/포탈 이동·저장 불러오기·스트리밍 신규 청크)에 연결. `_player`가 아직 없는
+  매우 초기 호출 경로를 피하려 `_generate_dungeon()` 자체가 아니라 그 호출부들에 개별 연결.
+- 검증: `level_gen.selftest()`(5개 시드/액트/모드에서 입구·출구 비겹침·내부 청결·연결성)와
+  `world_stream.selftest()`(비보스 100청크 중 최소 1회 등장, 보스 층 전무) 둘 다 기존
+  `[MAP_VARIANTS]`/`[SYSTEM]` 집계에 자동 편입. 오토퀴트는 게임플레이 경로 의존적이라
+  최종 verdict에 묶지 않고 진단 출력만: barb/sorc 둘 다 `[TREASURE] rooms_spawned=2`,
+  `[GD][RESULT] verdict=PASS`.
+- README `정식화` 섹션이 수차례 세션 동안 완료 항목을 제거하지 않아 낡아 있던 것을 정리.
+  다음에 미착수 작업을 찾을 때는 이 메모리 파일과 코드를 직접 대조할 것(README 정식화는
+  더 이상 신뢰할 소스가 아니었음을 교훈으로 남김).
+- Web release export → gh-pages 배포 커밋 `bc86c9e`, Pages 빌드 `built`, 루트 HTTP 200,
+  로컬/원격 PCK SHA-256(`2c70669e...`) 일치 확인.

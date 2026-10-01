@@ -151,6 +151,16 @@ this: its global pillar scatter had no connectivity repair, unlike
 `MODE_BLOCKED_RANDOM`; it now restores pillars the same way until the
 entrance-exit path and all room centers stay reachable.
 
+### Treasure room
+
+Non-boss chunks (including ones streamed in mid-level, not just the entrance
+chunk) have a 25% independent chance of carving one non-entrance/non-exit
+room into a treasure room — cleared of pillars/low walls, dropping 3 rare
+items plus bonus gold the first time the chunk is entered. Boss floors never
+roll one, so it never competes with the boss arena. Like the boss arena,
+treasure-ness is recomputed from the chunk's own seed (not a saved flag), so
+reloading a save regenerates the same room in the same place.
+
 ### Boss room arena
 
 The entrance chunk of a boss floor (last level in an act) carves its center
@@ -235,7 +245,9 @@ Both profiles are checked at 960x540 through 1600x720 by the UI self-test.
 
 → 두 클래스 모두 **다층 던전 클리어→워프** 동작, 런타임 에러 0.
 
-## 정식화
-- 몬스터 A* 부하 최적화(관심영역), 던전 내 몬스터 밀도·묶음(pack) 배치
-- 프리셋 청크 다양화, 특수룸/보스룸, 미니맵, 웨이포인트, 난이도 스케일링
-- 세이브(현재 레벨/캐릭터), 저항·블록 전투 심화, 인벤 그리드 UI
+## 정식화 (2026-10-02 갱신 — 완료 항목 제거)
+
+위 섹션들에 이미 반영된 완료 항목(A* 관심영역 컬링, pack 배치, 프리셋 룸 다양화, 보스룸
+아레나, 보물방, 인벤 그리드 UI, 미니맵/웨이포인트/난이도/세이브 등)은 제거했다. 남은 후보는
+"새 작업 전 여기 먼저 확인" 메모리에서 추적한다 — 이 목록을 다시 채우려면 코드 대조부터
+새로 시작할 것(이 섹션을 과거에 갱신하지 않아 완료된 항목이 한동안 남아 있었다).

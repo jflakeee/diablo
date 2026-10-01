@@ -46,6 +46,9 @@ var _gh := 45
 var _ent_cell := Vector2i(1, 1)
 var _exit_cell := Vector2i(1, 1)
 var _boss_anchor_cell := Vector2i(-1, -1)
+var _treasure_anchor_cell := Vector2i(-1, -1)
+var _treasure_looted_cell := Vector2i(-1, -1)
+var _treasure_rooms_spawned := 0
 var _map_type := "dungeon"
 var _tiles_node: Node2D
 var _world_stream: WorldStream
@@ -314,6 +317,7 @@ func _apply_stream_transition(transition: Dictionary) -> void:
 		# Retirement is intentionally deferred to a separate frame/transition.
 		call_deferred("_retire_farthest_stream_chunk")
 	_combat_log = ("NEW AREA OPENED / %d ACTIVE ROOMS" % int(composite.get("rooms", 9))) if phase == "generate" else "FARTHEST AREA RETIRED"
+	_spawn_treasure_loot()
 
 func _retire_farthest_stream_chunk() -> void:
 	if _world_stream == null or _world_stream.active_chunks.size() <= WorldStream.MAX_ACTIVE_CHUNKS:
@@ -500,6 +504,7 @@ func _apply_dungeon_layout(lvl: Dictionary) -> void:
 	_ent_cell = lvl["entrance"]
 	_exit_cell = lvl["exit"]
 	_boss_anchor_cell = Vector2i(lvl.get("boss_anchor", Vector2i(-1, -1)))
+	_treasure_anchor_cell = Vector2i(lvl.get("treasure_anchor", Vector2i(-1, -1)))
 	# 제작기로 타일 변종 몇 개 미리 생성(성능: 재사용)
 	var palettes := {
 		1: [Color(0.26, 0.42, 0.28), Color(0.24, 0.40, 0.26), Color(0.28, 0.44, 0.30), Color(0.30, 0.28, 0.26), Color(0.26, 0.24, 0.23)],
@@ -599,6 +604,25 @@ func _pack_member_cell(anchor: Vector2i) -> Vector2i:
 		if int(_grid[y][x]) == 1:
 			return Vector2i(x, y)
 	return _random_floor_cell()
+
+# 보물방(있으면): 레어 아이템 몇 개 + 보너스 골드를 한 번만 떨어뜨린다.
+# _treasure_looted_cell로 같은 방에 중복 스폰하지 않는다(스트리밍 전환이나
+# 저장/불러오기로 같은 청크의 레이아웃이 다시 적용돼도 안전).
+func _spawn_treasure_loot() -> void:
+	if _player == null or _treasure_anchor_cell == Vector2i(-1, -1) or _treasure_anchor_cell == _treasure_looted_cell:
+		return
+	_treasure_looted_cell = _treasure_anchor_cell
+	_treasure_rooms_spawned += 1
+	var bases: Array = Item.WEAPON_BASES + Item.ARMOR_BASES + Item.ACCESSORY_BASES
+	var drop_count := 3
+	for i in drop_count:
+		var base: Dictionary = bases[_rng.randi_range(0, bases.size() - 1)]
+		var it := Item.generate(_rng, base, _player.level + 3, "rare")
+		var cell := _pack_member_cell(_treasure_anchor_cell)
+		_spawn_ground(it, cell.x, cell.y)
+	var bonus_gold := 150 + _dlevel * 40
+	_gold += bonus_gold
+	_combat_log = "TREASURE ROOM FOUND / +%dg / %d ITEMS" % [bonus_gold, drop_count]
 
 func _spawn_dungeon_monsters() -> void:
 	for m in _monsters:
@@ -843,6 +867,7 @@ func _restore_or_spawn_floor() -> void:
 	var state: Dictionary = _floor_states.get(str(_dlevel), {})
 	if state.is_empty():
 		_spawn_dungeon_monsters()
+		_spawn_treasure_loot()
 		return
 	_exit_locked = bool(state.get("exit_locked", false))
 	for raw in state.get("monsters", []):
@@ -1194,6 +1219,7 @@ func _start_game() -> void:
 
 	_spawn_merc()
 	_spawn_dungeon_monsters()
+	_spawn_treasure_loot()
 
 	_attack_line = Line2D.new()
 	_attack_line.width = 3.0
@@ -2108,6 +2134,7 @@ func _load_game() -> void:
 		_merc.gy = _player.gy
 		_merc.position = _iso(_merc.gx, _merc.gy)
 	_spawn_dungeon_monsters()
+	_spawn_treasure_loot()
 	_last_visibility_cell = Vector2i(-999, -999)
 	_update_visibility(true)
 	_spawn_corpse_marker()
@@ -2657,6 +2684,7 @@ func _process(delta: float) -> void:
 		print("[MAP] tex=%s grid=%dx%d monster_dots=%d" % [str(_minimap != null and _minimap.tex != null), _minimap.gw if _minimap else 0, _minimap.gh if _minimap else 0, _minimap.monster_cells.size() if _minimap else 0])
 		var ai_cull_ok := _ai_culled_far > 0
 		print("[AI_CULL] astar_calls=%d culled_far=%d witness_max_dist=%.1f verdict=%s" % [_astar_calls, _ai_culled_far, sqrt(_witness_max_dist_sq), "PASS" if ai_cull_ok else "FAIL"])
+		print("[TREASURE] rooms_spawned=%d" % _treasure_rooms_spawned)
 		print("[ACT] act=%d level_in_act=%d/%d boss_level=%s exit_locked=%s acts_cleared=%d" % [
 			_act, _level_in_act(), ACT_LEN, str(_is_boss_level()), str(_exit_locked), _acts_cleared])
 		var completed_quests := 0
