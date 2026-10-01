@@ -208,6 +208,7 @@ var _save_selftest_ok := true
 var _online_selftest_ok := true
 var _coverage_selftest_ok := true
 var _waypoint_selftest_ok := true
+var _pack_selftest_ok := true
 var _quitting := false
 var _perf_start_memory := 0
 var _perf_peak_memory := 0
@@ -571,6 +572,20 @@ func _random_floor_cell() -> Vector2i:
 			return Vector2i(x, y)
 	return _exit_cell
 
+const PACK_RADIUS := 3
+
+# pack 멤버를 anchor 근처 바닥 타일에 모아 배치. 막다른 공간이면 던전 전역
+# 랜덤 바닥칸으로 폴백해 스폰 자체가 막히지 않게 한다.
+func _pack_member_cell(anchor: Vector2i) -> Vector2i:
+	for i in 20:
+		var x := anchor.x + _rng.randi_range(-PACK_RADIUS, PACK_RADIUS)
+		var y := anchor.y + _rng.randi_range(-PACK_RADIUS, PACK_RADIUS)
+		if x < 1 or y < 1 or x >= _gw - 1 or y >= _gh - 1:
+			continue
+		if int(_grid[y][x]) == 1:
+			return Vector2i(x, y)
+	return _random_floor_cell()
+
 func _spawn_dungeon_monsters() -> void:
 	for m in _monsters:
 		if is_instance_valid(m):
@@ -591,11 +606,34 @@ func _spawn_dungeon_monsters() -> void:
 	var count := clampi(12 + _dlevel * 2, 14, 26)
 	if boss_lv:
 		count = maxi(10, count - 5)
-	for i in count:
-		if pool.is_empty():
-			break
+	# D2식 pack 배치: 같은 타입 2~4마리를 한곳에 모아 배치하고, 등급 롤도
+	# pack 전체에 1회만 적용해 챔피언/유니크 무리가 통째로 나오게 한다.
+	_pack_count = 0
+	var spawned := 0
+	while spawned < count and not pool.is_empty():
+		var remaining := count - spawned
+		var pack_size := mini(_rng.randi_range(2, 4), remaining)
 		var md: Dictionary = pool[_rng.randi_range(0, pool.size() - 1)]
-		_spawn_one(md, _random_floor_cell())
+		var anchor := _random_floor_cell()
+		var pack_rank := ""
+		var pack_mod := {}
+		if _auto_quit and not _forced_rank:      # 셀프테스트: 첫 pack 유니크 강제
+			_forced_rank = true
+			pack_rank = "unique"
+		else:
+			var roll := _rng.randf()
+			if roll < 0.05:
+				pack_rank = "unique"
+			elif roll < 0.15:
+				pack_rank = "champion"
+		if pack_rank == "unique":
+			pack_mod = UNIQ_MODS[_rng.randi_range(0, UNIQ_MODS.size() - 1)]
+		var pack_id := _pack_count
+		_pack_count += 1
+		for n in pack_size:
+			var cell := anchor if n == 0 else _pack_member_cell(anchor)
+			_spawn_one(md, cell, pack_rank, pack_mod, pack_id)
+		spawned += pack_size
 	# 보스: 액트 마지막 층에만 등장(퀘스트 목표)
 	if boss_lv and not boss_def.is_empty():
 		_spawn_one(boss_def, _random_floor_cell())
@@ -612,8 +650,9 @@ const UNIQ_MODS := [
 var _champs := 0
 var _uniques := 0
 var _forced_rank := false
+var _pack_count := 0
 
-func _spawn_one(md: Dictionary, cell: Vector2i) -> void:
+func _spawn_one(md: Dictionary, cell: Vector2i, forced_rank: String = "", forced_mod: Dictionary = {}, pack_id: int = -1) -> void:
 	var kind := String(md.get("kind", "melee"))
 	var col := Color(float(md["color"][0]), float(md["color"][1]), float(md["color"][2]))
 	var m := _spawn_monster(String(md["name"]), col, int(md["w"]), int(md["h"]), int(md["level"]), int(md["hp"]), int(md["ar"]), int(md["def"]), int(md["dmin"]), int(md["dmax"]), float(md["speed"]), cell.x, cell.y)
@@ -651,18 +690,16 @@ func _spawn_one(md: Dictionary, cell: Vector2i) -> void:
 		m.set_rank_visual("boss")
 		_boss = m
 		return
-	# 챔피언/유니크 등급 롤 (일반 몬스터만)
-	var roll := _rng.randf()
-	if _auto_quit and not _forced_rank:      # 셀프테스트: 첫 몬스터 유니크 강제
-		_forced_rank = true
-		_apply_rank(m, "unique")
-	elif roll < 0.05:
-		_apply_rank(m, "unique")
-	elif roll < 0.15:
+	if pack_id >= 0:
+		m.set_meta("pack_id", pack_id)
+	# 등급은 pack 단위로 호출자가 이미 굴려서 전달한다 (일반 몬스터만)
+	if forced_rank == "unique":
+		_apply_rank(m, "unique", forced_mod)
+	elif forced_rank == "champion":
 		_apply_rank(m, "champion")
 
 # 등급 강화: 스탯 배수 + 인챈트 + 이름표 (Part 3 §4)
-func _apply_rank(m: ActorScript, rank: String) -> void:
+func _apply_rank(m: ActorScript, rank: String, mod_override: Dictionary = {}) -> void:
 	var base_name := String(m.actor_name)
 	if rank == "champion":
 		_champs += 1
@@ -679,7 +716,7 @@ func _apply_rank(m: ActorScript, rank: String) -> void:
 		m.max_life = int(m.max_life * 3.0)
 		m.dmg_min = int(m.dmg_min * 1.4); m.dmg_max = int(m.dmg_max * 1.4)
 		m.attack_rating = int(m.attack_rating * 1.25)
-		var mod: Dictionary = UNIQ_MODS[_rng.randi_range(0, UNIQ_MODS.size() - 1)]
+		var mod: Dictionary = mod_override if not mod_override.is_empty() else UNIQ_MODS[_rng.randi_range(0, UNIQ_MODS.size() - 1)]
 		var mid := String(mod["id"])
 		m.set_meta("rank", "unique")
 		m.set_meta("umod", mid)
@@ -1315,6 +1352,7 @@ func _start_game() -> void:
 		_craft_selftest()
 		_act_reward_selftest()
 		_waypoint_travel_selftest()
+		_pack_selftest()
 	print("[GD] ready - class=%s life=%d dungeon=%dx%d entrance=(%d,%d) exit=(%d,%d)" % [
 		_class, _player.max_life, _gw, _gh, _ent_cell.x, _ent_cell.y, _exit_cell.x, _exit_cell.y])
 	if OS.get_cmdline_user_args().has("skill_visual_test"):
@@ -1634,6 +1672,36 @@ func _waypoint_travel_selftest() -> void:
 	_waypoint_state = saved_state
 	_dlevel = saved_level
 	print("[WAYPOINT_TEST] forward=%s return=%s verdict=%s" % [str(reached_second), str(returned_first), "PASS" if _waypoint_selftest_ok else "FAIL"])
+
+# pack_id 메타로 몬스터를 묶어 (a) anchor 기준 군집 거리 (b) 등급/모디파이어
+# 일치를 검증한다. 현재 던전에 생성된 pack을 그대로 검사하므로 저장 상태를
+# 건드리지 않는다.
+func _pack_selftest() -> void:
+	var groups: Dictionary = {}
+	for m in _monsters:
+		if not is_instance_valid(m) or not m.has_meta("pack_id"):
+			continue
+		var pid := int(m.get_meta("pack_id"))
+		if not groups.has(pid):
+			groups[pid] = []
+		(groups[pid] as Array).append(m)
+	var ok := not groups.is_empty()
+	var min_size := 0
+	var max_size := 0
+	for pid in groups.keys():
+		var members: Array = groups[pid]
+		min_size = members.size() if min_size == 0 else mini(min_size, members.size())
+		max_size = maxi(max_size, members.size())
+		var anchor: ActorScript = members[0]
+		var anchor_rank := String(anchor.get_meta("rank", ""))
+		var anchor_umod := String(anchor.get_meta("umod", ""))
+		for mem in members:
+			if String(mem.get_meta("rank", "")) != anchor_rank or String(mem.get_meta("umod", "")) != anchor_umod:
+				ok = false
+			if Vector2(mem.gx, mem.gy).distance_to(Vector2(anchor.gx, anchor.gy)) > PACK_RADIUS * 3.0:
+				ok = false
+	_pack_selftest_ok = ok
+	print("[PACK] packs=%d min_size=%d max_size=%d verdict=%s" % [groups.size(), min_size, max_size, "PASS" if ok else "FAIL"])
 
 func _data_selftest() -> void:
 	var mons := Data.monsters()
@@ -2574,7 +2642,7 @@ func _process(delta: float) -> void:
 		print("[ASSET] monsters compiled=%d fallback=%d runtime=%s" % [_compiled_monsters, _generated_monsters, str(asset_report)])
 		var perf_report := PerformanceBudget.evaluate(elapsed, _logic_ticks, _perf_peak_active, _perf_start_memory, _perf_peak_memory)
 		print("[PERF] logic_hz=%.2f peak_active=%d memory_growth_kib=%.1f failures=%s verdict=%s" % [float(perf_report["logic_hz"]), int(perf_report["peak_active"]), float(perf_report["memory_growth"]) / 1024.0, str(perf_report["failures"]), "PASS" if bool(perf_report["ok"]) else "FAIL"])
-		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and bool(perf_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok and _online_selftest_ok and _coverage_selftest_ok and _waypoint_selftest_ok
+		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and bool(perf_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok and _online_selftest_ok and _coverage_selftest_ok and _waypoint_selftest_ok and _pack_selftest_ok
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		_release_runtime_resources()
 		await get_tree().process_frame

@@ -102,6 +102,18 @@ godot_console --headless --path . res://tools/network_harness.tscn -- net_client
 godot_console --headless --path . res://tools/network_harness.tscn -- net_client2 net_multi
 ```
 
+### Monster pack placement
+
+Dungeon monster spawns group into packs of 2-4 of the same monster type instead
+of scattering individually across the floor. Each pack anchors to one random
+floor cell and its members land on nearby floor tiles within a small radius
+(falling back to a fully random floor cell if the area is too tight). Champion
+and unique rank is rolled once per pack rather than per monster, so a successful
+roll turns the whole pack gold/blue together and uniques share the same
+`UNIQ_MODS` modifier. Boss spawns are unaffected. Autoquit self-test groups
+spawned monsters by pack id and verifies cluster distance and rank consistency,
+printing `[PACK] packs=N min_size=.. max_size=.. verdict=..`.
+
 ### Jewelry equipment
 
 The equipment model includes dedicated `ring` and `amulet` slots in addition to

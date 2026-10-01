@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-01
+최종 갱신: 2026-10-01 (몬스터 pack 군집 배치 배포)
 
 ## 맵 생성 상태
 
@@ -24,12 +24,12 @@
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 배포 표시 시각: `2026-10-01 20:14 KST`
-- 소스 커밋: `0fcc4fb` (큐브 제작·감정·저주/오라)
-- 최신 배포 커밋: `59ca660`
-- GitHub Pages 실행: https://github.com/jflakeee/diablo/actions/runs/36854230696
-- 원격 기본 URL의 PCK SHA-256: `B34DF0CA21B371FC9429562056142F598B66E299DBA2BAB68BA773874566B871`
-- 원격 PCK 1,242,380 bytes 및 로컬 빌드 해시 일치, 서비스 워커 일치, 루트 HTTP 200 확인.
+- 배포 표시 시각: `2026-10-01 22:53 KST`
+- 소스 커밋: 몬스터 pack 군집 배치(본 커밋)
+- 최신 배포 커밋: `7082c49` (gh-pages)
+- Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`), 루트 HTTP 200 확인
+- 원격 기본 URL의 PCK SHA-256: `b69ec2e5436e283933be2128532354fc252707a96814b728da1e55f90211cb2f`
+- 원격 PCK 1,244,572 bytes 및 로컬 빌드 해시 일치 확인.
 
 ## 다음 점검 항목
 
@@ -56,3 +56,20 @@
 - `tools/progression_combat_test.gd`: 실제 감정 버튼·중복 입력·장착/판매 제한,
   실제 시전·면역·거리·벽·마나·시전자 사망·저주 만료·스냅샷 검사 PASS.
 - 후속: 콘텐츠 확장 범위/수량 정의, Android 실기기와 온라인 WAN/장시간 검증.
+
+## 2026-10-01 몬스터 pack 군집 배치 (원격 배포 완료)
+
+- 설계 문서: `docs/superpowers/specs/2026-10-01-monster-pack-placement-design.md`.
+- `_spawn_dungeon_monsters()`를 몬스터 1마리 단위 랜덤 루프에서 pack 단위 루프로 교체.
+  pack은 같은 몬스터 타입 2~4마리, anchor 주변 반경 3타일 내 바닥 타일에 모여 배치되고
+  실패 시 기존 전역 랜덤 바닥칸으로 폴백한다.
+- 챔피언/유니크 등급 롤을 pack당 1회로 변경(확률은 기존과 동일: 오토퀴트 첫 pack 강제
+  유니크, 그 외 5%/10%). 롤 성공 시 pack 전체가 같은 등급과 동일한 `UNIQ_MODS` 모디파이어를 공유.
+  `_spawn_one`/`_apply_rank`에 `forced_rank`/`forced_mod`/`pack_id` 인자 추가.
+- 신규 `_pack_selftest()`: `pack_id` 메타로 몬스터를 그룹화해 군집 거리와 등급/모디파이어
+  일치를 검증, `[PACK] packs=N min_size=.. max_size=.. verdict=..` 출력을 최종 `ok` 집계에 포함.
+- 양 클래스 `autoquit` 실행: `[PACK] packs=5 min_size=2 max_size=3 verdict=PASS`(barb),
+  `[PACK] packs=4 min_size=2 max_size=4 verdict=PASS`(sorc), 전체 `[GD][RESULT] verdict=PASS`.
+- 보스 스폰과 저장 스키마는 변경하지 않음(런타임 스폰 로직만 변경).
+- Web release export → gh-pages 배포 커밋 `7082c49`, Pages 빌드 `built`, 루트 HTTP 200,
+  로컬/원격 PCK SHA-256 일치 확인.
