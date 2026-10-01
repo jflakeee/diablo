@@ -146,6 +146,7 @@ static func generate(rng: RandomNumberGenerator, base: Dictionary, ilvl: int, qu
 
 static func requirement_failures(it: Dictionary, character_level: int, strength: int, dexterity: int) -> Array:
 	var failures: Array = []
+	if not is_identified(it): failures.append("Identify first")
 	if character_level < int(it.get("req_level", 1)): failures.append("Lv %d" % int(it.get("req_level", 1)))
 	if strength < int(it.get("req_str", 0)): failures.append("STR %d" % int(it.get("req_str", 0)))
 	if dexterity < int(it.get("req_dex", 0)): failures.append("DEX %d" % int(it.get("req_dex", 0)))
@@ -186,9 +187,25 @@ static func roll_drop(rng: RandomNumberGenerator, monster_level: int, magic_find
 		quality = "rare"
 	elif r >= 92.0:
 		quality = "normal"
-	return generate(rng, base, ilvl, quality)
+	var item := generate(rng, base, ilvl, quality)
+	if quality == "rare":
+		item["identified"] = false
+	return item
+
+# Missing flags are legacy, already usable equipment. Identification reveals the
+# original roll; it never regenerates stats or consumes randomness.
+static func is_identified(it: Dictionary) -> bool:
+	return bool(it.get("identified", true))
+
+static func identify(it: Dictionary) -> bool:
+	if is_identified(it) or String(it.get("slot", "")) not in ["weapon", "armor", "ring", "amulet"]:
+		return false
+	it["identified"] = true
+	return true
 
 static func display_name(it: Dictionary) -> String:
+	if not is_identified(it):
+		return "Unidentified %s" % String(it.get("name", "Item"))
 	if String(it.get("slot", "")) == "skill_book":
 		return String(it.get("name", "Skill Book"))
 	var q := String(it["quality"])
@@ -203,6 +220,8 @@ static func display_name(it: Dictionary) -> String:
 	return pre + String(it["name"]) + suf
 
 static func affix_text(it: Dictionary) -> String:
+	if not is_identified(it):
+		return "Hidden options - identify in Bag"
 	var parts: Array = []
 	if int(it.get("dmax", 0)) > 0:
 		parts.append("%d-%d dmg" % [int(it["dmin"]), int(it["dmax"])])
@@ -280,7 +299,7 @@ static func socket_insert(it: Dictionary, socketable: Dictionary) -> bool:
 # 유효 스탯 = 베이스 접사 + 소켓(보석/룬) + 룬워드(순서·소켓수 일치 시)
 static func effective_affixes(it: Dictionary) -> Dictionary:
 	var out := {}
-	if is_broken(it):
+	if is_broken(it) or not is_identified(it):
 		return out
 	for k in it.get("affixes", {}):
 		out[k] = int(it["affixes"][k])
@@ -318,7 +337,7 @@ static func equipped_set_bonus(items: Array) -> Dictionary:
 		if not raw is Dictionary:
 			continue
 		var it: Dictionary = raw
-		if not it.is_empty() and not is_broken(it) and String(it.get("quality", "")) == "set":
+		if not it.is_empty() and is_identified(it) and not is_broken(it) and String(it.get("quality", "")) == "set":
 			var set_id := String(it.get("set_id", ""))
 			counts[set_id] = int(counts.get(set_id, 0)) + 1
 	var result := {}

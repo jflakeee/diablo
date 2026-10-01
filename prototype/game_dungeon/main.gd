@@ -37,7 +37,7 @@ const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
 const WorldStream := preload("res://world_stream.gd")
-const DEPLOYED_AT_KST := "2026-09-30 20:40 KST"
+const DEPLOYED_AT_KST := "2026-10-01 20:14 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -769,6 +769,8 @@ func _capture_floor_state() -> void:
 	for m in _monsters:
 		if not is_instance_valid(m) or not m.alive: continue
 		monster_states.append({"name": m.actor_name, "level": m.level, "life": m.life, "max_life": m.max_life, "ar": m.attack_rating, "def": m.defense, "dmin": m.dmg_min, "dmax": m.dmg_max, "speed": m.speed, "gx": m.gx, "gy": m.gy, "kind": String(m.get_meta("kind", "melee")), "witnessed": bool(m.get_meta("witnessed", false)), "res_fire": m.res_fire, "res_cold": m.res_cold, "res_light": m.res_light, "res_poison": m.res_poison})
+		monster_states[-1]["hex_timer"] = m.hex_timer
+		monster_states[-1]["hex_reduction"] = m.hex_reduction
 	var ground_states: Array = []
 	for n in _ground:
 		if is_instance_valid(n): ground_states.append({"item": (n.get_meta("item") as Dictionary).duplicate(true), "gx": float(n.get_meta("gx")), "gy": float(n.get_meta("gy"))})
@@ -790,6 +792,7 @@ func _restore_or_spawn_floor() -> void:
 		m.set_meta("kind", String(s.get("kind", "melee")))
 		m.set_meta("witnessed", bool(s.get("witnessed", false)))
 		m.res_fire = int(s.get("res_fire", 0)); m.res_cold = int(s.get("res_cold", 0)); m.res_light = int(s.get("res_light", 0)); m.res_poison = int(s.get("res_poison", 0))
+		m.apply_hex(clampi(int(s.get("hex_reduction", 0)), 0, 70), clampf(float(s.get("hex_timer", 0.0)), 0.0, Skills.HEX_DURATION))
 		if String(s.get("kind", "")) == "boss": _boss = m
 	for raw in state.get("ground", []):
 		var drop: Dictionary = raw
@@ -1681,6 +1684,7 @@ func _add_skill_button(ui: Node, id: String, label: String, col: Color, pos: Vec
 	var b := SkillButtonScript.new()
 	b.skill_id = id
 	b.label_text = label
+	b.tooltip_text = Skills.effect_description(id, _player.skill_level(id))
 	b.color = col
 	b.control_size = control_size
 	b.position = pos
@@ -1696,6 +1700,7 @@ func _refresh_skill_buttons() -> void:
 		var button := _skill_buttons[skill_id] as Control
 		if is_instance_valid(button):
 			button.visible = _player.skill_level(String(skill_id)) > 0
+			button.tooltip_text = Skills.effect_description(String(skill_id), _player.skill_level(String(skill_id)))
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not _started or _auto_quit:
@@ -1914,6 +1919,7 @@ func _gather_save_state(reason: String = "manual") -> Dictionary:
 		"floor_states": _floor_states.duplicate(true), "town_portal": _town_portal.duplicate(true),
 		"vision_relic_timer": _vision_relic_timer,
 		"arc_flasks": _arc_flasks,
+		"iron_chant_timer": _player.bo_timer,
 		"world_stream": _world_stream.snapshot() if _world_stream != null else {},
 		"player_global_tile": [_player.gx + _stream_grid_origin.x, _player.gy + _stream_grid_origin.y],
 	}
@@ -1946,6 +1952,8 @@ func _load_game() -> void:
 	_player.stat_vit = int(state.get("stat_vit", _player.stat_vit))
 	_player.stat_energy = int(state.get("stat_energy", _player.stat_energy))
 	_player.skills = (state.get("skills", {}) as Dictionary).duplicate(true)
+	_player.bo_timer = clampf(float(state.get("iron_chant_timer", 0.0)), 0.0, Skills.iron_chant_duration(maxi(1, _player.skill_level("iron_chant")))) if _player.skill_level("iron_chant") > 0 else 0.0
+	_player.bo_pct = Skills.iron_chant_bonus_pct(_player.skill_level("iron_chant")) + Skills.synergy_bonus_pct("iron_chant", _player.skills) if _player.bo_timer > 0.0 else 0.0
 	for skill_id in _skill_slot_ids():
 		if not _player.skills.has(skill_id):
 			_player.skills[skill_id] = 0
@@ -2076,6 +2084,9 @@ func _physics_process(delta: float) -> void:
 	if _modal_paused:
 		return
 	_logic_ticks += 1
+	for monster in _monsters:
+		if is_instance_valid(monster):
+			monster.tick_hex(delta)
 	if not _player.alive:
 		_death_respawn_t = maxf(0.0, _death_respawn_t - delta)
 		if _death_respawn_t <= 0.0:
@@ -2222,7 +2233,7 @@ func _merc_fire(tgt: ActorScript) -> void:
 		# 물리 화살(저항 무시) 즉시 + 화염 부가(저항 적용)
 		var pre_alive := tgt.alive
 		tgt.take_damage(phys)
-		var fdmg := CombatLib.apply_resistance(fire, _target_resist(tgt, "fire"))
+		var fdmg := CombatLib.apply_resistance(fire, _target_resist(tgt, "fire"), 99)
 		if fdmg > 0 and tgt.alive:
 			tgt.take_damage(fdmg)
 		_spawn_text(tgt.position + Vector2(0, -8), "%d + FIRE %d" % [phys, fdmg], Color(1, 0.7, 0.3))
@@ -2606,7 +2617,7 @@ func _throw_arc_flask() -> void:
 	for m in _monsters:
 		if m.alive and Vector2(m.gx, m.gy).distance_to(impact) <= 1.5:
 			var damage := 25 + _player.level * 4
-			m.take_damage(CombatLib.apply_resistance(damage, m.res_fire))
+			m.take_damage(CombatLib.apply_resistance(damage, _target_resist(m, "fire"), 99))
 			total_hits += 1
 			_spawn_text(m.position, "%d ARC FIRE" % damage, Color(1.0, 0.4, 0.15))
 	_fx.arc_throw(_player.position, target.position)
@@ -2663,12 +2674,23 @@ func _on_skill_used(id: String) -> void:
 		_player_attack(tgt, id)
 
 func _target_resist(t: ActorScript, element: String) -> int:
+	var base := 0
 	match element:
-		"fire": return t.res_fire
-		"cold": return t.res_cold
-		"light": return t.res_light
-		"poison": return t.res_poison
-	return 0
+		"fire": base = t.res_fire
+		"cold": base = t.res_cold
+		"light": base = t.res_light
+		"poison": base = t.res_poison
+		_: return 0
+	if t.is_player or t.is_ally:
+		return base
+	var curse := t.hex_reduction if t.hex_timer > 0.0 else 0
+	var aura := 0
+	if _player != null and _player.alive and _player.bo_timer > 0.0 and not _in_town:
+		var source := Vector2(_player.gx, _player.gy)
+		var destination := Vector2(t.gx, t.gy)
+		if source.distance_to(destination) <= Skills.AURA_RADIUS and _has_los(source, destination):
+			aura = Skills.iron_aura_reduction(_player.skill_level("iron_chant"))
+	return CombatLib.reduced_resistance(base, curse, aura)
 
 # 투사체 스펠(화염/냉기) — 냉기는 슬로우
 func _cast_bolt(target: ActorScript, element: String, color: Color, base_min: int, base_max: int) -> void:
@@ -2697,6 +2719,9 @@ func _cast_bolt(target: ActorScript, element: String, color: Color, base_min: in
 func _cast_storm_lance(target: ActorScript) -> void:
 	if target == null or not target.alive or not _player.alive or _player.attack_cd > 0.0:
 		return
+	if Vector2(_player.gx, _player.gy).distance_to(Vector2(target.gx, target.gy)) > SPELL_RANGE or not _has_los(Vector2(_player.gx, _player.gy), Vector2(target.gx, target.gy)):
+		_combat_log = "Storm Lance: target out of range or sight"
+		return
 	if not _player.spend_mana(Skills.mana_cost("storm_lance")):
 		return
 	_player.attack_cd = CombatLib.frames_to_sec(CombatLib.sorc_fcr_frames(_player_fcr))
@@ -2707,12 +2732,13 @@ func _cast_storm_lance(target: ActorScript) -> void:
 	_spells_cast += 1
 	var raw := _rng.randi_range(6, 30) + _player.skill_level("storm_lance") * 3
 	raw = Skills.apply_synergy(raw, "storm_lance", _player.skills)
-	var dmg := CombatLib.apply_resistance(raw, target.res_light)
+	target.apply_hex(Skills.storm_hex_reduction(_player.skill_level("storm_lance")), Skills.HEX_DURATION)
+	var dmg := CombatLib.apply_resistance(raw, _target_resist(target, "light"), 99)
 	target.take_damage(dmg)
 	_spell_hits += 1
 	_fx.lightning(_player.position, target.position)
 	_spawn_text(target.position, "%d LIGHT" % dmg, Color(1, 1, 0.4))
-	_combat_log = "Storm Lance (dmg %d)" % dmg
+	_combat_log = "Storm Lance %d / HEX -%d RES (6s)" % [dmg, target.hex_reduction]
 	if not target.alive:
 		_grant_xp(target.level * 40)
 
@@ -2824,7 +2850,7 @@ func _update_projectiles(delta: float) -> void:
 		if n.position.distance_to(t.position) < 12.0:
 			# 스펠 속성 데미지 → 대상 해당 속성 저항/약점 적용 (Part 5 §2)
 			var tres := _target_resist(t, element)
-			var dmg: int = CombatLib.apply_resistance(int(p["dmg"]), tres)
+			var dmg: int = CombatLib.apply_resistance(int(p["dmg"]), tres, 99)
 			t.take_damage(dmg)
 			_spell_hits += 1
 			# 냉기 → 슬로우
@@ -2907,16 +2933,16 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 		var edmg := 0
 		var fd := int(_eq.get("fdmg", 0))
 		if fd > 0:
-			edmg += CombatLib.apply_resistance(fd, _target_resist(target, "fire"))
+			edmg += CombatLib.apply_resistance(fd, _target_resist(target, "fire"), 99)
 			_fx.elemental_impact(target.position, "fire", false)
 		var cd := int(_eq.get("cdmg", 0))
 		if cd > 0:
-			edmg += CombatLib.apply_resistance(cd, _target_resist(target, "cold"))
+			edmg += CombatLib.apply_resistance(cd, _target_resist(target, "cold"), 99)
 			_fx.elemental_impact(target.position, "cold", false)
 			target.slow_timer = 1.5   # 냉기 무기 슬로우
 		var ld := int(_eq.get("ldmg", 0))
 		if ld > 0:
-			edmg += CombatLib.apply_resistance(ld, _target_resist(target, "light"))
+			edmg += CombatLib.apply_resistance(ld, _target_resist(target, "light"), 99)
 			_fx.elemental_impact(target.position, "light", false)
 		if edmg > 0:
 			target.take_damage(edmg)
@@ -2982,14 +3008,14 @@ func _apply_enchant(m: ActorScript) -> void:
 
 func _cast_iron_chant() -> void:
 	var lvl := _player.skill_level("iron_chant")
-	if lvl <= 0 or not _player.spend_mana(Skills.mana_cost("iron_chant")):
+	if not _player.alive or lvl <= 0 or not _player.spend_mana(Skills.mana_cost("iron_chant")):
 		return
 	_player.bo_pct = Skills.iron_chant_bonus_pct(lvl) + Skills.synergy_bonus_pct("iron_chant", _player.skills)
 	_player.bo_timer = Skills.iron_chant_duration(lvl)
 	_recompute_vitals(_player)
 	_fx.buff_pulse(_player.position, Color(1.0, 0.75, 0.22))
 	_bo_casts += 1
-	_combat_log = "Iron Chant! +%.0f%%" % _player.bo_pct
+	_combat_log = "Iron Chant +%.0f%% / AURA -%d RES (6 tiles)" % [_player.bo_pct, Skills.iron_aura_reduction(lvl)]
 
 func _recompute_vitals(a: ActorScript) -> void:
 	var old_ml := a.max_life
@@ -3020,10 +3046,10 @@ func _recompute_player() -> void:
 	_stamina = _stamina_max if previous_stamina_max <= 0.0 else clampf(_stamina * _stamina_max / previous_stamina_max, 0.0, _stamina_max)
 	var eff_dex := _player.stat_dex + int(eq["dex"])
 	var arm_def := int(_equipped["armor"]["defense"]) if not _equipped["armor"].is_empty() else 0
-	if Item.is_broken(_equipped["armor"]):
+	if Item.is_broken(_equipped["armor"]) or not Item.is_identified(_equipped["armor"]):
 		arm_def = 0
 	_player.defense = CombatLib.character_defense(eff_dex, 15) + arm_def + int(eq["def"])
-	if not _equipped["weapon"].is_empty() and not Item.is_broken(_equipped["weapon"]):
+	if not _equipped["weapon"].is_empty() and Item.is_identified(_equipped["weapon"]) and not Item.is_broken(_equipped["weapon"]):
 		_player.dmg_min = int(_equipped["weapon"]["dmin"])
 		_player.dmg_max = int(_equipped["weapon"]["dmax"])
 	else:
@@ -3124,7 +3150,7 @@ func _on_monster_died(m: Node) -> void:
 		_spawn_ground(_make_potion("mana", mini(5, 1 + int(m.level) / 4)), m.gx, m.gy)
 	# 보석/재료는 수량 제한 없이 동일 id로 합쳐진다.
 	if _rng.randf() < 0.12 + pot_bonus:
-		var gems := ["ruby", "sapphire", "topaz", "emerald"]
+		var gems := ["ruby", "sapphire", "topaz", "emerald", "rune_Ahn", "rune_Vey"]
 		_spawn_ground(_make_material(String(gems[_rng.randi_range(0, gems.size() - 1)])), m.gx, m.gy)
 	if _rng.randf() < (0.05 if rank == "" else 0.16):
 		_spawn_ground(_make_vision_relic(), m.gx - 0.25, m.gy + 0.25)
@@ -3161,6 +3187,8 @@ func _item_value(it: Dictionary) -> int:
 	var q := String(it["quality"])
 	var table := {"normal": 8, "magic": 40, "rare": 110, "set": 220, "unique": 300}
 	var base: int = int(table.get(q, 10))
+	if not Item.is_identified(it):
+		return base
 	var affix_cnt := 0
 	for _k in it.get("affixes", {}):
 		affix_cnt += 1
@@ -3175,7 +3203,7 @@ func _make_potion(ptype: String, tier: int = 1) -> Dictionary:
 	return {"name": nm, "slot": "potion", "ptype": ptype, "tier": tier, "quality": "normal", "affixes": {}, "prefix": "", "suffix": ""}
 
 func _make_material(id: String, amount: int = 1) -> Dictionary:
-	return {"name": id.capitalize(), "id": id, "amount": amount, "slot": "material", "quality": "normal", "affixes": {}, "prefix": "", "suffix": ""}
+	return {"name": Craft.material_name(id), "id": id, "amount": amount, "slot": "material", "quality": "normal", "affixes": {}, "prefix": "", "suffix": ""}
 
 func _make_skill_book(skill_id: String) -> Dictionary:
 	return {"name": "Skill Book: %s" % _skill_label(skill_id), "skill_id": skill_id, "slot": "skill_book", "quality": "unique", "affixes": {}, "prefix": "", "suffix": ""}
@@ -3423,7 +3451,7 @@ func _affix_power(affixes: Dictionary) -> float:
 		+ (float(affixes.get("fdmg", 0)) + float(affixes.get("cdmg", 0)) + float(affixes.get("ldmg", 0))) * 8.0
 
 func _item_combat_power(it: Dictionary) -> float:
-	if it.is_empty() or Item.is_broken(it):
+	if it.is_empty() or Item.is_broken(it) or not Item.is_identified(it):
 		return 0.0
 	var affixes := Item.effective_affixes(it)
 	var power := _affix_power(affixes)
@@ -3475,6 +3503,8 @@ func _auto_equip(it: Dictionary) -> String:
 	return "EQUIPPED_EMPTY" if current.is_empty() else "EQUIPPED_UPGRADE"
 
 func _equip_from_inventory(it: Dictionary) -> void:
+	if not _inventory.has(it):
+		return
 	var requirement_failures := Item.requirement_failures(it, _player.level, _player.stat_str, _player.stat_dex)
 	if not requirement_failures.is_empty():
 		_combat_log = "EQUIP REQUIREMENTS NOT MET: %s" % ", ".join(requirement_failures)
@@ -3509,6 +3539,8 @@ func _equip(it: Dictionary, target_slot: String = "") -> void:
 	_rebuild_inv()
 
 func _equip_merc_from_inventory(it: Dictionary) -> void:
+	if not _inventory.has(it):
+		return
 	if not Mercenary.can_equip(it, _merc.level if _merc != null else _player.level):
 		_combat_log = "MERC EQUIP REQUIREMENTS NOT MET: %s" % Item.requirement_text(it)
 		return
@@ -3759,6 +3791,12 @@ func _rebuild_char_panel() -> void:
 		b2.disabled = _player.skill_level(sk) <= 0 or _player.skill_points <= 0 or not Skills.can_invest(sk, _player.skills, _player.level)
 		b2.pressed.connect(func(): _spend_skill(sk))
 		_char_vbox.add_child(b2)
+		var effect_text := Skills.effect_description(sk, _player.skill_level(sk))
+		if not effect_text.is_empty():
+			var effect_label := Label.new()
+			effect_label.text = effect_text
+			effect_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_char_vbox.add_child(effect_label)
 
 func _toggle_char() -> void:
 	var opening := not _char_panel.visible
@@ -3785,6 +3823,7 @@ func _spend_skill(id: String) -> void:
 		return
 	_player.skill_points -= 1
 	_player.skills[id] = _player.skill_level(id) + 1
+	_refresh_skill_buttons()
 	_rebuild_char_panel()
 
 # 오토플레이 자동 분배(검증): 클래스별 우선순위
@@ -3886,7 +3925,7 @@ func _sell_all() -> void:
 	var total := 0
 	var cnt := 0
 	for it in _inventory.duplicate():
-		if bool((it as Dictionary).get("salvage_protected", false)):
+		if not Item.is_identified(it) or bool((it as Dictionary).get("salvage_protected", false)):
 			continue
 		total += _item_value(it)
 		cnt += 1
@@ -3902,6 +3941,9 @@ func _sell_all() -> void:
 
 func _sell_inventory_item(it: Dictionary) -> void:
 	if not _inventory.has(it):
+		return
+	if not Item.is_identified(it):
+		_combat_log = "Identify this item before selling"
 		return
 	if bool(it.get("salvage_protected", false)):
 		_combat_log = "Protected item cannot be sold"
@@ -4063,7 +4105,12 @@ func _rebuild_inv() -> void:
 	if _inv_vbox == null:
 		return
 	for c in _inv_vbox.get_children():
+		_inv_vbox.remove_child(c)
 		c.queue_free()
+	if _inventory_view == "cube":
+		_rebuild_cube()
+		_apply_large_panel_text(_inv_vbox)
+		return
 	if _inventory_view == "collection":
 		_rebuild_collection()
 		_apply_large_panel_text(_inv_vbox)
@@ -4080,6 +4127,13 @@ func _rebuild_inv() -> void:
 	collection_button.text = "Collection & Ranking Book (%d)" % _collection.records.size()
 	collection_button.pressed.connect(_show_collection)
 	_inv_vbox.add_child(collection_button)
+	var cube_button := Button.new()
+	cube_button.text = "Crafting Cube"
+	cube_button.pressed.connect(func():
+		_inventory_view = "cube"
+		_rebuild_inv()
+	)
+	_inv_vbox.add_child(cube_button)
 	var travel_row := HBoxContainer.new()
 	var previous_button := Button.new()
 	previous_button.text = "Previous Floor"
@@ -4112,7 +4166,9 @@ func _rebuild_inv() -> void:
 	for it in _inventory:
 		var row := VBoxContainer.new()
 		var btn := Button.new()
-		btn.text = "%s\nPower %.0f / %s / %s" % [Item.display_name(it), _item_combat_power(it), Item.affix_text(it), Item.requirement_text(it)]
+		var power_text := "%.0f" % _item_combat_power(it) if Item.is_identified(it) else "?"
+		btn.text = "%s\nPower %s / %s / %s" % [Item.display_name(it), power_text, Item.affix_text(it), Item.requirement_text(it)]
+		btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		btn.custom_minimum_size.y = 52
 		btn.add_theme_font_size_override("font_size", _accessibility.font_size(14))
@@ -4121,6 +4177,11 @@ func _rebuild_inv() -> void:
 		var captured: Dictionary = it
 		btn.pressed.connect(func(): _equip_from_inventory(captured))
 		row.add_child(btn)
+		if not Item.is_identified(it):
+			var identify_button := Button.new()
+			identify_button.text = "Identify (Free)"
+			identify_button.pressed.connect(func(): _identify_inventory_item(captured))
+			row.add_child(identify_button)
 		var actions := HBoxContainer.new()
 		if _collection.accepts(it):
 			var collection_store := Button.new()
@@ -4147,7 +4208,7 @@ func _rebuild_inv() -> void:
 		var sell_btn := Button.new()
 		sell_btn.text = "Sell %dg" % _item_value(it)
 		sell_btn.tooltip_text = "Convert this item to gold"
-		sell_btn.disabled = bool(it.get("salvage_protected", false))
+		sell_btn.disabled = not Item.is_identified(it) or bool(it.get("salvage_protected", false))
 		sell_btn.pressed.connect(func(): _sell_inventory_item(captured))
 		sell_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		actions.add_child(sell_btn)
@@ -4181,6 +4242,57 @@ func _rebuild_inv() -> void:
 		stash_row.add_child(withdraw)
 		_inv_vbox.add_child(stash_row)
 	_apply_large_panel_text(_inv_vbox)
+
+func _identify_inventory_item(it: Dictionary) -> void:
+	if not _inventory.has(it) or not Item.identify(it):
+		return
+	var power := _loadout_combat_power(_equipped)
+	_combat_log = "IDENTIFIED: %s" % Item.display_name(it)
+	if _collection.accepts(it):
+		_collection.register(it, _item_combat_power(it))
+	_push_item_event("IDENTIFIED", it, power, power)
+	_rebuild_inv()
+
+func _rebuild_cube() -> void:
+	var back := Button.new()
+	back.text = "Back to Bag"
+	back.pressed.connect(_show_bag)
+	_inv_vbox.add_child(back)
+	var help := Label.new()
+	help.text = "CRAFTING CUBE\nCombine 3 identical gems or sigils into 1 of the next grade.\nMaterials are collected automatically from monster drops."
+	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_inv_vbox.add_child(help)
+	var ids := _automation.materials.keys()
+	ids.sort()
+	if ids.is_empty():
+		var empty := Label.new()
+		empty.text = "No materials collected yet."
+		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_inv_vbox.add_child(empty)
+	for key in ids:
+		var id := String(key)
+		var count := int(_automation.materials[id])
+		var result := Craft.upgrade_material(id)
+		var label := Label.new()
+		label.text = "%s x%d" % [Craft.material_name(id), count]
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_inv_vbox.add_child(label)
+		if result.is_empty():
+			label.text += " (No upgrade)"
+			continue
+		var combine := Button.new()
+		combine.text = "Combine 3 -> %s x1" % Craft.material_name(result)
+		combine.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		combine.disabled = count < 3
+		combine.pressed.connect(func(): _transmute_material(id))
+		_inv_vbox.add_child(combine)
+
+func _transmute_material(id: String) -> void:
+	if Craft.transmute(_automation.materials, id):
+		_combat_log = "CRAFTED: %s" % Craft.material_name(Craft.upgrade_material(id))
+	else:
+		_combat_log = "Requires 3 identical materials and a valid upgrade"
+	_rebuild_inv()
 
 func _apply_large_panel_text(root: Node) -> void:
 	for child in root.get_children():

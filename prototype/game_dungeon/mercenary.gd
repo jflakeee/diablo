@@ -22,7 +22,7 @@ static func dexterity(level: int) -> int:
 	return 15 + maxi(1, level) * 2
 
 static func can_equip(item: Dictionary, level: int = 99) -> bool:
-	return String(item.get("slot", "")) in SLOTS and level >= int(item.get("req_level", 1)) and strength(level) >= int(item.get("req_str", 0)) and dexterity(level) >= int(item.get("req_dex", 0))
+	return bool(item.get("identified", true)) and String(item.get("slot", "")) in SLOTS and level >= int(item.get("req_level", 1)) and strength(level) >= int(item.get("req_str", 0)) and dexterity(level) >= int(item.get("req_dex", 0))
 
 static func stats(level: int, equipment: Dictionary, item_script: GDScript) -> Dictionary:
 	var result := {
@@ -35,7 +35,7 @@ static func stats(level: int, equipment: Dictionary, item_script: GDScript) -> D
 	var affixes := {}
 	for slot in SLOTS:
 		var item: Dictionary = equipment.get(slot, {})
-		if item.is_empty():
+		if item.is_empty() or not item_script.is_identified(item):
 			continue
 		if slot == "weapon" and not item_script.is_broken(item):
 			result["dmg_min"] += int(item.get("dmin", 0))

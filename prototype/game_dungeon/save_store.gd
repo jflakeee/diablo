@@ -137,11 +137,16 @@ static func selftest() -> Dictionary:
 	var path := "user://save_store_selftest_%s.json" % suffix
 	var state := {
 		"class": "warden", "level": 7, "skills": {"sundering_strike": 3},
-		"inventory": [{"name": "test"}], "equipped": {"weapon": {}, "armor": {}},
+		"inventory": [{"name": "test"}, {"name": "rare", "slot": "weapon", "identified": false, "affixes": {"ed": 20}}], "equipped": {"weapon": {}, "armor": {}},
+		"iron_chant_timer": 12.5,
+		"floor_states": {"1": {"monsters": [{"hex_timer": 3.5, "hex_reduction": 32}]}},
 	}
 	if not save_state(state, path): failures.append("atomic save")
 	var loaded := load_state(path)
 	if int(loaded.get("schema_version", 0)) != CURRENT_VERSION or int(loaded.get("level", 0)) != 7: failures.append("roundtrip")
+	var loaded_items: Array = loaded.get("inventory", [])
+	if loaded_items.size() != 2 or bool(loaded_items[1].get("identified", true)) or int(loaded_items[1].get("affixes", {}).get("ed", 0)) != 20 or not bool(loaded_items[0].get("identified", true)): failures.append("identification persistence and legacy default")
+	if float(loaded.get("iron_chant_timer", 0)) != 12.5 or float(loaded.get("floor_states", {}).get("1", {}).get("monsters", [{}])[0].get("hex_timer", 0)) != 3.5: failures.append("combat effects persistence")
 	var newer := state.duplicate(true)
 	newer["level"] = 8
 	if not save_state(newer, path): failures.append("backup rotation")
@@ -223,4 +228,4 @@ static func selftest() -> Dictionary:
 	for cleanup in [path, path + ".tmp", path + ".bak", corrupt_path]:
 		var absolute := ProjectSettings.globalize_path(cleanup)
 		if FileAccess.file_exists(absolute): DirAccess.remove_absolute(absolute)
-	return {"ok": failures.is_empty(), "checks": 20, "failures": failures}
+	return {"ok": failures.is_empty(), "checks": 22, "failures": failures}

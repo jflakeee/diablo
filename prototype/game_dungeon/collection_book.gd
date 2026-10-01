@@ -8,7 +8,7 @@ var stored: Array = []
 var pages := 1
 
 func accepts(it: Dictionary) -> bool:
-	return String(it.get("quality", "")) in ["set", "unique"]
+	return bool(it.get("identified", true)) and String(it.get("quality", "")) in ["set", "unique"]
 
 func item_id(it: Dictionary) -> String:
 	var quality := String(it.get("quality", ""))

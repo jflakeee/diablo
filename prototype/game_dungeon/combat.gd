@@ -37,6 +37,14 @@ static func apply_resistance(dmg: int, resist: int, cap: int = 75) -> int:
 	var r := mini(resist, cap)
 	return int(round(dmg * (1.0 - float(r) / 100.0)))
 
+# Project balance: combined reductions have one-fifth potency against an
+# originally immune target. Crossing below 100 breaks immunity; floor is -100.
+static func reduced_resistance(base: int, curse: int, aura: int) -> int:
+	var reduction := maxi(0, curse) + maxi(0, aura)
+	if base >= 100:
+		reduction = floori(float(reduction) / 5.0)
+	return maxi(-100, base - reduction)
+
 static func block_chance(shield_block: int, dex: int, clvl: int) -> float:
 	if clvl <= 0:
 		return 0.0

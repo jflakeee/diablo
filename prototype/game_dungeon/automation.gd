@@ -25,7 +25,7 @@ func accepts(it: Dictionary) -> bool:
 	return slot in ["gold", "potion", "material", "skill_book", "vision_relic", "arc_flask"] or rank(String(it.get("quality", "normal"))) >= rank(pickup_min)
 
 func should_auto_sell(it: Dictionary, sale_value: int, requirement_locked: bool) -> bool:
-	if not auto_sell or requirement_locked or bool(it.get("salvage_protected", false)):
+	if not auto_sell or requirement_locked or not bool(it.get("identified", true)) or bool(it.get("salvage_protected", false)):
 		return false
 	if not String(it.get("slot", "")) in ["weapon", "armor", "ring", "amulet"]:
 		return false
@@ -66,6 +66,8 @@ func potion_upgrade(ptype: String, tier: int) -> bool:
 	return true
 
 func item_score(it: Dictionary) -> int:
+	if not bool(it.get("identified", true)):
+		return 0
 	var score := rank(String(it.get("quality", "normal"))) * 10000
 	if String(it.get("slot", "")) == "weapon":
 		score += int(it.get("dmax", 0)) * 100 + int(it.get("dmin", 0)) * 40
@@ -76,10 +78,10 @@ func item_score(it: Dictionary) -> int:
 	return score
 
 func should_equip(it: Dictionary, current: Dictionary) -> bool:
-	return rank(String(it.get("quality", "normal"))) >= rank(equip_min) and (current.is_empty() or item_score(it) > item_score(current))
+	return bool(it.get("identified", true)) and rank(String(it.get("quality", "normal"))) >= rank(equip_min) and (current.is_empty() or item_score(it) > item_score(current))
 
 func list_auction(it: Dictionary, now: int, duration: int = 120) -> bool:
-	if rank(String(it.get("quality", "normal"))) < rank(auction_min):
+	if not bool(it.get("identified", true)) or rank(String(it.get("quality", "normal"))) < rank(auction_min):
 		return false
 	var entry := {"item": it.duplicate(true), "expires": now + duration, "protected": bool(it.get("salvage_protected", false))}
 	auctions.append(entry)

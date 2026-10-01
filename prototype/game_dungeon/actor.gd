@@ -43,6 +43,23 @@ var skill_points := 0
 var skills := {}          # id(String) -> level(int)
 var bo_pct := 0.0         # Battle Orders 최대 Life/Mana 보너스%
 var bo_timer := 0.0       # 남은 지속(초)
+var hex_timer := 0.0
+var hex_reduction := 0
+
+func apply_hex(reduction: int, duration: float) -> void:
+	if not alive or is_player or is_ally or reduction <= 0 or duration <= 0.0:
+		return
+	hex_reduction = maxi(hex_reduction, reduction) if hex_timer > 0.0 else reduction
+	hex_timer = maxf(hex_timer, duration)
+	queue_redraw()
+
+func tick_hex(delta: float) -> void:
+	if hex_timer <= 0.0:
+		return
+	hex_timer = maxf(0.0, hex_timer - maxf(0.0, delta))
+	if hex_timer <= 0.0:
+		hex_reduction = 0
+	queue_redraw()
 
 enum AnimState { IDLE, WALK, ATTACK, CAST, HIT, DEATH }
 enum Facing { SOUTH, EAST, NORTH, WEST }
@@ -353,6 +370,15 @@ func take_damage(amount: int) -> void:
 func _draw() -> void:
 	if not alive:
 		return
+	if is_player and bo_timer > 0.0:
+		var aura := PackedVector2Array()
+		for index in 33:
+			var angle := TAU * float(index) / 32.0
+			aura.append(Vector2(cos(angle) * 25.0, sin(angle) * 10.0 + 9.0))
+		draw_polyline(aura, Color(1.0, 0.72, 0.2, 0.8), 2.0)
+	if hex_timer > 0.0:
+		draw_rect(Rect2(-17, -43, 34, 3), Color(0.12, 0.05, 0.18))
+		draw_rect(Rect2(-17, -43, 34 * clampf(hex_timer / 6.0, 0.0, 1.0), 3), Color(0.75, 0.4, 1.0))
 	var w := 34.0
 	var life_frac := clampf(float(life) / float(maxi(max_life, 1)), 0.0, 1.0)
 	var top := Vector2(-w * 0.5, -36.0)

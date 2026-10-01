@@ -15,6 +15,22 @@ const DEFS := {
 }
 
 const MAX_LEVEL := 20
+const HEX_DURATION := 6.0
+const AURA_RADIUS := 6.0
+
+static func storm_hex_reduction(lvl: int) -> int:
+	return 0 if lvl <= 0 else mini(70, 30 + 2 * lvl)
+
+static func iron_aura_reduction(lvl: int) -> int:
+	return 0 if lvl <= 0 else mini(60, 20 + 2 * lvl)
+
+static func effect_description(id: String, lvl: int) -> String:
+	if id == "storm_lance":
+		return "Storm Hex: -%d elemental resistance for 6s; repeat hits refresh. Immunity: 1/5 effect." % storm_hex_reduction(maxi(1, lvl))
+	if id == "iron_chant":
+		return "Sundering Aura: -%d elemental resistance within 6 tiles and line of sight while chanting. Immunity: 1/5 effect." % iron_aura_reduction(maxi(1, lvl))
+	return ""
+
 const SYNERGIES := {
 	"sundering_strike": {"weapon_discipline": 4.0},
 	"void_fury": {"sundering_strike": 6.0},

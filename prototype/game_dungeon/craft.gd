@@ -72,3 +72,39 @@ static func upgrade_gem_quality(q: String) -> String:
 	if i >= 0 and i < GEM_QUALITY.size() - 1:
 		return GEM_QUALITY[i + 1]
 	return ""
+
+# Bare gem IDs are the normal-quality materials used by existing saves/drops.
+# Upgraded gems use gem:quality; sigils use rune_ID.
+static func material_name(id: String) -> String:
+	if id.begins_with("rune_"):
+		return "%s Sigil" % id.trim_prefix("rune_")
+	var parts := id.split(":")
+	if GEM_STATS.has(parts[0]):
+		return "%s %s" % [String(parts[1] if parts.size() == 2 else "normal").capitalize(), String(parts[0]).capitalize()]
+	return id.capitalize()
+
+static func upgrade_material(id: String) -> String:
+	if id.begins_with("rune_"):
+		var next := upgrade_rune(id.trim_prefix("rune_"))
+		return "rune_" + next if not next.is_empty() else ""
+	var parts := id.split(":")
+	if parts.size() > 2 or not GEM_STATS.has(parts[0]):
+		return ""
+	var quality := String(parts[1]) if parts.size() == 2 else "normal"
+	var next := upgrade_gem_quality(quality)
+	if next.is_empty():
+		return ""
+	return String(parts[0]) if next == "normal" else "%s:%s" % [parts[0], next]
+
+static func transmute(materials: Dictionary, id: String) -> bool:
+	var result := upgrade_material(id)
+	var available := int(materials.get(id, 0))
+	if result.is_empty() or available < 3:
+		return false
+	# Revalidate at execution time so stale UI cannot spend the same stack twice.
+	if available == 3:
+		materials.erase(id)
+	else:
+		materials[id] = available - 3
+	materials[result] = int(materials.get(result, 0)) + 1
+	return true

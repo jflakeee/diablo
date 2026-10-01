@@ -16,7 +16,7 @@ godot_console --verbose --headless --path prototype/game_dungeon -- autoquit str
 The item regression suite covers the `ring` and `amulet` slots, authored unique
 identity and fixed affixes, indestructible durability behavior, and zero repair
 cost. Content coverage requires all four equipment slots and nine base items.
-The current system suite reports 53 checks.
+The current system suite reports 108 checks (2026-10-01); the count is measured at runtime.
 
 에셋 컴파일은 `[AG][RESULT] verdict=PASS`, 두 클래스 실행은 `[SYSTEM] ... verdict=PASS`와 최종 `[GD][RESULT] verdict=PASS`를 모두 출력해야 한다. `strict_assets`에서는 누락 목록이 비어 있고 `fallback_count=0`이어야 한다. 테스트 프로세스 종료 시 누수·고아 리소스 경고가 없어야 한다.
 
@@ -32,6 +32,9 @@ The current system suite reports 53 checks.
 | 스킬 | 독자 스킬 ID, 비용, 요구 레벨·선행 스킬·20레벨 상한·6개 시너지, 투자 거부 | `[SYSTEM]` 트리/시너지 경계, 양 클래스 50초 실행 | PASS |
 | 아이템 | 고유·세트 장비명, 고정 옵션, 품질 색, 2부위 세트 보너스, 파손 비활성화 | `system_tests.gd`: Rift Cleaver, Ember Oath | PASS |
 | 제작 | 각인 순서, 역순 거부, 승급 | `system_tests.gd`, `[P4][RESULT]` | PASS |
+| 큐브 UI | 가방 진입, 동일 재료 3:1 승급, 수량/결과 표시, 부족/최고 등급 거부, 기존 보석 호환, 재료 저장 | `[SYSTEM]` 8개 큐브 검사, `tools/cube_ui_test.gd` 실제 버튼·중복 입력·320/640px 레이아웃 | PASS |
+| 감정 | 레어 드롭 미감정, 이름/옵션 숨김, 무료 감정, 플레이어/동료 장착 및 자동 판매/경매 보호, 기존 저장 호환 | `[SYSTEM]`, `[SAVE]`, `tools/progression_combat_test.gd` 실제 버튼·중복 입력·판매/장착 경로 | PASS |
+| 저주/오라 | Storm Hex 6초, Iron Chant 6타일·시야 제한, 합산 후 면역 1/5 효율, 만료 및 원본 저항 보존 | `[SYSTEM]`, `tools/progression_combat_test.gd` 실제 시전·벽/거리/마나/사망·스냅샷 검사 | PASS |
 | 던전 | 27×27, 9방/8문, 결정성, 연결성 | `system_tests.gd`: BFS 및 동일 시드 | PASS |
 | 반응형 UI | 모바일 safe area·48px 이상 터치 타깃·가상 조이스틱, PC 소형 조작부·조이스틱 숨김·마우스 스킬 입력 | `[MOBILE_UI]` 모바일/PC 각 4개 화면비 및 겹침 검사 | PASS |
 | PC 입력 | WASD·방향키 정규화 이동, 스킬 1~4, 물약 5/6, 전체화면 F11·설정 버튼 | `[PC_INPUT]` 슬롯·축·대각선 검사 및 시각 검증 | PASS |

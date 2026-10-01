@@ -62,6 +62,40 @@ powershell -NoProfile -ExecutionPolicy Bypass -File prototype/game_dungeon/tools
 
 Android 네이티브 출시는 Web/PWA와 별도이며 필요한 SDK와 실기기 완료 기준은 `docs/ANDROID_EXPORT_REQUIREMENTS.md`에 기록한다.
 
+### Crafting Cube
+
+가방의 `Crafting Cube`에서 수집한 보석·각인의 수량과 승급 결과를 확인한다.
+동일 재료 3개를 소모하면 다음 등급 1개가 재료함에 합쳐진다. 재료가 부족하면
+버튼이 비활성화되고 최고 등급은 승급할 수 없다. 기본 보석과 Ahn/Vey 각인은
+몬스터에게서 드롭된다. 기존 저장의 보석 ID는 보통 등급으로 유지되며,
+승급 재료도 기존 자동화 재료함과 함께 저장/불러오기된다.
+
+UI 회귀 검사: `godot_console --headless --path prototype/game_dungeon --script res://tools/cube_ui_test.gd`
+검사는 실제 버튼 입력, 중복 입력, 재료 부족, 빈 재료함과 320/640px 폭을 확인하며
+플레이 저장을 변경하지 않는다.
+
+### Identification and resistance effects
+
+새 몬스터 드롭의 레어 장비는 미감정 상태다. 가방의 `Identify (Free)`로 기존에
+생성된 이름·옵션을 공개한다. 감정 전에는 플레이어/동료 장착, 자동 판매·경매,
+일괄 판매를 차단하며 보관함 이동은 가능하다. 감정 시 자동 장착하거나 옵션을
+다시 뽑지 않는다. 기존 저장의 감정 필드가 없는 장비와 상인 도박 장비는 감정 완료로 취급한다.
+
+- `Storm Lance`: 명중 직전 `Storm Hex`를 적용한다. 6초 동안 원소 저항을
+  `min(70, 30 + 2 × 스킬 레벨)`만큼 낮춘다. 재시전은 지속시간을 갱신하며 중첩하지 않는다.
+- `Iron Chant`: 기존 생명/마나 버프와 함께 `Sundering Aura`를 유지한다.
+  살아 있는 시전자 기준 6타일 이내·시야가 닿는 적의 원소 저항을
+  `min(60, 20 + 2 × 스킬 레벨)`만큼 낮춘다. 마을에서는 적용하지 않는다.
+- 원래 저항이 100 이상이면 저주와 오라의 합산 감소량에 1/5 효율(내림)을 적용한다.
+  계산 후 100 미만이어야 면역이 해제되고 저항 하한은 −100이다. 적은 99%까지,
+  플레이어는 기존 75% 상한으로 피해를 계산한다. 물리 피해에는 적용하지 않는다.
+- 저주 잔여시간은 보라색 막대, 활성 오라는 시전자 발밑 고리로 표시한다.
+  스킬 설명은 캐릭터 창과 툴팁에서 확인한다. 저장 시 현재 층의 저주와
+  Iron Chant 잔여시간도 보존하며, 새로 생성된 층의 적은 저주가 없는 상태로 시작한다.
+
+통합 회귀 검사:
+`godot_console --headless --path prototype/game_dungeon --script res://tools/progression_combat_test.gd`
+
 ```powershell
 godot_console --headless --path . res://tools/network_harness.tscn -- net_server net_multi
 godot_console --headless --path . res://tools/network_harness.tscn -- net_client net_multi

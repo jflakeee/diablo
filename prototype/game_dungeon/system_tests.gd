@@ -13,8 +13,12 @@ const Mercenary := preload("res://mercenary.gd")
 const Stamina := preload("res://stamina.gd")
 const DeathSystem := preload("res://death_system.gd")
 const Stash := preload("res://stash.gd")
+const Automation := preload("res://automation.gd")
+const Actor := preload("res://actor.gd")
+static var _checks := 0
 
 static func _check(condition: bool, label: String, failures: Array) -> void:
+	_checks += 1
 	if not condition:
 		failures.append(label)
 
@@ -43,11 +47,28 @@ static func _connected(level: Dictionary) -> bool:
 
 static func run() -> Dictionary:
 	var failures: Array = []
+	_checks = 0
 
 	_check(is_equal_approx(Combat.chance_to_hit(1, 100000, 1, 99), 5.0), "combat hit floor", failures)
 	_check(is_equal_approx(Combat.chance_to_hit(100000, 0, 99, 1), 95.0), "combat hit cap", failures)
 	_check(Combat.apply_resistance(100, 100) == 0, "resistance immunity", failures)
 	_check(Combat.apply_resistance(100, -50) == 150, "negative resistance", failures)
+	_check(Combat.reduced_resistance(50, 30, 20) == 0, "hex and aura combined reduction", failures)
+	_check(Combat.reduced_resistance(100, 30, 20) == 90 and Combat.apply_resistance(100, 90, 99) == 10, "immune target reduced potency and exact damage", failures)
+	_check(Combat.reduced_resistance(120, 30, 20) == 110 and Combat.apply_resistance(100, 110, 99) == 0, "strong immunity remains intact", failures)
+	_check(Combat.reduced_resistance(99, 30, 20) == 49 and Combat.reduced_resistance(100, 4, 0) == 100, "immunity threshold and rounding", failures)
+	_check(Combat.reduced_resistance(-90, 30, 20) == -100 and Combat.reduced_resistance(25, -10, -10) == 25, "resistance floor and invalid reduction", failures)
+	var hex_target := Actor.new()
+	hex_target.apply_hex(32, 6.0)
+	hex_target.tick_hex(2.0)
+	hex_target.apply_hex(32, 6.0)
+	_check(hex_target.hex_reduction == 32 and hex_target.hex_timer == 6.0, "hex refresh does not stack", failures)
+	hex_target.tick_hex(6.0)
+	_check(hex_target.hex_reduction == 0 and hex_target.hex_timer == 0.0, "hex expiration clears reduction", failures)
+	hex_target.is_ally = true
+	hex_target.apply_hex(32, 6.0)
+	_check(hex_target.hex_timer == 0.0, "hex cannot affect allies", failures)
+	hex_target.free()
 	_check(Combat.sorc_fcr_frames(0) == 13 and Combat.sorc_fcr_frames(200) == 7, "cast breakpoints", failures)
 	_check(is_equal_approx(Combat.frames_to_sec(25), 1.0), "25 fps timing", failures)
 	_check(Combat.diff_player_resist_penalty(2) == -100 and Combat.diff_hell_physical_floor(2) == 50, "difficulty penalties", failures)
@@ -71,6 +92,26 @@ static func run() -> Dictionary:
 	_check(is_equal_approx(Skills.synergy_bonus_pct("void_fury", {"sundering_strike": 2}), 12.0), "attack synergy damage", failures)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
+	var unidentified := Item.generate(rng, Item.WEAPON_BASES[0], 12, "rare")
+	unidentified["identified"] = false
+	var original_roll: Dictionary = unidentified["affixes"].duplicate(true)
+	var hidden_name := Item.display_name(unidentified)
+	_check(hidden_name == "Unidentified Short Sword" and Item.affix_text(unidentified) == "Hidden options - identify in Bag", "unidentified hides name and options", failures)
+	_check(not Item.can_equip(unidentified, 99, 999, 999) and not Mercenary.can_equip(unidentified), "unidentified hero and merc equip rejection", failures)
+	_check(Item.effective_affixes(unidentified).is_empty(), "unidentified affixes inactive", failures)
+	var identify_automation := Automation.new()
+	_check(not identify_automation.should_auto_sell(unidentified, 1, false) and not identify_automation.should_equip(unidentified, {}) and not identify_automation.list_auction(unidentified, 0), "unidentified automation protection", failures)
+	_check(Item.identify(unidentified) and unidentified["affixes"] == original_roll and Item.can_equip(unidentified, 99, 999, 999), "identification reveals original roll and enables equip", failures)
+	_check(not Item.identify(unidentified) and unidentified["affixes"] == original_roll, "identification repeat is inert", failures)
+	_check(Item.is_identified({"slot": "weapon"}) and not Item.identify({"slot": "material", "identified": false}), "legacy identified default and non-gear rejection", failures)
+	var rare_drops := 0
+	var hidden_rares := true
+	for drop_index in 300:
+		var drop := Item.roll_drop(rng, 12, 200)
+		if String(drop.get("quality", "")) == "rare":
+			rare_drops += 1
+			hidden_rares = hidden_rares and not Item.is_identified(drop)
+	_check(rare_drops > 0 and hidden_rares, "new rare drops require identification", failures)
 	var unique_ring := Item.generate(rng, Item.ACCESSORY_BASES[0], 12, "unique")
 	_check(Item.display_name(unique_ring) == "Kindled Circuit (Copper Ring)", "unique accessory identity", failures)
 	_check(String(unique_ring.get("slot", "")) == "ring" and int(unique_ring["affixes"].get("res_fire", 0)) == 20, "accessory fixed affixes", failures)
@@ -128,6 +169,23 @@ static func run() -> Dictionary:
 	_check(Craft.match_runeword("weapon", ["Ahn", "Vey"]).is_empty(), "sigil reverse rejection", failures)
 	_check(Craft.upgrade_rune("Ahn") == "Ahnor", "sigil upgrade", failures)
 	_check(Craft.upgrade_gem_quality("flawless") == "perfect", "gem upgrade", failures)
+	var materials := {"ruby": 6, "ruby:flawless": 2, "rune_Ahn": 3, "unknown": 9}
+	_check(Craft.transmute(materials, "ruby") and int(materials["ruby"]) == 3 and int(materials["ruby:flawless"]) == 3, "cube spends three and merges output", failures)
+	_check(Craft.transmute(materials, "ruby:flawless") and not materials.has("ruby:flawless") and int(materials["ruby:perfect"]) == 1, "cube chained gem upgrade", failures)
+	_check(Craft.transmute(materials, "rune_Ahn") and not materials.has("rune_Ahn") and int(materials["rune_Ahnor"]) == 1, "cube sigil upgrade", failures)
+	var before_cube := materials.duplicate(true)
+	_check(not Craft.transmute(materials, "rune_Ahn") and not Craft.transmute(materials, "rune_Ahnor") and materials == before_cube, "cube stale click and insufficient stock preserve materials", failures)
+	_check(not Craft.transmute(materials, "ruby:perfect") and not Craft.transmute(materials, "unknown") and materials == before_cube, "cube invalid and maximum grade preserve materials", failures)
+	_check(Craft.upgrade_material("rune_Zorin").is_empty() and Craft.upgrade_material("ruby:invalid").is_empty() and Craft.upgrade_material("ruby:normal:extra").is_empty(), "cube rejects terminal sigil and malformed gem", failures)
+	_check(Craft.upgrade_material("ruby:flawed") == "ruby" and Craft.upgrade_material("ruby") == "ruby:flawless", "cube legacy normal gem compatibility", failures)
+	var cube_store := Automation.new()
+	cube_store.materials = materials.duplicate(true)
+	var cube_loaded := Automation.new()
+	cube_loaded.restore(JSON.parse_string(JSON.stringify(cube_store.snapshot())))
+	var cube_roundtrip_ok := cube_loaded.materials.size() == materials.size()
+	for material_id in materials:
+		cube_roundtrip_ok = cube_roundtrip_ok and int(cube_loaded.materials.get(material_id, -1)) == int(materials[material_id])
+	_check(cube_roundtrip_ok and Craft.transmute(cube_loaded.materials, "ruby") and int(materials["ruby"]) == 3, "cube save roundtrip and independent storage", failures)
 
 	var level_a := LevelGen.generate(424242, 1)
 	var level_b := LevelGen.generate(424242, 1)
@@ -186,4 +244,4 @@ static func run() -> Dictionary:
 	var restored_waypoints := Waypoint.normalize_state(waypoint_defs, waypoint_state.duplicate(true))
 	_check((restored_waypoints["unlocked"] as Dictionary).size() == 2 and String(restored_waypoints["current"]) == "hollow_watch", "waypoint save normalization", failures)
 
-	return {"ok": failures.is_empty(), "checks": 81, "failures": failures}
+	return {"ok": failures.is_empty(), "checks": _checks, "failures": failures}
