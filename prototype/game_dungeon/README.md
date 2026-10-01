@@ -114,6 +114,17 @@ roll turns the whole pack gold/blue together and uniques share the same
 spawned monsters by pack id and verifies cluster distance and rank consistency,
 printing `[PACK] packs=N min_size=.. max_size=.. verdict=..`.
 
+### Monster AI interest-area culling
+
+Witnessed monsters (seen at least once through fog) used to run full AI and
+A* pathfinding every tick forever, even far from the player. Non-boss
+monsters now skip that frame's AI entirely when farther than 6 tiles from the
+player (attack cooldown still ticks down). The player's own movement is
+unaffected, so approaching a culled monster still closes the distance and
+re-enables its AI normally. Bosses are exempt. Autoquit prints
+`[AI_CULL] astar_calls=.. culled_far=.. witness_max_dist=.. verdict=..` and
+fails the run if culling never actually triggered.
+
 ### Preset room variety
 
 Each generated room rolls one of three authored pillar presets: none (50%),

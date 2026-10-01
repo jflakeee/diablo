@@ -111,6 +111,16 @@ var _in_town := false
 var _last_visibility_cell := Vector2i(-999, -999)
 const SIGHT_RADIUS := 8
 const VISION_RELIC_DURATION := 30.0
+# 관심영역(어그로 범위) 컬링: SIGHT_RADIUS(8)로 "목격"된 몬스터라도 플레이어가
+# 이 거리 안으로 들어오기 전까지는 그 프레임의 AI(및 A* 경로탐색)를 건너뛴다.
+# 목격=기억(안개 해제), 관심영역=실제 추격 시작이 분리되어 있어 시야 가장자리에서
+# 막 보인 몬스터가 매 프레임 비싼 경로탐색을 도는 낭비를 없앤다. 플레이어가 직접
+# 다가가는 동작 자체는 몬스터 AI와 무관하므로 플레이어 접근은 지연되지 않는다.
+# 보스는 예외(항상 전력 가동).
+const AI_INTEREST_RADIUS_SQ := 6.0 * 6.0
+var _astar_calls := 0
+var _ai_culled_far := 0
+var _witness_max_dist_sq := 0.0
 var _vision_relic_timer := 0.0
 var _arc_flasks := 0
 var _attack_line: Line2D
@@ -870,6 +880,7 @@ func _path_next(actor: ActorScript, from: Vector2i, to: Vector2i) -> Vector2i:
 	if to != cached_to or now - last > 400 or path.size() < 2:
 		if _astar != null:
 			path = _astar.get_id_path(from, to)
+			_astar_calls += 1
 		actor.set_meta("path", path)
 		actor.set_meta("path_to", to)
 		actor.set_meta("path_ms", now)
@@ -2228,7 +2239,14 @@ func _physics_process(delta: float) -> void:
 		var kind := String(m.get_meta("kind", "melee"))
 		if kind == "boss":
 			_boss_ai(m, delta)
-		elif kind == "ranged":
+			continue
+		var dist_sq := Vector2(_player.gx - m.gx, _player.gy - m.gy).length_squared()
+		if dist_sq > _witness_max_dist_sq:
+			_witness_max_dist_sq = dist_sq
+		if dist_sq > AI_INTEREST_RADIUS_SQ:
+			_ai_culled_far += 1
+			continue
+		if kind == "ranged":
 			_ranged_ai(m, delta)
 		else:
 			_melee_ai(m, delta)
@@ -2636,6 +2654,8 @@ func _process(delta: float) -> void:
 		print("[MERC] kills=%d state=%s" % [_merc_kills, mstate])
 		print("[GOLD] gold=%d sold_total=%d gambles=%d" % [_gold, _gold_sold, _gambles])
 		print("[MAP] tex=%s grid=%dx%d monster_dots=%d" % [str(_minimap != null and _minimap.tex != null), _minimap.gw if _minimap else 0, _minimap.gh if _minimap else 0, _minimap.monster_cells.size() if _minimap else 0])
+		var ai_cull_ok := _ai_culled_far > 0
+		print("[AI_CULL] astar_calls=%d culled_far=%d witness_max_dist=%.1f verdict=%s" % [_astar_calls, _ai_culled_far, sqrt(_witness_max_dist_sq), "PASS" if ai_cull_ok else "FAIL"])
 		print("[ACT] act=%d level_in_act=%d/%d boss_level=%s exit_locked=%s acts_cleared=%d" % [
 			_act, _level_in_act(), ACT_LEN, str(_is_boss_level()), str(_exit_locked), _acts_cleared])
 		var completed_quests := 0
@@ -2654,7 +2674,7 @@ func _process(delta: float) -> void:
 		print("[ASSET] monsters compiled=%d fallback=%d runtime=%s" % [_compiled_monsters, _generated_monsters, str(asset_report)])
 		var perf_report := PerformanceBudget.evaluate(elapsed, _logic_ticks, _perf_peak_active, _perf_start_memory, _perf_peak_memory)
 		print("[PERF] logic_hz=%.2f peak_active=%d memory_growth_kib=%.1f failures=%s verdict=%s" % [float(perf_report["logic_hz"]), int(perf_report["peak_active"]), float(perf_report["memory_growth"]) / 1024.0, str(perf_report["failures"]), "PASS" if bool(perf_report["ok"]) else "FAIL"])
-		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and bool(perf_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok and _online_selftest_ok and _coverage_selftest_ok and _waypoint_selftest_ok and _pack_selftest_ok and _boss_room_selftest_ok
+		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and bool(perf_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok and _online_selftest_ok and _coverage_selftest_ok and _waypoint_selftest_ok and _pack_selftest_ok and _boss_room_selftest_ok and ai_cull_ok
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		_release_runtime_resources()
 		await get_tree().process_frame

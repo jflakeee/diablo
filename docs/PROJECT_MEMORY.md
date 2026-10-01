@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-01 (프리셋 룸 다양화 배포)
+최종 갱신: 2026-10-01 (몬스터 AI 관심영역 컬링 배포)
 
 ## 맵 생성 상태
 
@@ -24,12 +24,12 @@
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 배포 표시 시각: `2026-10-01 23:27 KST`
-- 소스 커밋: 프리셋 룸 다양화 + act3 연결성 복구 버그 수정(본 커밋)
-- 최신 배포 커밋: `f01fefb` (gh-pages)
+- 배포 표시 시각: `2026-10-01 23:38 KST`
+- 소스 커밋: 몬스터 AI 관심영역 컬링(본 커밋)
+- 최신 배포 커밋: `94228cb` (gh-pages)
 - Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`), 루트 HTTP 200 확인
-- 원격 기본 URL의 PCK SHA-256: `3813252a11de57e0d2857229c43ccb8f4f603671fab7e9f8cfd159397eb2c44e`
-- 원격 PCK 1,249,564 bytes 및 로컬 빌드 해시 일치 확인.
+- 원격 기본 URL의 PCK SHA-256: `0536ec3f0f9f9728d2d6c9542459448ef98114a12c31bee92a464d18e1dbe191`
+- 원격 PCK 1,250,268 bytes 및 로컬 빌드 해시 일치 확인.
 
 ## 다음 점검 항목
 
@@ -110,3 +110,21 @@
   `[GD][RESULT] verdict=PASS` 재확인(최초 수정 전 FAIL 재현 후 수정 확인 과정 거침).
 - Web release export → gh-pages 배포 커밋 `f01fefb`, Pages 빌드 `built`, 루트 HTTP 200,
   로컬/원격 PCK SHA-256(`3813252a...`) 일치 확인.
+
+## 2026-10-01 몬스터 AI 관심영역 컬링 (원격 배포 완료)
+
+- 설계 문서: `docs/superpowers/specs/2026-10-01-monster-ai-interest-area-culling-design.md`.
+- 목격된 일반 몬스터(보스 제외)가 플레이어로부터 `AI_INTEREST_RADIUS`(6타일) 밖이면 그
+  프레임의 AI(`_melee_ai`/`_ranged_ai`, 내부 A* 경로탐색 포함)를 건너뛴다. 플레이어 자신의
+  이동은 몬스터 AI와 무관해 접근하면 정상적으로 재가동된다.
+- 처음 14타일로 시도했으나 오토퀴트 실측상 플레이어의 최근접 교전 AI가 항상 목격된
+  몬스터를 빠르게 처리해 관측 최대 거리가 7.8타일을 넘지 않아 한 번도 발동하지 않음을
+  확인 → 목격 반경(8) 바로 아래인 6으로 조정.
+- 계측: `_astar_calls`(실제 A* 호출), `_ai_culled_far`(컬링 발동 횟수), `_witness_max_dist_sq`
+  (진단용). `[AI_CULL] astar_calls=.. culled_far=.. witness_max_dist=.. verdict=..` 출력,
+  컬링이 실제로 발동했는지(`culled_far>0`)를 최종 `ok` 집계에 포함.
+- 검증: barb `astar_calls=218 culled_far=61 witness_max_dist=7.4 verdict=PASS`, sorc
+  `astar_calls=572 culled_far=321 witness_max_dist=11.4 verdict=PASS`, 양 클래스
+  `[GD][RESULT] verdict=PASS`, `[PERF]` 50초 예산 유지.
+- Web release export → gh-pages 배포 커밋 `94228cb`, Pages 빌드 `built`, 루트 HTTP 200,
+  로컬/원격 PCK SHA-256(`0536ec3f...`) 일치 확인.
