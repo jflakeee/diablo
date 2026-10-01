@@ -114,6 +114,19 @@ roll turns the whole pack gold/blue together and uniques share the same
 spawned monsters by pack id and verifies cluster distance and rank consistency,
 printing `[PACK] packs=N min_size=.. max_size=.. verdict=..`.
 
+### Inventory grid (Bag)
+
+The Bag view shows each item as a 64x64+ tappable tile (base name, quality
+color, full name as tooltip) in a grid instead of a full detail row per item.
+Tapping a tile selects it and reveals the existing single detail panel below
+(equip, Identify (Free) when unidentified, Keep/Merc/Stash/Sell/Protected) —
+the same handlers as before, only the rendering changed. Exactly one item is
+selected whenever the bag is non-empty (defaults to the first), so a
+single-item inventory still shows its detail panel without requiring a tap.
+This is a tap-select grid, not a drag-and-drop W×H socket grid — item data has
+no cell-size field and drag gestures are out of scope; see the design doc for
+why. Cube/Collection/Item Log views are untouched.
+
 ### Monster AI interest-area culling
 
 Witnessed monsters (seen at least once through fog) used to run full AI and

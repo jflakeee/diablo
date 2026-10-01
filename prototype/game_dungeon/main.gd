@@ -170,6 +170,7 @@ var _minimap: Control
 var _inv_panel: Panel
 var _inv_vbox: VBoxContainer
 var _inventory_view := "bag"
+var _selected_inventory_item := -1
 var _rng := RandomNumberGenerator.new()
 var _combat_log := "-"
 var _stamina := 100.0
@@ -4263,7 +4264,33 @@ func _rebuild_inv() -> void:
 	head.text = "Weapon: %s\nArmor: %s\nLeft Ring: %s\nRight Ring: %s\nAmulet: %s\nMerc Weapon: %s\nMerc Armor: %s\nBag %d / Stash %d/%d / Materials %d" % [wn, an, rln, rrn, mn, merc_weapon, merc_armor, _inventory.size(), _stash.size(), Stash.CAPACITY, _automation.materials.size()]
 	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_inv_vbox.add_child(head)
-	for it in _inventory:
+	# 격자 탭 UI: 타일 하나 = 아이템 하나. 탭하면 아래에 그 아이템의 상세
+	# 패널(기존 장착/감정/행동 버튼 전체)만 펼친다 — 전체 목록을 한 번에
+	# 세로로 나열하지 않아 가방이 길어져도 스크롤 부담이 적다.
+	if _selected_inventory_item >= _inventory.size():
+		_selected_inventory_item = -1
+	if _selected_inventory_item < 0 and not _inventory.is_empty():
+		_selected_inventory_item = 0
+	if not _inventory.is_empty():
+		var grid := GridContainer.new()
+		grid.columns = 4
+		for i in _inventory.size():
+			var slot_item: Dictionary = _inventory[i]
+			var tile := Button.new()
+			tile.custom_minimum_size = Vector2(64, 64)
+			tile.text = ("> " if i == _selected_inventory_item else "") + String(slot_item.get("name", "?"))
+			tile.tooltip_text = Item.display_name(slot_item)
+			tile.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			tile.add_theme_color_override("font_color", Item.quality_color(String(slot_item["quality"])))
+			var tile_index := i
+			tile.pressed.connect(func():
+				_selected_inventory_item = tile_index
+				_rebuild_inv()
+			)
+			grid.add_child(tile)
+		_inv_vbox.add_child(grid)
+	if _selected_inventory_item >= 0 and _selected_inventory_item < _inventory.size():
+		var it: Dictionary = _inventory[_selected_inventory_item]
 		var row := VBoxContainer.new()
 		var btn := Button.new()
 		var power_text := "%.0f" % _item_combat_power(it) if Item.is_identified(it) else "?"

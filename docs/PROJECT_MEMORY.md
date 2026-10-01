@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-01 (몬스터 AI 관심영역 컬링 배포)
+최종 갱신: 2026-10-01 (인벤토리 그리드 Bag UI 배포 — 2026-10-01 미착수 작업 백로그 완료)
 
 ## 맵 생성 상태
 
@@ -24,12 +24,12 @@
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 배포 표시 시각: `2026-10-01 23:38 KST`
-- 소스 커밋: 몬스터 AI 관심영역 컬링(본 커밋)
-- 최신 배포 커밋: `94228cb` (gh-pages)
+- 배포 표시 시각: `2026-10-01 23:50 KST`
+- 소스 커밋: 인벤토리 그리드 Bag UI(본 커밋)
+- 최신 배포 커밋: `2fbdee2` (gh-pages)
 - Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`), 루트 HTTP 200 확인
-- 원격 기본 URL의 PCK SHA-256: `0536ec3f0f9f9728d2d6c9542459448ef98114a12c31bee92a464d18e1dbe191`
-- 원격 PCK 1,250,268 bytes 및 로컬 빌드 해시 일치 확인.
+- 원격 기본 URL의 PCK SHA-256: `5287701e90d5b2904f102b62e848b036f4e4483daec4d52864b5b9b64f5bf0b9`
+- 원격 PCK 1,250,780 bytes 및 로컬 빌드 해시 일치 확인.
 
 ## 다음 점검 항목
 
@@ -128,3 +128,24 @@
   `[GD][RESULT] verdict=PASS`, `[PERF]` 50초 예산 유지.
 - Web release export → gh-pages 배포 커밋 `94228cb`, Pages 빌드 `built`, 루트 HTTP 200,
   로컬/원격 PCK SHA-256(`0536ec3f...`) 일치 확인.
+
+## 2026-10-01 인벤토리 그리드 Bag UI (원격 배포 완료 — 미착수 백로그 전체 완료)
+
+- 설계 문서: `docs/superpowers/specs/2026-10-01-inventory-grid-ui-design.md`.
+- 가방(Bag) 뷰를 "아이템마다 전체 액션 행 세로 나열"에서 "64x64+ 탭 타일 격자 + 선택된
+  1개의 상세 패널"로 교체(`main.gd _rebuild_inv()`, `_selected_inventory_item` 신규 상태).
+  장착/감정/Keep/Merc/Stash/Sell/Protected 기존 핸들러는 전부 그대로 재사용 — 렌더링만
+  변경, 로직 변경 없음. 인벤토리가 비어있지 않으면 항상 하나가 선택되어(기본 0번) 1개짜리
+  인벤토리도 탭 없이 바로 상세 패널이 보인다.
+- **명시적 비범위**: D2식 W×H 칸 드래그앤드롭 격자는 포함하지 않음 — 이 프로젝트 정의상
+  UI는 D2와 동일할 필요가 없고(각색 대상), 드래그 제스처·칸수 데이터·격자 충돌은 한 사이클로
+  끝낼 수 없는 다단계 작업이라 미완성 위험이 큼. 탭-격자로 백로그 항목을 완결된 형태로 충족.
+- cube/collection/item_log 뷰는 전혀 건드리지 않음.
+- 검증: `tools/progression_combat_test.gd`(Identify (Free) 버튼 재귀 탐색 계약) PASS,
+  `tools/cube_ui_test.gd`(cube 뷰 무관 확인) PASS, `auto_equip_sell_test` cmdline
+  (`_inv_vbox` 직계 자식 "RECENT ITEM LOG" Label 계약) `history_view=true verdict=PASS`,
+  양 클래스 `autoquit` `[GD][RESULT] verdict=PASS`.
+- Web release export → gh-pages 배포 커밋 `2fbdee2`, Pages 빌드 `built`, 루트 HTTP 200,
+  로컬/원격 PCK SHA-256(`5287701e...`) 일치 확인.
+- 2026-10-01 "미착수 작업 확인" 세션에서 식별한 5개 항목(pack 배치·보스룸·프리셋 룸·
+  A* 컬링·인벤토리 그리드) 전부 완료. 다음 미착수 작업은 신규 탐색 필요.
