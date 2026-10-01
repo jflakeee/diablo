@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-01 (몬스터 pack 군집 배치 배포)
+최종 갱신: 2026-10-01 (보스룸 전용 아레나 배포)
 
 ## 맵 생성 상태
 
@@ -24,12 +24,12 @@
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 배포 표시 시각: `2026-10-01 22:53 KST`
-- 소스 커밋: 몬스터 pack 군집 배치(본 커밋)
-- 최신 배포 커밋: `7082c49` (gh-pages)
+- 배포 표시 시각: `2026-10-01 23:12 KST`
+- 소스 커밋: 보스룸 전용 아레나(본 커밋)
+- 최신 배포 커밋: `481a74d` (gh-pages)
 - Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`), 루트 HTTP 200 확인
-- 원격 기본 URL의 PCK SHA-256: `b69ec2e5436e283933be2128532354fc252707a96814b728da1e55f90211cb2f`
-- 원격 PCK 1,244,572 bytes 및 로컬 빌드 해시 일치 확인.
+- 원격 기본 URL의 PCK SHA-256: `f7754bc428763070f725a07b34cce2a2bcf4b67f3aa4c6d5622f2a8f787d0cae`
+- 원격 PCK 1,248,396 bytes 및 로컬 빌드 해시 일치 확인.
 
 ## 다음 점검 항목
 
@@ -73,3 +73,23 @@
 - 보스 스폰과 저장 스키마는 변경하지 않음(런타임 스폰 로직만 변경).
 - Web release export → gh-pages 배포 커밋 `7082c49`, Pages 빌드 `built`, 루트 HTTP 200,
   로컬/원격 PCK SHA-256 일치 확인.
+
+## 2026-10-01 보스룸 전용 아레나 (원격 배포 완료)
+
+- 설계 문서: `docs/superpowers/specs/2026-10-01-boss-room-arena-design.md`.
+- `level_gen.gd`: `generate_chunk`에 `carve_boss_arena` 인자 추가. 참이면 테마 장식·장애물
+  배치가 전부 끝난 뒤 3x3 룸 그리드의 중앙 룸과 상하좌우 인접 4룸 사이 벽을 전체 폭으로
+  열어 십자(+) 모양 개활지를 만들고, 내부 PILLAR/LOW_WALL도 FLOOR로 되돌려 `boss_anchor`
+  (중앙 타일)를 반환한다.
+- `world_stream.gd`: `_is_boss_floor()`가 `floor_id`/`act`에서 보스 여부를 그때그때 재계산
+  (저장된 플래그 없음). 입구 청크(`sequence==0`)에만 아레나를 적용하며 `restore()`에서도
+  동일하게 재도출해 저장/불러오기 후 동일한 아레나가 재생성됨을 보장. `compose_active_grid()`가
+  전역 좌표 `boss_anchor`를 노출.
+- `main.gd`: `_boss_anchor_cell`을 모든 레이아웃 적용 경로(`_apply_dungeon_layout`)에서 갱신,
+  보스 스폰 시 아레나 중심을 우선 사용(무효하면 기존 `_random_floor_cell()` 폴백).
+- 셀프테스트: `level_gen.selftest()`가 3개 액트 테마 + blocked_random 모드에서 아레나가
+  깨끗한지, `world_stream.selftest()`가 보스 층 스냅샷/복원 후 동일 아레나·비보스 층 아레나
+  부재를 검증. 오토퀴트 `[BOSS_ROOM] anchor=(13, 13) boss_cell=(13, 13) used_arena=true
+  verdict=PASS`를 양 클래스에서 확인, 전체 `[GD][RESULT] verdict=PASS`.
+- Web release export → gh-pages 배포 커밋 `481a74d`, Pages 빌드 `built`, 루트 HTTP 200,
+  로컬/원격 PCK SHA-256(`f7754bc4...`) 일치 확인.

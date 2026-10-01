@@ -45,6 +45,7 @@ var _gw := 45
 var _gh := 45
 var _ent_cell := Vector2i(1, 1)
 var _exit_cell := Vector2i(1, 1)
+var _boss_anchor_cell := Vector2i(-1, -1)
 var _map_type := "dungeon"
 var _tiles_node: Node2D
 var _world_stream: WorldStream
@@ -209,6 +210,7 @@ var _online_selftest_ok := true
 var _coverage_selftest_ok := true
 var _waypoint_selftest_ok := true
 var _pack_selftest_ok := true
+var _boss_room_selftest_ok := true
 var _quitting := false
 var _perf_start_memory := 0
 var _perf_peak_memory := 0
@@ -486,6 +488,7 @@ func _apply_dungeon_layout(lvl: Dictionary) -> void:
 	_map_type = String(lvl.get("map_type", "dungeon"))
 	_ent_cell = lvl["entrance"]
 	_exit_cell = lvl["exit"]
+	_boss_anchor_cell = Vector2i(lvl.get("boss_anchor", Vector2i(-1, -1)))
 	# 제작기로 타일 변종 몇 개 미리 생성(성능: 재사용)
 	var palettes := {
 		1: [Color(0.26, 0.42, 0.28), Color(0.24, 0.40, 0.26), Color(0.28, 0.44, 0.30), Color(0.30, 0.28, 0.26), Color(0.26, 0.24, 0.23)],
@@ -634,9 +637,18 @@ func _spawn_dungeon_monsters() -> void:
 			var cell := anchor if n == 0 else _pack_member_cell(anchor)
 			_spawn_one(md, cell, pack_rank, pack_mod, pack_id)
 		spawned += pack_size
-	# 보스: 액트 마지막 층에만 등장(퀘스트 목표)
+	# 보스: 액트 마지막 층에만 등장(퀘스트 목표). 전용 아레나가 있으면 그 중심에,
+	# 없으면(구형 저장 등) 기존처럼 전역 랜덤 바닥칸에 스폰한다.
 	if boss_lv and not boss_def.is_empty():
-		_spawn_one(boss_def, _random_floor_cell())
+		var boss_cell := _boss_anchor_cell
+		var used_arena := boss_cell != Vector2i(-1, -1) and boss_cell.x >= 0 and boss_cell.y >= 0 and boss_cell.x < _gw and boss_cell.y < _gh and int(_grid[boss_cell.y][boss_cell.x]) == LevelGen.FLOOR
+		if not used_arena:
+			boss_cell = _random_floor_cell()
+		if _boss_room_selftest_ok and not (used_arena and boss_cell == _boss_anchor_cell):
+			_boss_room_selftest_ok = false
+		if _auto_quit:
+			print("[BOSS_ROOM] anchor=%s boss_cell=%s used_arena=%s verdict=%s" % [str(_boss_anchor_cell), str(boss_cell), str(used_arena), "PASS" if used_arena else "FAIL"])
+		_spawn_one(boss_def, boss_cell)
 
 # 유니크 보스 모디파이어(Part 3 §4 몬스터 팩) — D2 상징 접두 능력
 const UNIQ_MODS := [
@@ -2642,7 +2654,7 @@ func _process(delta: float) -> void:
 		print("[ASSET] monsters compiled=%d fallback=%d runtime=%s" % [_compiled_monsters, _generated_monsters, str(asset_report)])
 		var perf_report := PerformanceBudget.evaluate(elapsed, _logic_ticks, _perf_peak_active, _perf_start_memory, _perf_peak_memory)
 		print("[PERF] logic_hz=%.2f peak_active=%d memory_growth_kib=%.1f failures=%s verdict=%s" % [float(perf_report["logic_hz"]), int(perf_report["peak_active"]), float(perf_report["memory_growth"]) / 1024.0, str(perf_report["failures"]), "PASS" if bool(perf_report["ok"]) else "FAIL"])
-		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and bool(perf_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok and _online_selftest_ok and _coverage_selftest_ok and _waypoint_selftest_ok and _pack_selftest_ok
+		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and bool(perf_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok and _online_selftest_ok and _coverage_selftest_ok and _waypoint_selftest_ok and _pack_selftest_ok and _boss_room_selftest_ok
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		_release_runtime_resources()
 		await get_tree().process_frame

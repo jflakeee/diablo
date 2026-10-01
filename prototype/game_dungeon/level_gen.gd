@@ -16,12 +16,12 @@ const MODE_RANDOM := "random"
 const MODE_BLOCKED_RANDOM := "blocked_random"
 
 static func generate(seed_val: int, act: int = 1) -> Dictionary:
-	return _generate_region(seed_val, act, SLOTS, MODE_RANDOM)
+	return _generate_region(seed_val, act, SLOTS, MODE_RANDOM, false)
 
-static func generate_chunk(seed_val: int, act: int = 1, mode: String = MODE_RANDOM) -> Dictionary:
-	return _generate_region(seed_val, act, 3, mode)
+static func generate_chunk(seed_val: int, act: int = 1, mode: String = MODE_RANDOM, carve_boss_arena: bool = false) -> Dictionary:
+	return _generate_region(seed_val, act, 3, mode, carve_boss_arena)
 
-static func _generate_region(seed_val: int, act: int, slots: int, mode: String = MODE_RANDOM) -> Dictionary:
+static func _generate_region(seed_val: int, act: int, slots: int, mode: String = MODE_RANDOM, carve_boss_arena: bool = false) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_val
 	var w := slots * ROOM
@@ -134,13 +134,20 @@ static func _generate_region(seed_val: int, act: int, slots: int, mode: String =
 			var restore: Vector2i = blocked_cells.pop_back()
 			grid[restore.y][restore.x] = FLOOR
 
+	# 보스 전용 아레나: 중앙 슬롯과 상하좌우 인접 슬롯 사이 벽을 완전히 터서
+	# 십자(+) 모양의 넓은 개활지를 만든다. 테마 장식(PILLAR/LOW_WALL)보다 뒤에
+	# 실행해 어떤 액트·모드에서도 아레나 내부가 항상 깨끗한 FLOOR가 되게 한다.
+	var boss_anchor := Vector2i(-1, -1)
+	if carve_boss_arena:
+		boss_anchor = _carve_boss_arena(grid, slots)
+
 	return {
 		"w": w, "h": h, "grid": grid,
 		"entrance": _slot_center(start), "exit": _slot_center(exit_slot),
 		"rooms": slots * slots, "doors": edges.size(), "loops": loops,
 		"critical_path_rooms": path_distance,
 		"map_type": map_type, "theme": theme, "act": act,
-		"generation_mode": mode,
+		"generation_mode": mode, "boss_anchor": boss_anchor,
 	}
 
 static func selftest() -> bool:
@@ -156,7 +163,38 @@ static func selftest() -> bool:
 	var endpoints_valid: bool = dungeon["entrance"] != dungeon["exit"] and another_seed["entrance"] != another_seed["exit"]
 	var randomized_start: bool = entrance_a != entrance_b
 	var blocked_path: bool = _tile_path_exists(blocked["grid"], blocked["entrance"], blocked["exit"])
-	return int(dungeon.get("rooms", 0)) == 81 and int(dungeon.get("doors", 0)) >= 80 and int(dungeon.get("loops", 0)) > 0 and int(chunk.get("rooms", 0)) == 9 and int(chunk.get("w", 0)) == 27 and int(chunk.get("h", 0)) == 27 and String(dungeon.get("map_type", "")) == "cinder_catacombs" and String(outdoor.get("map_type", "")) == "outdoor" and String(plains.get("map_type", "")) == "pillar_plains" and _count_tile(outdoor["grid"], LOW_WALL) > 0 and _count_tile(plains["grid"], PILLAR) > 0 and String(straight.get("generation_mode", "")) == MODE_STRAIGHT and String(blocked.get("generation_mode", "")) == MODE_BLOCKED_RANDOM and (_count_tile(blocked["grid"], PILLAR) + _count_tile(blocked["grid"], LOW_WALL)) > 0 and endpoints_valid and randomized_start and blocked_path
+	# 보스 아레나: 3개 액트 테마 + blocked_random 모드에서 모두 중앙+인접 4룸이
+	# PILLAR/LOW_WALL 없이 깨끗하고 boss_anchor가 유효한지 검증.
+	var boss_cinder := generate_chunk(2100, 1, MODE_RANDOM, true)
+	var boss_outdoor := generate_chunk(2101, 2, MODE_RANDOM, true)
+	var boss_plains := generate_chunk(2102, 3, MODE_RANDOM, true)
+	var boss_blocked := generate_chunk(2103, 1, MODE_BLOCKED_RANDOM, true)
+	var boss_anchor_ok := Vector2i(chunk.get("boss_anchor", Vector2i.ZERO)) == Vector2i(-1, -1)
+	var arena_clean := true
+	for boss_level in [boss_cinder, boss_outdoor, boss_plains, boss_blocked]:
+		if Vector2i(boss_level.get("boss_anchor", Vector2i(-1, -1))) == Vector2i(-1, -1):
+			arena_clean = false
+		if _arena_obstacle_count(boss_level["grid"]) > 0:
+			arena_clean = false
+		if not _tile_path_exists(boss_level["grid"], boss_level["entrance"], boss_level["exit"]):
+			arena_clean = false
+	return int(dungeon.get("rooms", 0)) == 81 and int(dungeon.get("doors", 0)) >= 80 and int(dungeon.get("loops", 0)) > 0 and int(chunk.get("rooms", 0)) == 9 and int(chunk.get("w", 0)) == 27 and int(chunk.get("h", 0)) == 27 and String(dungeon.get("map_type", "")) == "cinder_catacombs" and String(outdoor.get("map_type", "")) == "outdoor" and String(plains.get("map_type", "")) == "pillar_plains" and _count_tile(outdoor["grid"], LOW_WALL) > 0 and _count_tile(plains["grid"], PILLAR) > 0 and String(straight.get("generation_mode", "")) == MODE_STRAIGHT and String(blocked.get("generation_mode", "")) == MODE_BLOCKED_RANDOM and (_count_tile(blocked["grid"], PILLAR) + _count_tile(blocked["grid"], LOW_WALL)) > 0 and endpoints_valid and randomized_start and blocked_path and boss_anchor_ok and arena_clean
+
+# 3x3 청크의 중앙 슬롯(1,1)과 그 4개 인접 슬롯 내부에 남은 PILLAR/LOW_WALL 수.
+# _carve_boss_arena가 올바르게 비웠다면 0이어야 한다.
+static func _arena_obstacle_count(grid: Array) -> int:
+	var center := Vector2i(1, 1)
+	var slots: Array[Vector2i] = [center, center + Vector2i.UP, center + Vector2i.RIGHT, center + Vector2i.DOWN, center + Vector2i.LEFT]
+	var count := 0
+	for slot in slots:
+		var ox := slot.x * ROOM
+		var oy := slot.y * ROOM
+		for y in range(1, ROOM - 1):
+			for x in range(1, ROOM - 1):
+				var v := int(grid[oy + y][ox + x])
+				if v == PILLAR or v == LOW_WALL:
+					count += 1
+	return count
 
 static func _count_tile(grid: Array, tile: int) -> int:
 	var count := 0
@@ -252,6 +290,49 @@ static func _slot_distance(edges: Array, start: Vector2i, target: Vector2i) -> i
 				return int(distances[next])
 			queue.append(next)
 	return -1
+
+static func _carve_boss_arena(grid: Array, slots: int) -> Vector2i:
+	var center := Vector2i(slots / 2, slots / 2)
+	_open_room_interior(grid, center)
+	for d in [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]:
+		var neighbour: Vector2i = center + d
+		if neighbour.x < 0 or neighbour.x >= slots or neighbour.y < 0 or neighbour.y >= slots:
+			continue
+		_open_room_interior(grid, neighbour)
+		_open_full_wall(grid, center, neighbour)
+	return _slot_center(center)
+
+# 룸 내부를 FLOOR로 재설정해 테마 장식(PILLAR/LOW_WALL)을 아레나 범위에서 제거한다.
+static func _open_room_interior(grid: Array, slot: Vector2i) -> void:
+	var ox := slot.x * ROOM
+	var oy := slot.y * ROOM
+	for y in range(1, ROOM - 1):
+		for x in range(1, ROOM - 1):
+			grid[oy + y][ox + x] = FLOOR
+
+# 인접 슬롯 사이 경계 전체를 열어 두 룸을 하나의 개활지로 합친다(_carve_door의
+# 3타일 문과 달리 내부 전체 폭을 연다).
+static func _open_full_wall(grid: Array, a: Vector2i, b: Vector2i) -> void:
+	var ax := a.x * ROOM
+	var ay := a.y * ROOM
+	var bx := b.x * ROOM
+	var by := b.y * ROOM
+	if b.x == a.x + 1:
+		for dy in range(1, ROOM - 1):
+			grid[ay + dy][ax + ROOM - 1] = FLOOR
+			grid[by + dy][bx] = FLOOR
+	elif b.x == a.x - 1:
+		for dy in range(1, ROOM - 1):
+			grid[ay + dy][ax] = FLOOR
+			grid[by + dy][bx + ROOM - 1] = FLOOR
+	elif b.y == a.y + 1:
+		for dx in range(1, ROOM - 1):
+			grid[ay + ROOM - 1][ax + dx] = FLOOR
+			grid[by][bx + dx] = FLOOR
+	elif b.y == a.y - 1:
+		for dx in range(1, ROOM - 1):
+			grid[ay][ax + dx] = FLOOR
+			grid[by + ROOM - 1][bx + dx] = FLOOR
 
 static func _carve_room(grid: Array, sx: int, sy: int) -> void:
 	var ox := sx * ROOM

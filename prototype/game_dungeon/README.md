@@ -114,6 +114,17 @@ roll turns the whole pack gold/blue together and uniques share the same
 spawned monsters by pack id and verifies cluster distance and rank consistency,
 printing `[PACK] packs=N min_size=.. max_size=.. verdict=..`.
 
+### Boss room arena
+
+The entrance chunk of a boss floor (last level in an act) carves its center
+room and the four adjacent rooms into one open plus-shaped arena instead of
+leaving the usual 9-tile room walls and theme decoration (pillars / low walls)
+in place. The boss spawns at the arena's center tile instead of a random floor
+cell. Boss-ness is recomputed from the floor id every time (not a saved flag),
+so loading a save on a boss floor regenerates the identical arena. Non-boss
+floors and later chunks of a boss floor are unaffected. Autoquit self-test
+prints `[BOSS_ROOM] anchor=.. boss_cell=.. used_arena=.. verdict=..`.
+
 ### Jewelry equipment
 
 The equipment model includes dedicated `ring` and `amulet` slots in addition to

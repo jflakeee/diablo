@@ -11,6 +11,9 @@ const REVEAL_THRESHOLD := 3
 ## transitions so a newly generated map is never removed in the same tick.
 const MAX_ACTIVE_CHUNKS := 1
 const DIRECTIONS: Array[Vector2i] = [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
+# main.gd의 ACT_LEN과 동일한 값. 보스 여부를 floor_id/act에서 그때그때 다시
+# 계산해(저장된 플래그에 의존하지 않고) 복원 시에도 동일한 청크가 재생성되게 한다.
+const ACT_LEN := 3
 
 var run_seed := 0
 var floor_id := 1
@@ -31,6 +34,9 @@ func setup(seed_value: int, new_floor_id: int, new_act: int, epoch: int = 0) -> 
 	used_chunk_coords.clear()
 	retired_chunks.clear()
 	_append_chunk(Vector2i.ZERO, Vector2i.LEFT, "west")
+
+func _is_boss_floor() -> bool:
+	return ((floor_id - 1) % ACT_LEN) + 1 == ACT_LEN
 
 func frontier() -> Dictionary:
 	return active_chunks.back() if not active_chunks.is_empty() else {}
@@ -124,10 +130,14 @@ func compose_active_grid() -> Dictionary:
 	var entrance: Vector2i = first_origin + Vector2i(first.get("entrance_cell", Vector2i(1, CHUNK_TILE_SIDE / 2)))
 	var last_origin: Vector2i = (last["coord"] - min_coord) * CHUNK_TILE_SIDE
 	var exit: Vector2i = last_origin + Vector2i(last.get("exit_cell", Vector2i(CHUNK_TILE_SIDE - 2, CHUNK_TILE_SIDE / 2)))
+	var boss_anchor := Vector2i(-1, -1)
+	var first_boss_anchor := Vector2i(first.get("boss_anchor", Vector2i(-1, -1)))
+	if first_boss_anchor != Vector2i(-1, -1):
+		boss_anchor = first_origin + first_boss_anchor
 	return {
 		"grid": grid, "w": width, "h": height,
 		"grid_origin": min_coord * CHUNK_TILE_SIDE,
-		"chunk_rects": rects, "entrance": entrance, "exit": exit,
+		"chunk_rects": rects, "entrance": entrance, "exit": exit, "boss_anchor": boss_anchor,
 		"rooms": active_chunks.size() * CHUNK_ROOM_SIDE * CHUNK_ROOM_SIDE,
 		"map_type": String(last.get("map_type", "cinder_catacombs")),
 		"theme": String(last.get("theme", "cinder")),
@@ -182,7 +192,8 @@ func restore(raw: Dictionary) -> bool:
 			entry_direction = Vector2i(int(entry_values[0]), int(entry_values[1]))
 		var seed := int(raw_chunk.get("seed", 0))
 		var mode := String(raw_chunk.get("generation_mode", LevelGen.MODE_RANDOM))
-		var level := LevelGen.generate_chunk(seed, act, mode)
+		var carve_boss := int(raw_chunk.get("sequence", 0)) == 0 and _is_boss_floor()
+		var level := LevelGen.generate_chunk(seed, act, mode, carve_boss)
 		var entrance_cell: Vector2i = level["entrance"]
 		var exit_cell: Vector2i = level["exit"]
 		var entrance_values: Array = raw_chunk.get("entrance_cell", [])
@@ -202,6 +213,7 @@ func restore(raw: Dictionary) -> bool:
 			"revealed_rooms": (raw_chunk.get("revealed_rooms", {}) as Dictionary).duplicate(true),
 			"frontier_consumed": bool(raw_chunk.get("frontier_consumed", false)),
 			"grid": level["grid"], "map_type": level["map_type"], "theme": level["theme"],
+			"boss_anchor": level.get("boss_anchor", Vector2i(-1, -1)),
 		}
 		active_chunks.append(chunk)
 		used_chunk_coords[_coord_key(coord)] = true
@@ -213,7 +225,10 @@ func _append_chunk(coord: Vector2i, entry_direction: Vector2i, entry_side: Strin
 	var seed := _mixed_seed(sequence)
 	var modes := [LevelGen.MODE_STRAIGHT, LevelGen.MODE_RANDOM, LevelGen.MODE_BLOCKED_RANDOM]
 	var mode: String = modes[posmod(sequence, modes.size())]
-	var level := LevelGen.generate_chunk(seed, act, mode)
+	# 보스 아레나는 층의 첫 청크(입구 청크)에만 둔다 — 출구가 보스 처치 전까지
+	# 잠겨 있어 플레이어가 그 청크를 벗어나기 전에 보스와 마주치는 것이 보통이다.
+	var carve_boss := sequence == 0 and _is_boss_floor()
+	var level := LevelGen.generate_chunk(seed, act, mode, carve_boss)
 	var chunk := {
 		"id": "%d:%d:%d" % [floor_id, generation_epoch, sequence],
 		"sequence": sequence, "coord": coord, "seed": seed,
@@ -223,6 +238,7 @@ func _append_chunk(coord: Vector2i, entry_direction: Vector2i, entry_side: Strin
 		"exit_direction": Vector2i.ZERO, "gate_offset": CHUNK_TILE_SIDE / 2,
 		"revealed_rooms": {}, "frontier_consumed": false,
 		"grid": level["grid"], "map_type": level["map_type"], "theme": level["theme"],
+		"boss_anchor": level.get("boss_anchor", Vector2i(-1, -1)),
 	}
 	active_chunks.append(chunk)
 	used_chunk_coords[_coord_key(coord)] = true
@@ -392,4 +408,24 @@ static func selftest() -> bool:
 	var active_ok: bool = restored.active_chunks.size() == stream.active_chunks.size()
 	var used_ok: bool = restored.used_chunk_coords.size() == stream.used_chunk_coords.size()
 	var grid_ok: bool = restored.compose_active_grid()["grid"] == stream.compose_active_grid()["grid"]
-	return sequence_ok and active_ok and used_ok and grid_ok
+	if not (sequence_ok and active_ok and used_ok and grid_ok):
+		return false
+	# 보스 층(floor_id=3, act=1 -> level_in_act==ACT_LEN)은 입구 청크에 아레나가
+	# 있어야 하고, floor_id로부터 재도출되므로 스냅샷/복원 후에도 동일해야 한다.
+	var boss_stream := preload("res://world_stream.gd").new()
+	boss_stream.setup(55667, 3, 1)
+	var boss_composite := boss_stream.compose_active_grid()
+	var boss_anchor_present: bool = Vector2i(boss_composite.get("boss_anchor", Vector2i(-1, -1))) != Vector2i(-1, -1)
+	var boss_encoded := JSON.stringify(boss_stream.snapshot())
+	var boss_decoded = JSON.parse_string(boss_encoded)
+	var boss_restored := preload("res://world_stream.gd").new()
+	if not boss_decoded is Dictionary or not boss_restored.restore(boss_decoded):
+		return false
+	var boss_restored_composite := boss_restored.compose_active_grid()
+	var boss_anchor_matches: bool = Vector2i(boss_restored_composite.get("boss_anchor", Vector2i(-2, -2))) == Vector2i(boss_composite.get("boss_anchor", Vector2i(-1, -1)))
+	var boss_grid_matches: bool = boss_restored_composite["grid"] == boss_composite["grid"]
+	# 비보스 층(floor_id=1)은 아레나가 없어야 한다(회귀 방지).
+	var non_boss_stream := preload("res://world_stream.gd").new()
+	non_boss_stream.setup(55668, 1, 1)
+	var non_boss_absent: bool = Vector2i(non_boss_stream.compose_active_grid().get("boss_anchor", Vector2i.ZERO)) == Vector2i(-1, -1)
+	return boss_anchor_present and boss_anchor_matches and boss_grid_matches and non_boss_absent
