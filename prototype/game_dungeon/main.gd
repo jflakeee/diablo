@@ -151,6 +151,7 @@ var _merc_revive_t := 0.0
 var _merc_equipped := Mercenary.empty_equipment()
 var _merc_type := Mercenary.TYPE_ORDER[0]
 var _merc_type_button: Button
+var _respec_button: Button
 const MERC_RANGE := 6.0
 const MERC_CD := 1.1
 # ── 골드 경제 & 상인 ──
@@ -1172,10 +1173,11 @@ func _start_game() -> void:
 
 	if _class == "arcanist":
 		_player = _make_actor("Arcanist", Color(0.5, 0.35, 0.85), 20, 32)
-		_player.stat_str = 10
-		_player.stat_dex = 15
-		_player.stat_vit = 20
-		_player.stat_energy = 35
+		var arcanist_base := _class_base_stats()
+		_player.stat_str = int(arcanist_base["str"])
+		_player.stat_dex = int(arcanist_base["dex"])
+		_player.stat_vit = int(arcanist_base["vit"])
+		_player.stat_energy = int(arcanist_base["energy"])
 		_player.max_life = 40 + 2 * _player.stat_vit + 1  # Part 1 §2
 		_player.max_mana = 35 + 2 * _player.stat_energy + 2
 		_player.speed = 5.5
@@ -1184,10 +1186,11 @@ func _start_game() -> void:
 		_player.leech_pct = 8    # 스펠 생명 흡혈 8%
 	else:
 		_player = _make_actor("Iron Warden", Color(0.9, 0.75, 0.2), 22, 34)
-		_player.stat_str = 30
-		_player.stat_dex = 25
-		_player.stat_vit = 25
-		_player.stat_energy = 15
+		var warden_base := _class_base_stats()
+		_player.stat_str = int(warden_base["str"])
+		_player.stat_dex = int(warden_base["dex"])
+		_player.stat_vit = int(warden_base["vit"])
+		_player.stat_energy = int(warden_base["energy"])
 		_player.max_life = CombatLib.warden_max_life(25, 1)
 		_player.max_mana = CombatLib.warden_max_mana(15, 1)
 		_player.speed = 6.0
@@ -1425,6 +1428,8 @@ func _start_game() -> void:
 		_run_map_variant_test.call_deferred()
 	elif OS.get_cmdline_user_args().has("streaming_map_test"):
 		_run_streaming_map_test.call_deferred()
+	elif OS.get_cmdline_user_args().has("respec_test"):
+		_run_respec_test.call_deferred()
 
 func _run_skill_visual_test() -> void:
 	await get_tree().create_timer(0.75).timeout
@@ -1536,6 +1541,50 @@ func _run_economy_conversion_test() -> void:
 	var gamble_ok := gold_before_gamble >= gamble_cost and _gold == gold_before_gamble - gamble_cost and _inventory.size() == bag_before_gamble + 1
 	var ok := item_sale_ok and protected_ok and duplicate_ok and gamble_ok
 	print("[ECONOMY] item_sale=%s protected=%s duplicate_book=%s(+%dg) gamble=%s(cost=%dg) verdict=%s" % [str(item_sale_ok), str(protected_ok), str(duplicate_ok), book_value, str(gamble_ok), gamble_cost, "PASS" if ok else "FAIL"])
+	await get_tree().create_timer(1.0).timeout
+	get_tree().quit()
+
+func _run_respec_test() -> void:
+	await get_tree().create_timer(0.5).timeout
+	var base := _class_base_stats()
+	var starter_id: String = _class_skill_ids()[0]
+	# Other auto-quit self-tests (e.g. _act_reward_selftest) may already have
+	# spent points via _auto_spend_points before this runs, so every check below
+	# compares deltas against a snapshot instead of assuming a fresh level-1 state.
+	var stat_points_before_spend := _stat_points
+	_stat_points += 4
+	_spend_stat("vit")
+	_spend_stat("vit")
+	_spend_stat("str")
+	_spend_stat("str")
+	var moved_away := _stat_points == stat_points_before_spend
+	var skill_points_before_spend := _player.skill_points
+	_player.skill_points += 3
+	_spend_skill(starter_id)
+	_spend_skill(starter_id)
+	_spend_skill(starter_id)
+	var leveled := _player.skill_points == skill_points_before_spend
+	var expected_stat_refund := (_player.stat_str - int(base["str"])) + (_player.stat_dex - int(base["dex"])) + (_player.stat_vit - int(base["vit"])) + (_player.stat_energy - int(base["energy"]))
+	# Other auto-quit self-tests (e.g. _act_reward_selftest) may have already spent
+	# points into other class skills too, so sum the refund across every slot.
+	var expected_skill_refund := 0
+	for skill_id in _player.skills:
+		expected_skill_refund += maxi(0, int(_player.skills[skill_id]) - 1)
+	var stat_points_before_respec := _stat_points
+	var skill_points_before_respec := _player.skill_points
+	var gold_before_cost := _respec_cost() + 500
+	_gold = gold_before_cost
+	_respec()
+	var stats_reset := _player.stat_str == int(base["str"]) and _player.stat_dex == int(base["dex"]) and _player.stat_vit == int(base["vit"]) and _player.stat_energy == int(base["energy"])
+	var skill_floor := _player.skill_level(starter_id) == 1
+	var points_refunded := _stat_points == stat_points_before_respec + expected_stat_refund and _player.skill_points == skill_points_before_respec + expected_skill_refund
+	var gold_charged := _gold == gold_before_cost - _respec_cost()
+	var respend_before := _player.stat_str
+	var stat_points_after_respec := _stat_points
+	_spend_stat("str")
+	var respend_ok := _player.stat_str == respend_before + 1 and _stat_points == stat_points_after_respec - 1
+	var ok := moved_away and leveled and stats_reset and skill_floor and points_refunded and gold_charged and respend_ok
+	print("[RESPEC] stats_reset=%s skill_floor=%s points_refunded=%s gold_charged=%s respend_ok=%s verdict=%s" % [str(stats_reset), str(skill_floor), str(points_refunded), str(gold_charged), str(respend_ok), "PASS" if ok else "FAIL"])
 	await get_tree().create_timer(1.0).timeout
 	get_tree().quit()
 
@@ -3786,6 +3835,7 @@ func _build_vendor() -> void:
 	_vendor_btn(vb, "Repair Equipped Gear", func(): _repair_equipped())
 	_vendor_btn(vb, "Travel to Next Waypoint", func(): _travel_waypoint(0))
 	_merc_type_button = _vendor_btn(vb, "", _cycle_merc_type)
+	_respec_button = _vendor_btn(vb, "", _respec)
 	_vendor_btn(vb, "Sell All Bag Items", func(): _sell_all())
 	_vendor_btn(vb, "Gamble Random Item", func(): _gamble())
 	_vendor_btn(vb, "Cycle Auto Pickup", func(): _cycle_automation("pickup_min"))
@@ -4014,6 +4064,45 @@ func _spend_skill(id: String) -> void:
 	_refresh_skill_buttons()
 	_rebuild_char_panel()
 
+func _class_base_stats() -> Dictionary:
+	if _class == "arcanist":
+		return {"str": 10, "dex": 15, "vit": 20, "energy": 35}
+	return {"str": 30, "dex": 25, "vit": 25, "energy": 15}
+
+func _respec_cost() -> int:
+	return 300 + _player.level * 60
+
+# 리스펙: 스탯은 클래스 기준값으로, 스킬은 "해금된(레벨>=1) 스킬은 레벨 1"로 되돌린다.
+# 레벨 0(미해금) 스킬은 그대로 둔다 — _spend_skill이 레벨 0 스킬의 투자를 막기 때문에
+# 전부 0으로 되돌리면 스킬북을 다시 주울 때까지 환불된 포인트를 못 쓰게 된다.
+func _respec() -> void:
+	var cost := _respec_cost()
+	if _gold < cost:
+		_combat_log = "Not enough gold (Respec %dg)" % cost
+		return
+	_gold -= cost
+	var base := _class_base_stats()
+	var stat_refund := (_player.stat_str - int(base["str"])) + (_player.stat_dex - int(base["dex"])) + (_player.stat_vit - int(base["vit"])) + (_player.stat_energy - int(base["energy"]))
+	_player.stat_str = int(base["str"])
+	_player.stat_dex = int(base["dex"])
+	_player.stat_vit = int(base["vit"])
+	_player.stat_energy = int(base["energy"])
+	_stat_points += stat_refund
+	var skill_refund := 0
+	for skill_id in _player.skills:
+		var lvl: int = int(_player.skills[skill_id])
+		if lvl > 1:
+			skill_refund += lvl - 1
+			_player.skills[skill_id] = 1
+	_player.skill_points += skill_refund
+	_recompute_player()
+	if _merc != null:
+		_merc_scale_stats()
+	_refresh_skill_buttons()
+	_rebuild_char_panel()
+	_refresh_vendor()
+	_combat_log = "RESPEC / +%d Stat / +%d Skill points refunded" % [stat_refund, skill_refund]
+
 # 오토플레이 자동 분배(검증): 클래스별 우선순위
 func _auto_spend_points() -> void:
 	while _stat_points > 0:
@@ -4040,6 +4129,8 @@ func _refresh_vendor() -> void:
 		_auto_sell_button.text = "Auto Sell: %s / Replaced: ON" % ("ON" if _automation.auto_sell else "OFF")
 	if _merc_type_button:
 		_merc_type_button.text = "Mercenary: %s (Cycle)" % String(Mercenary.TYPES[_merc_type]["display"])
+	if _respec_button:
+		_respec_button.text = "Respec Stats/Skills (%dg)" % _respec_cost()
 
 func _repair_equipped_cost() -> int:
 	var total := 0

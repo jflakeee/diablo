@@ -248,6 +248,18 @@ empty-slot-first / power-comparison swap rule as dual rings
 auto-equip comparison pipeline as every other slot. Save schema v17
 initializes both charm slots empty for older saves.
 
+### Stat/skill respec
+
+A vendor-panel button resets stats to class base values and skills to
+level 1 (not level 0) for a gold cost (`300 + level * 60`). Skills are
+floored at 1 rather than wiped, because the skill-point "+" button only
+accepts skills already at level 1+ — new skills are unlocked exclusively by
+finding Skill Book drops, so a full reset to 0 would strand refunded points
+until a book dropped again. Refunds are computed from actual allocations
+(current minus base/floor), never re-derived from level formulas, so quest
+skill-point rewards are preserved exactly. No save schema change — every
+field involved is already persisted.
+
 ### Compact mobile presentation
 
 Combat controls, minimap, menu buttons, and HUD typography use a denser mobile

@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-02 (참 아이템 배포)
+최종 갱신: 2026-10-02 (스탯/스킬 리스펙 배포)
 
 ## 맵 생성 상태
 
@@ -24,12 +24,12 @@
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 배포 표시 시각: `2026-10-02 08:46 KST`
-- 소스 커밋: 참 아이템(본 커밋)
-- 최신 배포 커밋: `48c9043` (gh-pages)
+- 배포 표시 시각: `2026-10-02 09:44 KST`
+- 소스 커밋: 스탯/스킬 리스펙(본 커밋)
+- 최신 배포 커밋: `6cdef64` (gh-pages)
 - Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`), 루트 HTTP 200 확인
-- 원격 기본 URL의 PCK SHA-256: `08756363fa2570311148a253293b42cebce3de0270de3f76429012d14734be73`
-- 원격 PCK 1,258,940 bytes 및 로컬 빌드 해시 일치 확인.
+- 원격 기본 URL의 PCK SHA-256: `2ad395846d922f37f263ddadc4a51d77f92fff3d33ef09182a3f99e71f7f36ab`
+- 원격 PCK 1,261,340 bytes 및 로컬 빌드 해시 일치 확인.
 
 ## 다음 점검 항목
 
@@ -213,3 +213,26 @@
   검증 추가), `[SAVE] checks=24` 둘 다 barb/sorc 오토퀴트 최종 `ok`에 PASS로 편입.
 - Web release export → gh-pages 배포 커밋 `48c9043`, Pages 빌드 `built`, 루트 HTTP 200,
   로컬/원격 PCK SHA-256(`08756363...`) 일치 확인.
+
+## 2026-10-02 스탯/스킬 리스펙 (원격 배포 완료)
+
+- 설계 문서: `docs/superpowers/specs/2026-10-02-respec-design.md`. advisor 자문으로 확정한
+  백로그 2건(용병 종류 다양화·참 아이템) 완료 후 다시 자문해 확정한 3번째 항목.
+- 핵심 설계 결정: 스킬을 전부 레벨 0으로 되돌리지 않는다. `_spend_skill`은
+  `skill_level(id) <= 0`이면 버튼이 막혀, 레벨 0인 스킬은 스킬북을 다시 주워야만 재투자
+  가능하다(`_make_skill_book`/`_next_skill_book_drop`). 전부 0으로 리셋하면 환불받은
+  포인트를 스킬북이 다시 나올 때까지 못 쓰는 회귀가 생긴다. 그래서 "해금된(레벨>=1) 스킬은
+  레벨 1로, 미해금(레벨 0) 스킬은 그대로"로 리셋하고 1을 넘는 투자분만 환불한다.
+- `main.gd`: `_class_base_stats()`(클래스 기준 스탯, `_start_game`이 재사용하도록 리팩터),
+  `_respec_cost()`(`300 + 레벨*60`), `_respec()`(실제 분배 기록에서 환불량 계산 — 레벨
+  공식 재추정 금지, 퀘스트 보상 스킬포인트까지 정확히 보존), 상인 패널 버튼.
+- 전용 검증 모드 `_run_respec_test()` + cmdline `respec_test`(경제/자동장착 테스트와 동일한
+  독립 모드 패턴). 첫 구현 때 `_act_reward_selftest()`가 이미 `_auto_spend_points()`로 다른
+  스킬에도 포인트를 써둔 상태였다는 걸 놓쳐, 테스트가 "스타터 스킬 하나만 환불된다" 가정으로
+  실패했음 — 전체 스킬 슬롯 합산으로 수정 후 PASS. (실제 `_respec()` 로직은 처음부터 맞았고
+  테스트의 가정이 틀렸던 사례.)
+- 검증: barb/sorc 둘 다 `respec_test` 전용 모드에서 `[RESPEC] ... verdict=PASS`, 표준
+  50초 오토퀴트도 `[SYSTEM] checks=112`/`[SAVE] checks=24` 그대로 PASS(세이브 스키마
+  변경 없음 확인).
+- Web release export → gh-pages 배포 커밋 `6cdef64`, Pages 빌드 `built`, 루트 HTTP 200,
+  로컬/원격 PCK SHA-256(`2ad39584...`) 일치 확인.
