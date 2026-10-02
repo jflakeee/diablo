@@ -228,6 +228,7 @@ var _coverage_selftest_ok := true
 var _waypoint_selftest_ok := true
 var _pack_selftest_ok := true
 var _boss_room_selftest_ok := true
+var _craft_selftest_ok := true
 var _quitting := false
 var _perf_start_memory := 0
 var _perf_peak_memory := 0
@@ -1847,7 +1848,15 @@ func _craft_selftest() -> void:
 	var t4: bool = up == "Ahnor"
 	print("[P4] forge: Ahn x3 to %s (Ahnor) : %s" % [up, str(t4)])
 
-	print("[P4][RESULT] craft_selftest verdict=", ("PASS" if (t1 and t2 and t3 and t4) else "FAIL"))
+	# 5) 리롤: 토파즈 3개 + 감정된 매직 아이템 → 접사 재굴림 + 재료 소모
+	var reroll_item := Item.generate(_rng, Item.WEAPON_BASES[2], 10, "magic")
+	var reroll_materials := {Craft.REROLL_CATALYST: Craft.REROLL_COST}
+	var t5a := Craft.reroll(_rng, reroll_materials, reroll_item, Item)
+	var t5: bool = t5a and not reroll_materials.has(Craft.REROLL_CATALYST) and String(reroll_item.get("quality", "")) == "magic" and (reroll_item["affixes"] as Dictionary).size() >= 1
+	print("[P4] reroll: catalyst_consumed=%s quality_kept=%s affixes=%d : %s" % [str(not reroll_materials.has(Craft.REROLL_CATALYST)), str(String(reroll_item.get("quality", "")) == "magic"), (reroll_item["affixes"] as Dictionary).size(), str(t5)])
+
+	_craft_selftest_ok = t1 and t2 and t3 and t4 and t5
+	print("[P4][RESULT] craft_selftest verdict=", ("PASS" if _craft_selftest_ok else "FAIL"))
 
 func _add_skill_button(ui: Node, id: String, label: String, col: Color, pos: Vector2, control_size: Vector2) -> void:
 	var b := SkillButtonScript.new()
@@ -2803,7 +2812,7 @@ func _process(delta: float) -> void:
 		print("[ASSET] monsters compiled=%d fallback=%d runtime=%s" % [_compiled_monsters, _generated_monsters, str(asset_report)])
 		var perf_report := PerformanceBudget.evaluate(elapsed, _logic_ticks, _perf_peak_active, _perf_start_memory, _perf_peak_memory)
 		print("[PERF] logic_hz=%.2f peak_active=%d memory_growth_kib=%.1f failures=%s verdict=%s" % [float(perf_report["logic_hz"]), int(perf_report["peak_active"]), float(perf_report["memory_growth"]) / 1024.0, str(perf_report["failures"]), "PASS" if bool(perf_report["ok"]) else "FAIL"])
-		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and bool(perf_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok and _online_selftest_ok and _coverage_selftest_ok and _waypoint_selftest_ok and _pack_selftest_ok and _boss_room_selftest_ok and ai_cull_ok and Mercenary.selftest()
+		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and bool(perf_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok and _online_selftest_ok and _coverage_selftest_ok and _waypoint_selftest_ok and _pack_selftest_ok and _boss_room_selftest_ok and ai_cull_ok and Mercenary.selftest() and _craft_selftest_ok
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		_release_runtime_resources()
 		await get_tree().process_frame
@@ -4597,6 +4606,33 @@ func _rebuild_cube() -> void:
 		combine.disabled = count < 3
 		combine.pressed.connect(func(): _transmute_material(id))
 		_inv_vbox.add_child(combine)
+	var rerollable: Array = []
+	for bag_item in _inventory:
+		if String(bag_item.get("quality", "")) in ["magic", "rare"] and Item.is_identified(bag_item):
+			rerollable.append(bag_item)
+	if not rerollable.is_empty():
+		var reroll_header := Label.new()
+		reroll_header.text = "REROLL (%s x%d per item)" % [Craft.material_name(Craft.REROLL_CATALYST), Craft.REROLL_COST]
+		reroll_header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_inv_vbox.add_child(reroll_header)
+		for bag_item in rerollable:
+			var reroll_label := Label.new()
+			reroll_label.text = "%s / %s" % [Item.display_name(bag_item), Item.affix_text(bag_item)]
+			reroll_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_inv_vbox.add_child(reroll_label)
+			var reroll_btn := Button.new()
+			reroll_btn.text = "Reroll"
+			var captured_item: Dictionary = bag_item
+			reroll_btn.disabled = not Craft.can_reroll(_automation.materials, captured_item, Item)
+			reroll_btn.pressed.connect(func(): _reroll_inventory_item(captured_item))
+			_inv_vbox.add_child(reroll_btn)
+
+func _reroll_inventory_item(it: Dictionary) -> void:
+	if Craft.reroll(_rng, _automation.materials, it, Item):
+		_combat_log = "REROLLED: %s / %s" % [Item.display_name(it), Item.affix_text(it)]
+	else:
+		_combat_log = "Requires %d %s and an identified magic/rare item" % [Craft.REROLL_COST, Craft.material_name(Craft.REROLL_CATALYST)]
+	_rebuild_inv()
 
 func _transmute_material(id: String) -> void:
 	if Craft.transmute(_automation.materials, id):

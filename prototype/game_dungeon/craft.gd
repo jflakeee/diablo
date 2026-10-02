@@ -96,6 +96,24 @@ static func upgrade_material(id: String) -> String:
 		return ""
 	return String(parts[0]) if next == "normal" else "%s:%s" % [parts[0], next]
 
+# 큐브: 토파즈 3개 + 감정된 매직/레어 아이템 1개 → 아이템 접사 재굴림.
+# 토파즈는 소켓 효과가 없어(armor res_all=0) 다른 쓸모가 없는 재료라 리롤 재료로 돌린다.
+const REROLL_CATALYST := "topaz"
+const REROLL_COST := 3
+
+static func can_reroll(materials: Dictionary, it: Dictionary, item_script: GDScript) -> bool:
+	return int(materials.get(REROLL_CATALYST, 0)) >= REROLL_COST and String(it.get("quality", "")) in ["magic", "rare"] and item_script.is_identified(it)
+
+static func reroll(rng: RandomNumberGenerator, materials: Dictionary, it: Dictionary, item_script: GDScript) -> bool:
+	if not can_reroll(materials, it, item_script):
+		return false
+	var available := int(materials.get(REROLL_CATALYST, 0))
+	if available == REROLL_COST:
+		materials.erase(REROLL_CATALYST)
+	else:
+		materials[REROLL_CATALYST] = available - REROLL_COST
+	return item_script.reroll(rng, it)
+
 static func transmute(materials: Dictionary, id: String) -> bool:
 	var result := upgrade_material(id)
 	var available := int(materials.get(id, 0))

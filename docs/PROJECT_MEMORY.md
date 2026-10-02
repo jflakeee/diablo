@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-02 (스탯/스킬 리스펙 배포)
+최종 갱신: 2026-10-02 (호라드릭 큐브 리롤 배포)
 
 ## 맵 생성 상태
 
@@ -24,12 +24,12 @@
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 배포 표시 시각: `2026-10-02 09:44 KST`
-- 소스 커밋: 스탯/스킬 리스펙(본 커밋)
-- 최신 배포 커밋: `6cdef64` (gh-pages)
+- 배포 표시 시각: `2026-10-02 09:55 KST`
+- 소스 커밋: 호라드릭 큐브 리롤(본 커밋)
+- 최신 배포 커밋: `d647c3f` (gh-pages)
 - Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`), 루트 HTTP 200 확인
-- 원격 기본 URL의 PCK SHA-256: `2ad395846d922f37f263ddadc4a51d77f92fff3d33ef09182a3f99e71f7f36ab`
-- 원격 PCK 1,261,340 bytes 및 로컬 빌드 해시 일치 확인.
+- 원격 기본 URL의 PCK SHA-256: `525a6e6d7e2ef1dfe3225fb1640f04c7a79b50424957461c370314ef58f16957`
+- 원격 PCK 1,263,932 bytes 및 로컬 빌드 해시 일치 확인.
 
 ## 다음 점검 항목
 
@@ -236,3 +236,27 @@
   변경 없음 확인).
 - Web release export → gh-pages 배포 커밋 `6cdef64`, Pages 빌드 `built`, 루트 HTTP 200,
   로컬/원격 PCK SHA-256(`2ad39584...`) 일치 확인.
+
+## 2026-10-02 호라드릭 큐브 리롤 (원격 배포 완료)
+
+- 설계 문서: `docs/superpowers/specs/2026-10-02-cube-reroll-design.md`. advisor 자문으로
+  확정한 백로그 3건(용병 종류 다양화·참 아이템·리스펙) 완료 후 자문한 4번째이자 이번
+  라운드의 마지막 항목.
+- `item.gd`: `generate()`의 품질별 접사 롤 로직을 `_apply_quality_roll()`로 추출(재사용),
+  `reroll()` 추가(같은 품질·아이템레벨로 접사 재굴림, 미감정/normal/set/unique 제외).
+- `craft.gd`: `REROLL_CATALYST`("topaz", 소켓 효과가 0이라 다른 쓸모가 없던 재료에 새
+  용도 부여)/`REROLL_COST`(3), `can_reroll()`/`reroll()`.
+- `main.gd`: `_rebuild_cube()`에 REROLL 섹션(가방의 감정된 매직/레어 아이템마다 버튼),
+  `_reroll_inventory_item()`.
+- 발견 및 수정: `_craft_selftest()`가 지금까지 `[P4][RESULT]`를 출력만 하고 최종
+  `[GD][RESULT] ok` 집계에는 전혀 묶이지 않고 있었다(pack/waypoint/boss room은 이미
+  묶여 있었는데 craft만 빠짐 — MAP_VARIANTS 교훈과 같은 종류의 숨은 FAIL 위험). 리롤
+  체크를 추가하는 김에 `_craft_selftest_ok` 멤버 변수를 신설해 최종 ok 체인에 합류시켰다.
+- `tools/cube_ui_test.gd` 확장: 처음엔 리롤 버튼을 `HBoxContainer` 행 안에 넣어 UI 테스트의
+  "panel 직계 자식만 검사" 가정과 충돌해 FAIL이 났다 — 기존 "Combine" 버튼처럼 라벨/버튼을
+  평평하게(직계 자식으로) 배치하도록 수정 후 PASS.
+- 검증: `[P4] reroll: ... : true` + `[P4][RESULT] craft_selftest verdict=PASS`가 barb/sorc
+  둘 다 최종 `ok`에 영향(이제 craft FAIL 시 전체 verdict도 FAIL), `[CUBE_UI] ... reroll=true
+  verdict=PASS`.
+- Web release export → gh-pages 배포 커밋 `d647c3f`, Pages 빌드 `built`, 루트 HTTP 200,
+  로컬/원격 PCK SHA-256(`525a6e6d...`) 일치 확인.

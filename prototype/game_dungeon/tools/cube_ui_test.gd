@@ -3,6 +3,7 @@ extends SceneTree
 # Exercise the production UI and its actual button signal without starting a run
 # or touching the player's save. Run with --headless --script res://tools/cube_ui_test.gd.
 const Main := preload("res://main.gd")
+const Item := preload("res://item.gd")
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -13,7 +14,11 @@ func _run() -> void:
 	root.add_child(panel)
 	game._inv_vbox = panel
 	game._inventory_view = "cube"
-	game._automation.materials = {"ruby": 3, "rune_Ahn": 2, "ruby:perfect": 1}
+	game._automation.materials = {"ruby": 3, "rune_Ahn": 2, "ruby:perfect": 1, "topaz": 3}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	var reroll_target := Item.generate(rng, Item.WEAPON_BASES[0], 10, "magic")
+	game._inventory.append(reroll_target)
 	game._rebuild_inv()
 	await process_frame
 	var failures: Array[String] = []
@@ -34,6 +39,16 @@ func _run() -> void:
 		combine.pressed.emit()
 	if game._automation.materials.has("ruby") or int(game._automation.materials.get("ruby:flawless", 0)) != 1:
 		failures.append("button transaction / duplicate input")
+	var reroll_btn: Button
+	for child in panel.get_children():
+		if child is Button and child.text == "Reroll":
+			reroll_btn = child
+	if reroll_btn == null or reroll_btn.disabled:
+		failures.append("reroll button available")
+	if reroll_btn != null:
+		reroll_btn.pressed.emit()
+	if game._automation.materials.has("topaz") or (reroll_target["affixes"] as Dictionary).is_empty():
+		failures.append("reroll transaction")
 	await process_frame
 	game._accessibility.ui_scale = 1.4
 	game._accessibility.text_scale = 1.25
@@ -55,7 +70,7 @@ func _run() -> void:
 			empty_found = true
 	if not empty_found:
 		failures.append("empty state")
-	print("[CUBE_UI] click=true stale_input=true widths=320/640 failures=%s verdict=%s" % [failures, "PASS" if failures.is_empty() else "FAIL"])
+	print("[CUBE_UI] click=true stale_input=true reroll=true widths=320/640 failures=%s verdict=%s" % [failures, "PASS" if failures.is_empty() else "FAIL"])
 	game.free()
 	panel.queue_free()
 	await process_frame

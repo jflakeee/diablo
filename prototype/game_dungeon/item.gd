@@ -132,6 +132,10 @@ static func generate(rng: RandomNumberGenerator, base: Dictionary, ilvl: int, qu
 		for k in set_piece["affixes"]:
 			it["affixes"][k] = int(set_piece["affixes"][k])
 		return it
+	_apply_quality_roll(rng, it, quality, ilvl)
+	return it
+
+static func _apply_quality_roll(rng: RandomNumberGenerator, it: Dictionary, quality: String, ilvl: int) -> void:
 	var n_pre := 0
 	var n_suf := 0
 	if quality == "magic":
@@ -148,7 +152,19 @@ static func generate(rng: RandomNumberGenerator, base: Dictionary, ilvl: int, qu
 		n_suf = rng.randi_range(1, 3)
 	_roll_affixes(rng, it, PREFIXES, n_pre, ilvl, true)
 	_roll_affixes(rng, it, SUFFIXES, n_suf, ilvl, false)
-	return it
+
+# 큐브: 매직/레어 아이템의 접사를 같은 등급·아이템레벨 기준으로 다시 굴린다(이름/슬롯/
+# 요구치/내구도/소켓은 그대로 유지). 미감정 아이템은 대상이 아니다(재굴림할 "현재 접사"를
+# 아직 모르는 상태라 의미가 없음).
+static func reroll(rng: RandomNumberGenerator, it: Dictionary) -> bool:
+	var quality := String(it.get("quality", ""))
+	if quality not in ["magic", "rare"] or not is_identified(it):
+		return false
+	it["affixes"] = {}
+	it["prefix"] = ""
+	it["suffix"] = ""
+	_apply_quality_roll(rng, it, quality, int(it.get("ilvl", 1)))
+	return true
 
 static func requirement_failures(it: Dictionary, character_level: int, strength: int, dexterity: int) -> Array:
 	var failures: Array = []
