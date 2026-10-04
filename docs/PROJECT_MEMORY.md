@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-04 (난이도별 보상 스케일링 배포)
+최종 갱신: 2026-10-04 (보석 품질 소켓 효과 차등화 배포)
 
 ## 맵 생성 상태
 
@@ -25,12 +25,12 @@
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 배포 표시 시각: `2026-10-04 17:24 KST`
-- 소스 커밋: 난이도별 보상 스케일링 + 아틀라스 수정(본 커밋)
-- 최신 배포 커밋: `8cf0984` (gh-pages)
+- 배포 표시 시각: `2026-10-04 17:38 KST`
+- 소스 커밋: 보석 품질 소켓 효과 차등화(본 커밋)
+- 최신 배포 커밋: `0c35a2e` (gh-pages)
 - Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`), 루트 HTTP 200 확인
-- 원격 기본 URL의 PCK SHA-256: `6ee54f81310d208b0b8789f6dd5d18f5badeab77f04fd7ff6485835061f5f3f4`
-- 원격 PCK 1,269,068 bytes 및 로컬 빌드 해시 일치 확인.
+- 원격 기본 URL의 PCK SHA-256: `cbab96642dfaf38ac4304ac31a1f59a4f5801513701ec2c5d3d7d7f36bc5bdd7`
+- 원격 PCK 1,269,964 bytes 및 로컬 빌드 해시 일치 확인.
 
 ## 다음 점검 항목
 
@@ -335,3 +335,28 @@
   전부 PASS, `[ASSET] ... "ok": true` 확인.
 - Web release export → gh-pages 배포 커밋 `8cf0984`, Pages 빌드 `built`, 루트 HTTP 200,
   로컬/원격 PCK SHA-256(`6ee54f81...`) 일치 확인.
+
+## 2026-10-04 보석 품질 소켓 효과 차등화 (원격 배포 완료)
+
+- 설계 문서: `docs/superpowers/specs/2026-10-04-gem-quality-socket-effects-design.md`.
+  소켓 시스템 활성화 때 "별도 확장"으로 미뤄둔 항목 — Perfect든 Normal이든 소켓에
+  끼우면 완전히 동일한 효과였다(`_insert_material_into_item`이 품질 접미사를 잘라내고,
+  `GEM_STATS`가 품질 무관 고정값이었음 — 전부 Perfect 등급 값). 5단계 승급 체인
+  (`transmute`)이 소켓 게임플레이에 아무 가치도 안 만들던 또 다른 죽은 트리거였다.
+- `craft.gd`: `GEM_QUALITY_SCALE`(chipped .4/flawed .55/normal .7/flawless .85/perfect
+  1.0, GEM_STATS는 perfect 기준값), `gem_stat()`을 `name:quality` 파싱+배율 적용으로
+  재작성. 베어 id(접미사 없음)는 normal(.7) 취급 — 소급 적용되지만 `effective_affixes()`가
+  매번 실시간 재계산이라 마이그레이션 불필요.
+- `main.gd`: `_insert_material_into_item()`이 보석은 품질 접미사를 보존한 전체 id를
+  그대로 전달(룬은 `rune_` 접두사만 제거하는 기존 방식 유지). `_craft_selftest()`
+  7번째 체크 추가 — 그리고 **기존 1번째 체크(`[P4] gem`)가 베어 "ruby"로 38 life를
+  기대하던 게 이제 27이 되어 FAIL** — 그 테스트의 주석이 원래부터 "Perfect Ruby"였으므로
+  버그가 아니라 테스트가 새 설계(베어=normal)를 반영하도록 `":perfect"`를 명시하는
+  수정이 맞았다.
+- `tools/cube_ui_test.gd`: "Insert Perfect Ruby" 버튼 클릭 후 `socketed[0].id ==
+  "ruby:perfect"`로 품질이 보존되는지 확인.
+- 검증: barb/sorc 표준 오토퀴트(`[P4][RESULT] craft_selftest verdict=PASS`, checks
+  변화 없음 — 이번엔 print 체크만 추가) + `autoquit barb/sorc hell` +
+  `tools/progression_combat_test.gd` 전부 PASS.
+- Web release export → gh-pages 배포 커밋 `0c35a2e`, Pages 빌드 `built`, 루트 HTTP 200,
+  로컬/원격 PCK SHA-256(`cbab9664...`) 일치 확인.

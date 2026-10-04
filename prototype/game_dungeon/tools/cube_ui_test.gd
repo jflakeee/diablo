@@ -68,14 +68,15 @@ func _run() -> void:
 	await process_frame
 	var insert_btn: Button
 	for child in panel.get_children():
-		if child is Button and String(child.text).begins_with("Insert"):
+		if child is Button and child.text == "Insert Perfect Ruby":
 			insert_btn = child
 	if insert_btn == null:
 		failures.append("insert button available")
 	else:
 		insert_btn.pressed.emit()
-	if (socket_target.get("socketed", []) as Array).is_empty():
-		failures.append("insert transaction")
+	var socketed_after: Array = socket_target.get("socketed", [])
+	if socketed_after.is_empty() or String((socketed_after[0] as Dictionary).get("id", "")) != "ruby:perfect":
+		failures.append("insert transaction / quality retained")
 	await process_frame
 	game._accessibility.ui_scale = 1.4
 	game._accessibility.text_scale = 1.25

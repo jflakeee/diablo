@@ -85,6 +85,10 @@ UI 회귀 검사: `godot_console --headless --path prototype/game_dungeon --scri
 그대로 작동한다. 이 레시피 전에는 소켓/보석/룬/룬워드 시스템이 전부 구현돼 있었지만
 실제 플레이에서 소켓 있는 아이템을 만들 방법이 아예 없었다.
 
+**보석 품질**: 소켓 효과는 보석 품질(chipped~perfect)에 비례한다(.4~1.0배, `GEM_STATS`
+표는 perfect 기준값). 승급 재료함의 "Combine 3 -> 다음 등급" 체인이 이제 소켓에 끼우는
+보석의 실제 효과에 반영된다 — 전에는 등급과 무관하게 전부 perfect 효과를 냈다.
+
 ### Identification and resistance effects
 
 새 몬스터 드롭의 레어 장비는 미감정 상태다. 가방의 `Identify (Free)`로 기존에

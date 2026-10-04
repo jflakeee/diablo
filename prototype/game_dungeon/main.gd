@@ -1845,12 +1845,13 @@ func _data_selftest() -> void:
 	print("[DD] data_selftest verdict=", ("PASS" if ok else "FAIL"))
 
 func _craft_selftest() -> void:
-	# 1) 보석 소켓 → 스탯 (Perfect Ruby → armor +38 life)
+	# 1) 보석 소켓 → 스탯 (Perfect Ruby → armor +38 life). 품질 접미사 없는 베어 id는
+	# normal 등급(0.7배)으로 취급하므로, 이 테스트는 명시적으로 ":perfect"를 쓴다.
 	var arm := Item.make_socketed(Item.ARMOR_BASES[1], 3)
-	Item.socket_insert(arm, {"kind": "gem", "id": "ruby"})
+	Item.socket_insert(arm, {"kind": "gem", "id": "ruby:perfect"})
 	var e1 := Item.effective_affixes(arm)
 	var t1: bool = int(e1.get("life", 0)) >= 38
-	print("[P4] gem  : Ruby to armor +life=%d (>=38) : %s" % [int(e1.get("life", 0)), str(t1)])
+	print("[P4] gem  : Perfect Ruby to armor +life=%d (>=38) : %s" % [int(e1.get("life", 0)), str(t1)])
 
 	# 2) 독자 각인 조합 Vey + Ahn (weapon 2소켓)
 	var wpn := Item.make_socketed(Item.WEAPON_BASES[0], 2)
@@ -1890,7 +1891,21 @@ func _craft_selftest() -> void:
 	var t6: bool = t6a and not socket_materials.has(Craft.SOCKET_CATALYST) and int(socket_item.get("sockets", 0)) == 2 and String(socket_item.get("runeword", "")) == "Tempered Edge" and int(e6.get("ed", 0)) == 20
 	print("[P4] socket: catalyst_consumed=%s sockets=%d runeword=%s : %s" % [str(not socket_materials.has(Craft.SOCKET_CATALYST)), int(socket_item.get("sockets", 0)), String(socket_item.get("runeword", "")), str(t6)])
 
-	_craft_selftest_ok = t1 and t2 and t3 and t4 and t5 and t6
+	# 7) 보석 품질 차등: Perfect가 Normal보다 효과가 크고, 레거시 베어 id도 정상 동작
+	var quality_item := Item.generate(_rng, Item.ARMOR_BASES[0], 1, "normal")
+	quality_item["sockets"] = 1
+	quality_item["socketed"] = []
+	Item.socket_insert(quality_item, {"kind": "gem", "id": "ruby:perfect"})
+	var e7a := Item.effective_affixes(quality_item)
+	var quality_item2 := Item.generate(_rng, Item.ARMOR_BASES[0], 1, "normal")
+	quality_item2["sockets"] = 1
+	quality_item2["socketed"] = []
+	Item.socket_insert(quality_item2, {"kind": "gem", "id": "ruby"})
+	var e7b := Item.effective_affixes(quality_item2)
+	var t7: bool = int(e7a.get("life", 0)) > int(e7b.get("life", 0)) and int(e7b.get("life", 0)) > 0
+	print("[P4] gem_quality: perfect_life=%d normal_life=%d : %s" % [int(e7a.get("life", 0)), int(e7b.get("life", 0)), str(t7)])
+
+	_craft_selftest_ok = t1 and t2 and t3 and t4 and t5 and t6 and t7
 	print("[P4][RESULT] craft_selftest verdict=", ("PASS" if _craft_selftest_ok else "FAIL"))
 
 func _add_skill_button(ui: Node, id: String, label: String, col: Color, pos: Vector2, control_size: Vector2) -> void:
@@ -4723,7 +4738,9 @@ func _insert_material_into_item(it: Dictionary, material_id: String) -> void:
 		_rebuild_inv()
 		return
 	var kind := "rune" if material_id.begins_with("rune_") else "gem"
-	var raw_id := material_id.trim_prefix("rune_") if kind == "rune" else material_id.split(":")[0]
+	# 보석은 품질 접미사(:quality)를 그대로 유지해야 Craft.gem_stat()이 등급별
+	# 효과를 적용할 수 있다. 룬은 접두사만 제거.
+	var raw_id := material_id.trim_prefix("rune_") if kind == "rune" else material_id
 	if Item.socket_insert(it, {"kind": kind, "id": raw_id}):
 		if count == 1:
 			_automation.materials.erase(material_id)

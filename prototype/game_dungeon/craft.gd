@@ -19,7 +19,8 @@ const RUNE_STATS := {
 	"Pyre": {"weapon": {"res_all": 5}, "armor": {"res_all": 5}},
 }
 
-# Perfect 보석 스탯(슬롯별) — Part 6 §2 (매핑 가능한 stat만)
+# Perfect 보석 스탯(슬롯별) — Part 6 §2 (매핑 가능한 stat만). 값은 전부 perfect 등급
+# 기준이며, 소켓 시 실제 효과는 GEM_QUALITY_SCALE로 등급에 맞게 축소된다.
 const GEM_STATS := {
 	"amethyst": {"weapon": {"ar": 150}, "armor": {"str": 10}},
 	"diamond": {"weapon": {"ar": 100}, "armor": {"res_all": 19}},
@@ -30,6 +31,13 @@ const GEM_STATS := {
 	"skull": {"weapon": {}, "armor": {"life": 0}},
 }
 
+# 품질별 효과 배율(perfect=1.0 기준 역산). chipped/flawed는 현재 드롭 테이블에
+# 없고(드롭은 normal에서 시작, 업그레이드는 위로만 간다) 변환 체인의 하위 끝으로만
+# 존재하지만, 큐브로 일반 등급까지 내려서 끼울 가능성을 막지 않기 위해 정의는 둔다.
+const GEM_QUALITY_SCALE := {
+	"chipped": 0.4, "flawed": 0.55, "normal": 0.7, "flawless": 0.85, "perfect": 1.0,
+}
+
 # 룬워드(부분집합) — stats는 매핑 근사
 const RUNEWORDS := [
 	{"name": "Tempered Edge", "runes": ["Vey", "Ahn"], "slot": "weapon", "sockets": 2, "stats": {"ed": 20, "ar": 50}},
@@ -37,9 +45,17 @@ const RUNEWORDS := [
 	{"name": "Gloom Crown", "runes": ["Korr", "Vey"], "slot": "helm", "sockets": 2, "stats": {"def": 50}},
 ]
 
-static func gem_stat(gem: String, slot: String) -> Dictionary:
-	var g: Dictionary = GEM_STATS.get(gem, {})
-	return g.get(slot, {})
+static func gem_stat(gem_id: String, slot: String) -> Dictionary:
+	var parts := gem_id.split(":")
+	var name := String(parts[0])
+	var quality := String(parts[1]) if parts.size() == 2 else "normal"
+	var g: Dictionary = GEM_STATS.get(name, {})
+	var base: Dictionary = g.get(slot, {})
+	var scale: float = float(GEM_QUALITY_SCALE.get(quality, GEM_QUALITY_SCALE["normal"]))
+	var result := {}
+	for stat in base:
+		result[stat] = roundi(float(base[stat]) * scale)
+	return result
 
 static func rune_stat(rune: String, slot: String) -> Dictionary:
 	var r: Dictionary = RUNE_STATS.get(rune, {})
