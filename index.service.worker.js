@@ -4,7 +4,7 @@
 // Incrementing CACHE_VERSION will kick off the install event and force
 // previously cached resources to be updated from the network.
 /** @type {string} */
-const CACHE_VERSION = '1791103054|9073405';
+const CACHE_VERSION = '1791108589|17336275';
 /** @type {string} */
 const CACHE_PREFIX = 'Ashen Depths-sw-cache-';
 const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
