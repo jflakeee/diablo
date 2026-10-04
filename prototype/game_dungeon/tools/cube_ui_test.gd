@@ -49,6 +49,33 @@ func _run() -> void:
 		reroll_btn.pressed.emit()
 	if game._automation.materials.has("topaz") or (reroll_target["affixes"] as Dictionary).is_empty():
 		failures.append("reroll transaction")
+	game._automation.materials["skull"] = 3
+	var socket_target := Item.generate(rng, Item.ARMOR_BASES[1], 1, "normal")
+	game._inventory.append(socket_target)
+	game._rebuild_inv()
+	await process_frame
+	var socket_btn: Button
+	for child in panel.get_children():
+		if child is Button and child.text == "Add 2 Sockets":
+			socket_btn = child
+	if socket_btn == null or socket_btn.disabled:
+		failures.append("socket button available")
+	if socket_btn != null:
+		socket_btn.pressed.emit()
+	if game._automation.materials.has("skull") or int(socket_target.get("sockets", 0)) != 2:
+		failures.append("add sockets transaction")
+	game._rebuild_inv()
+	await process_frame
+	var insert_btn: Button
+	for child in panel.get_children():
+		if child is Button and String(child.text).begins_with("Insert"):
+			insert_btn = child
+	if insert_btn == null:
+		failures.append("insert button available")
+	else:
+		insert_btn.pressed.emit()
+	if (socket_target.get("socketed", []) as Array).is_empty():
+		failures.append("insert transaction")
 	await process_frame
 	game._accessibility.ui_scale = 1.4
 	game._accessibility.text_scale = 1.25
@@ -70,7 +97,7 @@ func _run() -> void:
 			empty_found = true
 	if not empty_found:
 		failures.append("empty state")
-	print("[CUBE_UI] click=true stale_input=true reroll=true widths=320/640 failures=%s verdict=%s" % [failures, "PASS" if failures.is_empty() else "FAIL"])
+	print("[CUBE_UI] click=true stale_input=true reroll=true socket=true widths=320/640 failures=%s verdict=%s" % [failures, "PASS" if failures.is_empty() else "FAIL"])
 	game.free()
 	panel.queue_free()
 	await process_frame

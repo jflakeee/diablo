@@ -1880,7 +1880,17 @@ func _craft_selftest() -> void:
 	var t5: bool = t5a and not reroll_materials.has(Craft.REROLL_CATALYST) and String(reroll_item.get("quality", "")) == "magic" and (reroll_item["affixes"] as Dictionary).size() >= 1
 	print("[P4] reroll: catalyst_consumed=%s quality_kept=%s affixes=%d : %s" % [str(not reroll_materials.has(Craft.REROLL_CATALYST)), str(String(reroll_item.get("quality", "")) == "magic"), (reroll_item["affixes"] as Dictionary).size(), str(t5)])
 
-	_craft_selftest_ok = t1 and t2 and t3 and t4 and t5
+	# 6) 소켓 부여: 스컬 3개 + 소켓 없는 일반 무기 → 소켓 2개, 룬 삽입까지 제자리로 이어지는지
+	var socket_item := Item.generate(_rng, Item.WEAPON_BASES[0], 1, "normal")
+	var socket_materials := {Craft.SOCKET_CATALYST: Craft.SOCKET_COST}
+	var t6a := Craft.add_sockets(socket_materials, socket_item)
+	Item.socket_insert(socket_item, {"kind": "rune", "id": "Vey"})
+	Item.socket_insert(socket_item, {"kind": "rune", "id": "Ahn"})
+	var e6 := Item.effective_affixes(socket_item)
+	var t6: bool = t6a and not socket_materials.has(Craft.SOCKET_CATALYST) and int(socket_item.get("sockets", 0)) == 2 and String(socket_item.get("runeword", "")) == "Tempered Edge" and int(e6.get("ed", 0)) == 20
+	print("[P4] socket: catalyst_consumed=%s sockets=%d runeword=%s : %s" % [str(not socket_materials.has(Craft.SOCKET_CATALYST)), int(socket_item.get("sockets", 0)), String(socket_item.get("runeword", "")), str(t6)])
+
+	_craft_selftest_ok = t1 and t2 and t3 and t4 and t5 and t6
 	print("[P4][RESULT] craft_selftest verdict=", ("PASS" if _craft_selftest_ok else "FAIL"))
 
 func _add_skill_button(ui: Node, id: String, label: String, col: Color, pos: Vector2, control_size: Vector2) -> void:
@@ -3413,7 +3423,7 @@ func _on_monster_died(m: Node) -> void:
 		_spawn_ground(_make_potion("mana", mini(5, 1 + int(m.level) / 4)), m.gx, m.gy)
 	# 보석/재료는 수량 제한 없이 동일 id로 합쳐진다.
 	if _rng.randf() < 0.12 + pot_bonus:
-		var gems := ["ruby", "sapphire", "topaz", "emerald", "rune_Ahn", "rune_Vey"]
+		var gems := ["ruby", "sapphire", "topaz", "emerald", "skull", "rune_Ahn", "rune_Vey"]
 		_spawn_ground(_make_material(String(gems[_rng.randi_range(0, gems.size() - 1)])), m.gx, m.gy)
 	if _rng.randf() < (0.05 if rank == "" else 0.16):
 		_spawn_ground(_make_vision_relic(), m.gx - 0.25, m.gy + 0.25)
@@ -3519,7 +3529,7 @@ func _spawn_ground(it: Dictionary, gx: float, gy: float) -> void:
 		"material":
 			var material_id := String(it.get("id", "material"))
 			icon_kind = "rune" if material_id.begins_with("rune_") else "gem"
-			var gem_ids := ["ruby", "sapphire", "topaz", "emerald"]
+			var gem_ids := ["ruby", "sapphire", "topaz", "emerald", "skull"]
 			icon_seed = maxi(0, gem_ids.find(material_id))
 		"skill_book": icon_kind = "rune"
 	var atlas_id := icon_kind
@@ -4651,6 +4661,72 @@ func _rebuild_cube() -> void:
 			reroll_btn.disabled = not Craft.can_reroll(_automation.materials, captured_item, Item)
 			reroll_btn.pressed.connect(func(): _reroll_inventory_item(captured_item))
 			_inv_vbox.add_child(reroll_btn)
+	var socketable: Array = []
+	var socketed_open: Array = []
+	for bag_item in _inventory:
+		if String(bag_item.get("slot", "")) in ["weapon", "armor"]:
+			if String(bag_item.get("quality", "")) == "normal" and int(bag_item.get("sockets", 0)) == 0:
+				socketable.append(bag_item)
+			elif (bag_item.get("socketed", []) as Array).size() < int(bag_item.get("sockets", 0)):
+				socketed_open.append(bag_item)
+	if not socketable.is_empty():
+		var socket_header := Label.new()
+		socket_header.text = "ADD SOCKETS (%s x%d per item)" % [Craft.material_name(Craft.SOCKET_CATALYST), Craft.SOCKET_COST]
+		socket_header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_inv_vbox.add_child(socket_header)
+		for bag_item in socketable:
+			var socket_label := Label.new()
+			socket_label.text = Item.display_name(bag_item)
+			socket_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_inv_vbox.add_child(socket_label)
+			var socket_btn := Button.new()
+			socket_btn.text = "Add %d Sockets" % Craft.SOCKET_COUNT
+			var captured_socketable: Dictionary = bag_item
+			socket_btn.disabled = not Craft.can_add_sockets(_automation.materials, captured_socketable)
+			socket_btn.pressed.connect(func(): _add_sockets_to_item(captured_socketable))
+			_inv_vbox.add_child(socket_btn)
+	if not socketed_open.is_empty():
+		var insert_header := Label.new()
+		insert_header.text = "INSERT INTO SOCKET"
+		insert_header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_inv_vbox.add_child(insert_header)
+		for bag_item in socketed_open:
+			var open_count: int = int(bag_item.get("sockets", 0)) - (bag_item.get("socketed", []) as Array).size()
+			var insert_label := Label.new()
+			insert_label.text = "%s (%d open socket%s)" % [Item.display_name(bag_item), open_count, "" if open_count == 1 else "s"]
+			insert_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_inv_vbox.add_child(insert_label)
+			var captured_socketed: Dictionary = bag_item
+			for material_key in _automation.materials.keys():
+				var material_id := String(material_key)
+				if int(_automation.materials[material_id]) <= 0:
+					continue
+				var insert_btn := Button.new()
+				insert_btn.text = "Insert %s" % Craft.material_name(material_id)
+				insert_btn.pressed.connect(func(): _insert_material_into_item(captured_socketed, material_id))
+				_inv_vbox.add_child(insert_btn)
+
+func _add_sockets_to_item(it: Dictionary) -> void:
+	if Craft.add_sockets(_automation.materials, it):
+		_combat_log = "SOCKETED: %s (+%d sockets)" % [Item.display_name(it), Craft.SOCKET_COUNT]
+	else:
+		_combat_log = "Requires %d %s and an unsocketed normal weapon/armor" % [Craft.SOCKET_COST, Craft.material_name(Craft.SOCKET_CATALYST)]
+	_rebuild_inv()
+
+func _insert_material_into_item(it: Dictionary, material_id: String) -> void:
+	var count := int(_automation.materials.get(material_id, 0))
+	if count <= 0 or (it.get("socketed", []) as Array).size() >= int(it.get("sockets", 0)):
+		_rebuild_inv()
+		return
+	var kind := "rune" if material_id.begins_with("rune_") else "gem"
+	var raw_id := material_id.trim_prefix("rune_") if kind == "rune" else material_id.split(":")[0]
+	if Item.socket_insert(it, {"kind": kind, "id": raw_id}):
+		if count == 1:
+			_automation.materials.erase(material_id)
+		else:
+			_automation.materials[material_id] = count - 1
+		_combat_log = "SOCKETED: %s into %s" % [Craft.material_name(material_id), Item.display_name(it)]
+	_rebuild_inv()
 
 func _reroll_inventory_item(it: Dictionary) -> void:
 	if Craft.reroll(_rng, _automation.materials, it, Item):

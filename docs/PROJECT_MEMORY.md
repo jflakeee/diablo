@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-04 (Hell 원소 면역 활성화 배포)
+최종 갱신: 2026-10-04 (소켓 시스템 활성화 배포)
 
 ## 맵 생성 상태
 
@@ -24,12 +24,12 @@
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 배포 표시 시각: `2026-10-04 15:55 KST`
-- 소스 커밋: Hell 원소 면역 활성화(본 커밋)
-- 최신 배포 커밋: `81ceb88` (gh-pages)
+- 배포 표시 시각: `2026-10-04 16:04 KST`
+- 소스 커밋: 소켓 시스템 활성화(본 커밋)
+- 최신 배포 커밋: `dd82494` (gh-pages)
 - Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`), 루트 HTTP 200 확인
-- 원격 기본 URL의 PCK SHA-256: `6814ffe8c37bd5300fc4d1f0a0ed8e6ae07e026061cf0837a9ac801224a665d8`
-- 원격 PCK 1,264,460 bytes 및 로컬 빌드 해시 일치 확인.
+- 원격 기본 URL의 PCK SHA-256: `7ac8ffb0f9755cb43e3d2ceffd930ecb5b278fa0ed92a7e9fe883bcfc7a9a443`
+- 원격 PCK 1,267,932 bytes 및 로컬 빌드 해시 일치 확인.
 
 ## 다음 점검 항목
 
@@ -284,3 +284,27 @@
   `[IMMUNE] ... verdict=PASS` 전부.
 - Web release export → gh-pages 배포 커밋 `81ceb88`, Pages 빌드 `built`, 루트 HTTP 200,
   로컬/원격 PCK SHA-256(`6814ffe8...`) 일치 확인.
+
+## 2026-10-04 소켓 시스템 활성화 (원격 배포 완료)
+
+- 설계 문서: `docs/superpowers/specs/2026-10-04-socket-activation-design.md`. Hell 원소
+  면역과 같은 라운드에서 advisor가 지목한 두 번째 "이미 만들어졌지만 실전에서 발동 안
+  하는 시스템". `make_socketed()`/`socket_insert()` 호출부가 `_craft_selftest()` 말고는
+  전혀 없었다 — 소켓/보석/룬/룬워드 전체가 실제 플레이에서 한 번도 닿을 수 없었다.
+- `craft.gd`: `SOCKET_CATALYST`("skull", 토파즈와 같은 이유로 소켓 효과 0이라 쓸모없던
+  재료를 돌림)/`SOCKET_COST`(3)/`SOCKET_COUNT`(2), `can_add_sockets()`/`add_sockets()`
+  (제자리 변형 — `make_socketed()`는 새 아이템을 만들어 가방 아이템엔 못 씀).
+- `main.gd`: 스컬을 몬스터 드롭 재료 풀에 추가, `_rebuild_cube()`에 "ADD SOCKETS"/
+  "INSERT INTO SOCKET" 두 섹션(리롤 때처럼 버튼을 평평하게 직계 자식으로 배치),
+  `_add_sockets_to_item()`/`_insert_material_into_item()`, `_craft_selftest()` 6번째
+  체크(스컬 소비→소켓 2개→Vey+Ahn 삽입→Tempered Edge 룬워드 매칭까지 한 번에 확인).
+- `tools/cube_ui_test.gd` 확장: "Add 2 Sockets"/"Insert ..." 버튼 탐지·클릭·재료소비
+  검증 추가.
+- 비범위로 명시: 소켓 개수 가변화, 보석 품질별 효과 차등화(기존 `GEM_STATS`가 품질
+  무관 고정값인 한계를 그대로 둠), Gloom Crown 룬워드(헬름 슬롯 자체가 없어 도달
+  불가능 — 건드리지 않음).
+- 검증: `[P4] socket: ... : true` + `[P4][RESULT] craft_selftest verdict=PASS`가
+  barb/sorc 둘 다 최종 ok에 영향(지난 라운드에 이미 `_craft_selftest_ok`로 편입해둠),
+  `[CUBE_UI] ... socket=true verdict=PASS`.
+- Web release export → gh-pages 배포 커밋 `dd82494`, Pages 빌드 `built`, 루트 HTTP 200,
+  로컬/원격 PCK SHA-256(`7ac8ffb0...`) 일치 확인.

@@ -114,6 +114,29 @@ static func reroll(rng: RandomNumberGenerator, materials: Dictionary, it: Dictio
 		materials[REROLL_CATALYST] = available - REROLL_COST
 	return item_script.reroll(rng, it)
 
+# 큐브: 스컬 3개 + 소켓 없는 일반(normal) 무기/방어구 → 소켓 2개 부여(제자리 변형).
+# Item.make_socketed()는 아이템을 새로 생성하므로 가방의 기존 아이템에는 쓸 수 없다.
+# 스컬은 토파즈와 동일한 이유로 재료로 돌린다: GEM_STATS 소켓 효과가 0이라 다른
+# 쓸모가 없었고, 드롭 테이블에도 없어 이번에 함께 추가한다.
+const SOCKET_CATALYST := "skull"
+const SOCKET_COST := 3
+const SOCKET_COUNT := 2
+
+static func can_add_sockets(materials: Dictionary, it: Dictionary) -> bool:
+	return int(materials.get(SOCKET_CATALYST, 0)) >= SOCKET_COST and String(it.get("quality", "")) == "normal" and String(it.get("slot", "")) in ["weapon", "armor"] and int(it.get("sockets", 0)) == 0
+
+static func add_sockets(materials: Dictionary, it: Dictionary) -> bool:
+	if not can_add_sockets(materials, it):
+		return false
+	var available := int(materials.get(SOCKET_CATALYST, 0))
+	if available == SOCKET_COST:
+		materials.erase(SOCKET_CATALYST)
+	else:
+		materials[SOCKET_CATALYST] = available - SOCKET_COST
+	it["sockets"] = SOCKET_COUNT
+	it["socketed"] = []
+	return true
+
 static func transmute(materials: Dictionary, id: String) -> bool:
 	var result := upgrade_material(id)
 	var available := int(materials.get(id, 0))
