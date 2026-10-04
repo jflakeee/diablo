@@ -77,6 +77,22 @@ static func layout(viewport: Vector2, safe: Rect2 = Rect2(), mobile: bool = true
 	if not mobile:
 		skill_utility = Vector2(right - skill_size.x * 3.0 - 16, bottom - skill_size.y)
 		skill_quaternary = Vector2(right - skill_size.x * 4.0 - 24, bottom - skill_size.y)
+	else:
+		# 이모탈식 2단 배치: primary는 기존 모서리 위치 그대로 두고(엄지 안착점),
+		# 나머지 3개만 같은 피벗 중심 180도(왼쪽)~270도(위쪽) 호에 부채꼴로 건다.
+		# 균등 4분할 호는 중간 버튼끼리 겹쳐(대각 간격이 변 간격보다 좁음) 반지름을
+		# 올려야 했는데, 세로 모드 최소 뷰포트(640x360 가로 기준 가용 높이 328px)에서
+		# 그 반지름이 화면 밖으로 넘어가 버려 primary 고정 2단 구조로 바꿨다.
+		var pivot := Vector2(right, bottom) - skill_size * 0.5
+		var radius := skill_size.x * 1.5
+		var arc: Array[Vector2] = []
+		for i in 3:
+			var angle := deg_to_rad(lerpf(180.0, 270.0, float(i) / 2.0))
+			var center := pivot + Vector2(cos(angle), sin(angle)) * radius
+			arc.append(center - skill_size * 0.5)
+		skill_secondary = arc[0]
+		skill_utility = arc[1]
+		skill_quaternary = arc[2]
 	return {
 		"mobile": mobile, "menu_size": menu_size, "skill_size": skill_size, "potion_size": potion_size, "minimap_size": minimap_size,
 		"hud": Vector2(left, top),

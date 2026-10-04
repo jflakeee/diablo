@@ -282,6 +282,33 @@ quality equips immediately, so a fresh character is never left bare). Items
 blocked by the gate fall through to the existing inventory/auto-sell logic
 unchanged.
 
+### Immortal-style skill button fan (mobile layout, not wired)
+
+`MobileUI.layout()`'s 2x2 skill-button grid math is replaced with a two-tier
+layout on mobile profiles: `skill_primary` stays at its original corner
+position (thumb anchor), and the other three slots fan around the same pivot
+across a 180-to-270-degree arc. An even four-button arc was tried first but
+failed the existing `validate()` bounding-box overlap check — diagonal
+neighbors at 45 degrees need a far larger radius than axis-aligned neighbors
+to clear square buttons, and that radius pushes the arc off-screen on the
+minimum landscape viewport. The primary-fixed, three-button fan clears every
+pairing with margin at every tested viewport.
+
+**This geometry currently has no visible effect.** Manual skill buttons were
+intentionally removed from `_ready()` on 2026-09-29 (`aaac80b` — skill
+keybinds, WASD, and per-class auto-play spell logic were removed together in
+favor of a basic-attack-only auto-play loop with modal-pause). `layout()`
+still computes `skill_primary/secondary/utility/quaternary` positions (kept
+in sync with `validate()`'s own tests) but nothing in `main.gd` consumes
+them — confirmed by `git log -S"_add_skill_button(ui"`, which shows the one
+and only call site was removed in that commit. The missing wiring is **not a
+regression** — it is a deliberate design choice. The arc math is ready for
+whenever manual skill controls return, but **do not re-wire it without
+confirming with the project owner first**; this round's temporary wiring
+(added to verify the geometry end-to-end, `[SKILL_VISUAL] verdict=PASS`) was
+reverted on an explicit 2026-10-04 user decision to keep auto-play-only
+combat.
+
 ### Stat/skill respec
 
 A vendor-panel button resets stats to class base values and skills to
