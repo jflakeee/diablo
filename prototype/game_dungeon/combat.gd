@@ -83,7 +83,7 @@ static func diff_monster_hp_mult(diff: int) -> float:
 	return float(t[clampi(diff, 0, 2)])
 
 static func diff_monster_resist_bonus(diff: int) -> int:
-	var t := [0, 20, 50]
+	var t := [0, 20, 70]
 	return int(t[clampi(diff, 0, 2)])
 
 static func diff_player_resist_penalty(diff: int) -> int:

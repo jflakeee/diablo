@@ -229,6 +229,7 @@ var _waypoint_selftest_ok := true
 var _pack_selftest_ok := true
 var _boss_room_selftest_ok := true
 var _craft_selftest_ok := true
+var _immune_selftest_ok := true
 var _quitting := false
 var _perf_start_memory := 0
 var _perf_peak_memory := 0
@@ -1409,6 +1410,7 @@ func _start_game() -> void:
 		_act_reward_selftest()
 		_waypoint_travel_selftest()
 		_pack_selftest()
+		_immune_selftest()
 	print("[GD] ready - class=%s life=%d dungeon=%dx%d entrance=(%d,%d) exit=(%d,%d)" % [
 		_class, _player.max_life, _gw, _gh, _ent_cell.x, _ent_cell.y, _exit_cell.x, _exit_cell.y])
 	if OS.get_cmdline_user_args().has("skill_visual_test"):
@@ -1804,6 +1806,29 @@ func _pack_selftest() -> void:
 				ok = false
 	_pack_selftest_ok = ok
 	print("[PACK] packs=%d min_size=%d max_size=%d verdict=%s" % [groups.size(), min_size, max_size, "PASS" if ok else "FAIL"])
+
+# 난이도별 몬스터 저항 보너스(diff_monster_resist_bonus)가 실제로 Hell에서만
+# fire/cold/light 면역(>=100)을 만들어내는지 정적 데이터로 검증한다. 독 면역은
+# 원래부터 난이도와 무관하게 존재(이 작업과 무관)하므로 검사에서 제외한다.
+func _immune_selftest() -> void:
+	var mons := Data.monsters()
+	var elements := ["res_fire", "res_cold", "res_light"]
+	var hell_immune := {"res_fire": false, "res_cold": false, "res_light": false}
+	var sub_hell_clear := true
+	for diff in [0, 1, 2]:
+		var bonus := CombatLib.diff_monster_resist_bonus(diff)
+		for md in mons:
+			var is_boss := String(md.get("kind", "")) == "boss"
+			for element in elements:
+				var effective: int = (-50 + bonus) if (is_boss and element == "res_fire") else int(md.get(element, 0)) + bonus
+				if effective >= 100:
+					if diff == 2:
+						hell_immune[element] = true
+					else:
+						sub_hell_clear = false
+	var hell_full := bool(hell_immune["res_fire"]) and bool(hell_immune["res_cold"]) and bool(hell_immune["res_light"])
+	_immune_selftest_ok = hell_full and sub_hell_clear
+	print("[IMMUNE] hell_bonus=%d fire=%s cold=%s light=%s sub_hell_clear=%s verdict=%s" % [CombatLib.diff_monster_resist_bonus(2), str(hell_immune["res_fire"]), str(hell_immune["res_cold"]), str(hell_immune["res_light"]), str(sub_hell_clear), "PASS" if _immune_selftest_ok else "FAIL"])
 
 func _data_selftest() -> void:
 	var mons := Data.monsters()
@@ -2812,7 +2837,7 @@ func _process(delta: float) -> void:
 		print("[ASSET] monsters compiled=%d fallback=%d runtime=%s" % [_compiled_monsters, _generated_monsters, str(asset_report)])
 		var perf_report := PerformanceBudget.evaluate(elapsed, _logic_ticks, _perf_peak_active, _perf_start_memory, _perf_peak_memory)
 		print("[PERF] logic_hz=%.2f peak_active=%d memory_growth_kib=%.1f failures=%s verdict=%s" % [float(perf_report["logic_hz"]), int(perf_report["peak_active"]), float(perf_report["memory_growth"]) / 1024.0, str(perf_report["failures"]), "PASS" if bool(perf_report["ok"]) else "FAIL"])
-		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and bool(perf_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok and _online_selftest_ok and _coverage_selftest_ok and _waypoint_selftest_ok and _pack_selftest_ok and _boss_room_selftest_ok and ai_cull_ok and Mercenary.selftest() and _craft_selftest_ok
+		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and bool(perf_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok and _online_selftest_ok and _coverage_selftest_ok and _waypoint_selftest_ok and _pack_selftest_ok and _boss_room_selftest_ok and ai_cull_ok and Mercenary.selftest() and _craft_selftest_ok and _immune_selftest_ok
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		_release_runtime_resources()
 		await get_tree().process_frame

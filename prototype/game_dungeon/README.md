@@ -97,6 +97,10 @@ UI 회귀 검사: `godot_console --headless --path prototype/game_dungeon --scri
 - 저주 잔여시간은 보라색 막대, 활성 오라는 시전자 발밑 고리로 표시한다.
   스킬 설명은 캐릭터 창과 툴팁에서 확인한다. 저장 시 현재 층의 저주와
   Iron Chant 잔여시간도 보존하며, 새로 생성된 층의 적은 저주가 없는 상태로 시작한다.
+- **Hell 원소 면역**: 난이도별 저항 보너스(Normal +0 / NM +20 / Hell +70)가 Hell에서만
+  fire/cold/light 저항을 100 이상으로 올려 실제 면역을 만든다(독은 난이도와 무관하게
+  이미 면역 몬스터가 있었다). 위 1/5 면역돌파 공식이 Hell에서 처음으로 실전 발동한다.
+  `_immune_selftest()`가 정적 데이터로 Hell=전부 면역/Normal·NM=전부 비면역을 검증한다.
 
 통합 회귀 검사:
 `godot_console --headless --path prototype/game_dungeon --script res://tools/progression_combat_test.gd`

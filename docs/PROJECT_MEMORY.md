@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-02 (호라드릭 큐브 리롤 배포)
+최종 갱신: 2026-10-04 (Hell 원소 면역 활성화 배포)
 
 ## 맵 생성 상태
 
@@ -24,12 +24,12 @@
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 배포 표시 시각: `2026-10-02 09:55 KST`
-- 소스 커밋: 호라드릭 큐브 리롤(본 커밋)
-- 최신 배포 커밋: `d647c3f` (gh-pages)
+- 배포 표시 시각: `2026-10-04 15:55 KST`
+- 소스 커밋: Hell 원소 면역 활성화(본 커밋)
+- 최신 배포 커밋: `81ceb88` (gh-pages)
 - Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`), 루트 HTTP 200 확인
-- 원격 기본 URL의 PCK SHA-256: `525a6e6d7e2ef1dfe3225fb1640f04c7a79b50424957461c370314ef58f16957`
-- 원격 PCK 1,263,932 bytes 및 로컬 빌드 해시 일치 확인.
+- 원격 기본 URL의 PCK SHA-256: `6814ffe8c37bd5300fc4d1f0a0ed8e6ae07e026061cf0837a9ac801224a665d8`
+- 원격 PCK 1,264,460 bytes 및 로컬 빌드 해시 일치 확인.
 
 ## 다음 점검 항목
 
@@ -260,3 +260,27 @@
   verdict=PASS`.
 - Web release export → gh-pages 배포 커밋 `d647c3f`, Pages 빌드 `built`, 루트 HTTP 200,
   로컬/원격 PCK SHA-256(`525a6e6d...`) 일치 확인.
+
+## 2026-10-04 Hell 원소 면역 활성화 (원격 배포 완료)
+
+- 설계 문서: `docs/superpowers/specs/2026-10-04-hell-elemental-immunity-design.md`.
+  advisor 자문으로 "이미 만들어졌지만 실전에서 발동 안 하는 시스템"을 찾아 활성화한 사례
+  — AI_CULL 반경, craft_selftest 미집계와 같은 종류. 저주/오라 면역돌파(`reduced_resistance`,
+  Storm Lance/Iron Chant)는 완전히 구현·단위테스트까지 돼 있었지만, 실제 면역(저항≥100)이
+  나는 원소가 독(poison) 하나뿐이라 두 클래스 모두 한 번도 발동시킬 수 없는 죽은 코드였다.
+- `combat.gd diff_monster_resist_bonus`: Hell 값만 50→70으로 조정(Normal/NM은 그대로).
+  기존 몬스터 데이터(`data/monsters.json`) 기준 Hell에서 fire(ash_caller)/cold(bone_guard,
+  bone_marksman)/light(horned_marauder) 전부 100 이상으로 면역 — 기존 50은 fire/cold를
+  정확히 100(여유 없음)만 만들고 light는 90으로 못 미쳤던 것을 70으로 여유 있게 만듦.
+  Brood Matron의 불 약점(-50)이 Hell에서만 -50+70=20(약한 저항)으로 사라지는 부작용은
+  D2 원작도 고난이도일수록 보스 고유 약점이 희석되는 경향이 있어 의도적으로 수용.
+- `main.gd`: `_immune_selftest()` 추가 — `Data.monsters()`를 3개 난이도로 정적 스캔해
+  Hell=fire/cold/light 전부 면역, Normal/NM=전부 비면역을 검증, 최종 `ok` 집계에 편입.
+- `reduced_resistance()`/`apply_resistance()`의 경계값 자체는 이미 `system_tests.gd`에
+  단위테스트돼 있어 재작성하지 않음 — 이번 작업은 숫자 하나만 조정해 기존에 완성된
+  파이프라인을 실전에서 처음으로 타게 만든 것.
+- 검증: barb/sorc 표준(Normal) 오토퀴트 PASS(회귀 없음) + `autoquit barb hell`/
+  `autoquit sorc hell` 스모크 테스트로 실제 Hell 던전에서 크래시 없이 진행 확인,
+  `[IMMUNE] ... verdict=PASS` 전부.
+- Web release export → gh-pages 배포 커밋 `81ceb88`, Pages 빌드 `built`, 루트 HTTP 200,
+  로컬/원격 PCK SHA-256(`6814ffe8...`) 일치 확인.
