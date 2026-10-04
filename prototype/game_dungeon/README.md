@@ -270,6 +270,18 @@ empty-slot-first / power-comparison swap rule as dual rings
 auto-equip comparison pipeline as every other slot. Save schema v17
 initializes both charm slots empty for older saves.
 
+### Automatic equip grade gate
+
+The vendor panel's "Cycle Auto Equip" button sets `Automation.equip_min`, but
+`_auto_equip()` previously never read it — the toggle changed state with no
+gameplay effect, comparing items purely by combat power regardless of quality.
+Fixed by gating the **replace** path only: a pickup only replaces already-
+equipped gear if its quality rank is at or above `equip_min`, even when the
+pickup is a raw power upgrade. Filling an empty slot is unaffected (any
+quality equips immediately, so a fresh character is never left bare). Items
+blocked by the gate fall through to the existing inventory/auto-sell logic
+unchanged.
+
 ### Stat/skill respec
 
 A vendor-panel button resets stats to class base values and skills to

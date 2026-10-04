@@ -1616,6 +1616,16 @@ func _run_auto_equip_sell_test() -> void:
 	var future_kept: bool = _inventory.has(locked)
 	pickup_test_item.call(protected)
 	var protected_kept: bool = _inventory.has(protected)
+	var overpowered_normal := Item.generate(_rng, Item.ARMOR_BASES[0], 10, "normal")
+	overpowered_normal["affixes"] = {"def": 999, "life": 999, "res_all": 99}
+	overpowered_normal["salvage_protected"] = true
+	pickup_test_item.call(overpowered_normal)
+	var grade_gate_blocked: bool = _equipped["armor"] == strong and _inventory.has(overpowered_normal)
+	_automation.equip_min = "normal"
+	var overpowered_normal_2 := Item.generate(_rng, Item.ARMOR_BASES[0], 10, "normal")
+	overpowered_normal_2["affixes"] = {"def": 999, "life": 999, "res_all": 99}
+	pickup_test_item.call(overpowered_normal_2)
+	var grade_gate_released: bool = _equipped["armor"] == overpowered_normal_2
 	await get_tree().create_timer(5.3).timeout
 	var positive_power_event := false
 	for event in _item_event_history:
@@ -1629,8 +1639,8 @@ func _run_auto_equip_sell_test() -> void:
 		if child is Label and String((child as Label).text).begins_with("RECENT ITEM LOG"):
 			history_view_ok = true
 			break
-	var ok: bool = empty_equipped and upgraded and lower_sold and future_kept and protected_kept and toast_log_ok and history_view_ok
-	print("[AUTO_EQUIP_SELL] empty=%s upgrade=%s replaced_sold=%s lower_sold=%s future_kept=%s protected=%s toast_log=%s history_view=%s events=%d verdict=%s" % [str(empty_equipped), str(upgraded), str(_gold_sold > 0), str(lower_sold), str(future_kept), str(protected_kept), str(toast_log_ok), str(history_view_ok), _item_event_history.size(), "PASS" if ok else "FAIL"])
+	var ok: bool = empty_equipped and upgraded and lower_sold and future_kept and protected_kept and toast_log_ok and history_view_ok and grade_gate_blocked and grade_gate_released
+	print("[AUTO_EQUIP_SELL] empty=%s upgrade=%s replaced_sold=%s lower_sold=%s future_kept=%s protected=%s toast_log=%s history_view=%s grade_gate_blocked=%s grade_gate_released=%s events=%d verdict=%s" % [str(empty_equipped), str(upgraded), str(_gold_sold > 0), str(lower_sold), str(future_kept), str(protected_kept), str(toast_log_ok), str(history_view_ok), str(grade_gate_blocked), str(grade_gate_released), _item_event_history.size(), "PASS" if ok else "FAIL"])
 	await get_tree().create_timer(1.0).timeout
 	get_tree().quit()
 
@@ -3776,6 +3786,8 @@ func _auto_equip(it: Dictionary) -> String:
 	if not _equipped.has(slot):
 		return "KEPT_LOWER_POWER"
 	var current: Dictionary = _equipped[slot]
+	if not current.is_empty() and _automation.rank(String(it.get("quality", "normal"))) < _automation.rank(_automation.equip_min):
+		return "KEPT_LOWER_POWER"
 	var before_power := _loadout_combat_power(_equipped)
 	var after_power := _power_with_item(it, slot)
 	var improves := current.is_empty() or after_power > before_power + maxf(1.0, before_power * 0.01)

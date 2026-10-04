@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-04 (보석 품질 소켓 효과 차등화 배포)
+최종 갱신: 2026-10-04 (자동 장착 등급 게이트 활성화 배포)
 
 ## 맵 생성 상태
 
@@ -25,12 +25,42 @@
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 배포 표시 시각: `2026-10-04 17:38 KST`
-- 소스 커밋: 보석 품질 소켓 효과 차등화(본 커밋)
-- 최신 배포 커밋: `0c35a2e` (gh-pages)
-- Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`), 루트 HTTP 200 확인
-- 원격 기본 URL의 PCK SHA-256: `cbab96642dfaf38ac4304ac31a1f59a4f5801513701ec2c5d3d7d7f36bc5bdd7`
-- 원격 PCK 1,269,964 bytes 및 로컬 빌드 해시 일치 확인.
+- 소스 커밋: 자동 장착 등급 게이트 활성화(본 커밋)
+- 최신 배포 커밋: `c818776` (gh-pages)
+- Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`, commit=c818776 확인), 루트 HTTP 200 확인
+- 원격 PCK SHA-256: `9d857f2f8537afcdacc393e57bf6ec3e324466711f8b75c51898873327edf340`, 로컬 빌드 해시 일치 확인
+- 시각 검증: playwright로 `?v=c818776` 접속 → 클래스 선택 화면("CHOOSE YOUR CLASS") 정상 렌더링, 콘솔 에러 0건 확인(헤드풀 모드, WebGL2 정상 초기화)
+
+## 설계 원문(`prompt_diablo.md`) 대비 구현 현황 (2026-10-04 작성)
+
+사용자가 저장소 루트에 남긴 `prompt_diablo.md`(미추적 파일)를 "설계된 내용"의 원본으로
+확인하고 전체 22개 항목을 구현 상태별로 분류했다. 이 표가 비워질 때까지 "다음 미착수
+작업"을 계속 이어간다.
+
+| # | 항목 | 상태 | 근거 |
+|---|------|------|------|
+| 1 | 아이템 자동 습득 | 구현됨 | `Automation.accepts()`, `_pickup()`에서 호출 |
+| 2 | 자동 습득 등급 설정 | 구현됨 | `pickup_min` + "Cycle Auto Pickup" UI |
+| 3 | 동일 아이템 무한 겹침 | 미착수 | 장비(무기/방어구/반지/부적)는 각 1슬롯씩 `_inventory.append()`로만 쌓임 — 동일 판정(같은 접두/접미사) 겹침 로직 없음. 단, 모든 장비가 랜덤 롤 옵션을 가지는 구조라 "동일 아이템" 자체가 드물어 실제로 의미 있는 기능인지 재검토 필요 |
+| 4 | (구분선) | - | - |
+| 5 | 포션 자동 습득 | 구현됨 | `accepts()` slot="potion" 무조건 true |
+| 6 | 상위 포션으로 자동 교체 | 구현됨 | `Automation.potion_upgrade()` |
+| 7 | (구분선) | - | - |
+| 8 | 재료아이템 자동 습득 | 구현됨 | `accepts()` slot="material" 무조건 true |
+| 9 | 보석류 무한 겹침 | 구현됨 | `_automation.materials[id]` 정수 카운트, 품질 접미사별 분리 키로 캡 없음 |
+| 10 | (구분선) | - | - |
+| 11 | 장비 자동 장착 | 구현됨 | `_auto_equip()`, 파워 비교 기반 |
+| 12 | 자동 장착 등급 설정 | **2026-10-04 활성화** | 기존엔 `equip_min` UI 토글이 `_auto_equip()`에서 전혀 읽히지 않는 죽은 토글이었음 — 교체 시에만 등급 게이트 적용하도록 수정(빈 슬롯은 등급 무관 유지) |
+| 13 | (구분선) | - | - |
+| 14 | 장비 해제한 아이템 경매장에 자동 등록 | 구현됨 | `_equip_from_inventory()`/`_auto_equip()`에서 `Automation.list_auction()` 호출 |
+| 15 | 경매장 자동 등록 등급 설정 | 구현됨 | `auction_min` + "Cycle Auto Auction" UI |
+| 16 | (구분선) | - | - |
+| 17 | 경매장 등록 기간 초과시 자동 재료 분해 | 구현됨 | `Automation.expire_auctions()` → `salvage` 누적, 매 틱 `_process`에서 호출 |
+| 18 | 분해 금지 아이템 설정 | 구현됨 | `salvage_protected` 플래그, 컬렉션 보관 시 자동 설정 |
+| 19 | (구분선) | - | - |
+| 20 | 디자인 리소스 직접 생성 | 구현됨(진행형) | `art/art_recipes.json` + `tools/asset_compiler.gd` 파이프라인으로 전체 아이콘/애니메이션 자체 생성, 외부 에셋 없음 |
+| 21 | UI를 디아블로 이모탈 모바일 버전으로 최적화 | 부분 구현 | `mobile_ui.gd` + `[MOBILE_UI]` 셀프테스트가 터치 타겟 크기(>=48/72px)·안전 여백만 검증. 이모탈 특유의 레이아웃(하단 스킬 원형 배치, 좌측 조이스틱+우측 스킬 휠 등) 시각적 대조 감사는 미실시 — 실제 구현과 이모탈 레퍼런스의 1:1 비교는 별도 브레인스토밍 필요 |
+| 22 | 모든 시스템/콘텐츠를 D2와 동일하게 구현 | 진행형(지속 목표) | 이번 세션에서 소켓/룬워드/보석 품질/원소 면역/난이도 보상 등 다수 "죽은 시스템"을 활성화하며 지속 수렴 중 — 완료 기준 없음, 매 라운드 격차 탐색으로 계속 좁혀감 |
 
 ## 다음 점검 항목
 
@@ -360,3 +390,34 @@
   `tools/progression_combat_test.gd` 전부 PASS.
 - Web release export → gh-pages 배포 커밋 `0c35a2e`, Pages 빌드 `built`, 루트 HTTP 200,
   로컬/원격 PCK SHA-256(`cbab9664...`) 일치 확인.
+
+## 2026-10-04 자동 장착 등급 게이트 활성화 (원격 배포 완료)
+
+- 설계 문서: `docs/superpowers/specs/2026-10-04-auto-equip-grade-gate-design.md`.
+  저장소 루트의 설계 원문 `prompt_diablo.md`를 이번에 처음 읽고 전체 22개 항목 대비
+  구현 현황 표를 작성했다(위 "설계 원문 대비 구현 현황" 참고) — 11/12번 "장비 자동 장착 /
+  자동 장착 등급 설정" 중 12번이 또 다른 죽은 토글이었다: UI의 "Cycle Auto Equip" 버튼이
+  바꾸는 `_automation.equip_min`을 `_auto_equip()`이 전혀 읽지 않고 순수 파워 비교만으로
+  교체 여부를 정했다.
+- `main.gd _auto_equip()`: 이미 장비가 있는 슬롯을 **교체**할 때만
+  `rank(it.quality) >= rank(equip_min)`를 추가로 요구하도록 1줄 게이트 추가. 빈 슬롯
+  채우기는 등급 무관하게 즉시 장착되는 기존 동작을 그대로 유지(초반 맨손 상태 방지는
+  비범위로 명시).
+- `_run_auto_equip_sell_test()`(cmdline `auto_equip_sell_test`): 등급 미달 고파워
+  아이템이 장착된 rare를 교체하지 않음(`grade_gate_blocked`, `salvage_protected`로
+  자동판매 분기까지 결정론적으로 차단) → `equip_min`을 낮춘 뒤 동일 계열 아이템이 정상
+  교체됨(`grade_gate_released`) 두 체크 추가, 최종 `ok`에 합류.
+- **디버깅 메모**: 전용 테스트 모드를 cmdline 토큰만으로(`-- auto_equip_sell_test`)
+  단독 실행하면 `_ready()`가 `barb`/`sorc`/`autoquit` 토큰 부재로 `_show_class_select()`
+  메뉴에서 headless 상태로 영원히 대기한다(로그엔 엔진 헤더 한 줄만 출력) — 코드 문제가
+  아니라 invocation 문제였음을 `autoquit barb`(전체 PASS)와의 교차 비교로 확인.
+  `-- barb auto_equip_sell_test` 형태로 클래스 토큰을 반드시 함께 줘야 한다(세션 메모리
+  `deployment-workflow`에 영구 기록).
+- 검증: barb(`auto_equip_sell_test` 전용 모드, `edited_barb.log` 표준 오토퀴트 둘 다),
+  sorc 표준 오토퀴트, `tools/progression_combat_test.gd`(114+24 checks) 모두 PASS,
+  전체 로그 `verdict=FAIL`/`"ok": false` 스윕 0건.
+- Web release export → gh-pages 배포 커밋 `c818776`, Pages 빌드 `built`(commit 일치
+  확인), 루트 HTTP 200, 로컬/원격 PCK SHA-256(`9d857f2f...`) 일치 확인. 추가로 이번
+  라운드부터 **배포 후 시각 검증**을 도입 — playwright로 실제 배포 URL 접속, 클래스 선택
+  화면 렌더링과 콘솔 에러 0건을 스크린샷+로그로 확인(서비스워커 캐시 우회를 위해
+  `?v=<commit>` 쿼리 사용).
