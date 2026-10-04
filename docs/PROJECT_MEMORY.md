@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-04 (소켓 시스템 활성화 배포)
+최종 갱신: 2026-10-04 (난이도별 보상 스케일링 배포)
 
 ## 맵 생성 상태
 
@@ -16,20 +16,21 @@
 
 - `MAP_VARIANTS`: PASS
 - `STREAM`: PASS
-- `SYSTEM`: 112 checks PASS (큐브·감정·저항 효과·참 듀얼 슬롯 회귀 포함, 실행 횟수 자동 집계)
+- `SYSTEM`: 114 checks PASS (큐브·감정·저항 효과·참 듀얼 슬롯·난이도 보상 회귀 포함, 실행 횟수 자동 집계)
 - `SAVE`: 24 checks PASS
+- `PROGRESSION_COMBAT`(통합 회귀): PASS
 - Web 릴리스 검사: PASS
 - 원격 PCK 해시 일치 확인: PASS
 
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 배포 표시 시각: `2026-10-04 16:04 KST`
-- 소스 커밋: 소켓 시스템 활성화(본 커밋)
-- 최신 배포 커밋: `dd82494` (gh-pages)
+- 배포 표시 시각: `2026-10-04 17:24 KST`
+- 소스 커밋: 난이도별 보상 스케일링 + 아틀라스 수정(본 커밋)
+- 최신 배포 커밋: `8cf0984` (gh-pages)
 - Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`), 루트 HTTP 200 확인
-- 원격 기본 URL의 PCK SHA-256: `7ac8ffb0f9755cb43e3d2ceffd930ecb5b278fa0ed92a7e9fe883bcfc7a9a443`
-- 원격 PCK 1,267,932 bytes 및 로컬 빌드 해시 일치 확인.
+- 원격 기본 URL의 PCK SHA-256: `6ee54f81310d208b0b8789f6dd5d18f5badeab77f04fd7ff6485835061f5f3f4`
+- 원격 PCK 1,269,068 bytes 및 로컬 빌드 해시 일치 확인.
 
 ## 다음 점검 항목
 
@@ -308,3 +309,29 @@
   `[CUBE_UI] ... socket=true verdict=PASS`.
 - Web release export → gh-pages 배포 커밋 `dd82494`, Pages 빌드 `built`, 루트 HTTP 200,
   로컬/원격 PCK SHA-256(`7ac8ffb0...`) 일치 확인.
+
+## 2026-10-04 난이도별 보상 스케일링 + 자산 파이프라인 결함 수정 (원격 배포 완료)
+
+- 설계 문서: `docs/superpowers/specs/2026-10-04-difficulty-reward-scaling-design.md`.
+  advisor 자문 전 검증 부채 점검에서 "통합 회귀 검사"(`tools/progression_combat_test.gd`)가
+  이번 세션 6개 기능 라운드 내내 한 번도 실행되지 않았던 것을 발견 → 재실행 후 PASS
+  확인, 앞으로 매 기능 사이클에 포함하기로 메모리(`deployment-workflow`)에 기록.
+- 몬스터 레벨(`m.level`)은 난이도와 무관하게 고정값(명중률 alvl/dlvl 균형을 건드리지
+  않기 위해 의도적으로 유지)인데, 드롭 아이템레벨과 킬 경험치가 거기 묶여 있어 Hell이
+  "위험만 늘고 보상은 그대로"였다. `combat.gd`에 `diff_reward_ilvl_bonus`(0/4/8)와
+  `diff_xp_mult`(1.0/1.25/1.5) 순수 함수 추가, `main.gd _kill_xp()` 헬퍼로 경험치
+  지급 5곳(플레이어 근접/투사체/스톰랜스, 용병 원거리/근접)을 전부 교체, 드롭 롤의
+  `mlvl`에 보너스 가산.
+- **부수 발견(실제 버그)**: 검증 중 sorc 오토퀴트가 `[ASSET] ... "ok": false, "missing":
+  ["icon/skull","static/skull"]`로 최종 verdict=FAIL — 지난 라운드(소켓 시스템 활성화)에서
+  드롭 재료 풀에 추가한 "skull"이 사전 컴파일 아틀라스(28개 고정 항목)에 없어서 생긴
+  결함이었다. `grep -i fail`로는 소문자 `"ok": false`를 못 잡는다는 것도 이때 실측으로
+  확인(앞으로 전체 로그를 직접 훑거나 `[GD][RESULT] verdict=` 최종 줄을 반드시 확인).
+  `art/art_recipes.json`에 skull 아이콘 레시피 추가 → `tools/asset_compiler.tscn`을
+  `-- autoquit verify publish`로 재실행해 아틀라스 재생성(28→29 항목) → 하드코딩된
+  항목 수 단언(`asset_catalog.gd`/`tools/asset_compiler.gd`)도 28→29로 함께 수정.
+- 검증: `system_tests.gd`에 두 순수 함수 경계값 테스트 추가(checks 112→114, 최종 ok에
+  자동 편입). barb/sorc 표준 오토퀴트 + `autoquit barb/sorc hell` + 통합 회귀 검사
+  전부 PASS, `[ASSET] ... "ok": true` 확인.
+- Web release export → gh-pages 배포 커밋 `8cf0984`, Pages 빌드 `built`, 루트 HTTP 200,
+  로컬/원격 PCK SHA-256(`6ee54f81...`) 일치 확인.

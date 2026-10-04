@@ -101,7 +101,7 @@ func _verify_outputs(path: String) -> bool:
 	for actor in actors.values():
 		if String((actor as Dictionary).get("recipe_id", "")).is_empty() or String((actor as Dictionary).get("recipe_type", "")).is_empty():
 			return false
-	return entries.size() == 28 \
+	return entries.size() == 29 \
 		and actors.size() == 15 \
 		and String(static_manifest.get("provenance", {}).get("origin", "")) == "project_generated" \
 		and String(anim_manifest.get("provenance", {}).get("origin", "")) == "project_generated" \

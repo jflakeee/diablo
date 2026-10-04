@@ -107,6 +107,9 @@ UI 회귀 검사: `godot_console --headless --path prototype/game_dungeon --scri
   fire/cold/light 저항을 100 이상으로 올려 실제 면역을 만든다(독은 난이도와 무관하게
   이미 면역 몬스터가 있었다). 위 1/5 면역돌파 공식이 Hell에서 처음으로 실전 발동한다.
   `_immune_selftest()`가 정적 데이터로 Hell=전부 면역/Normal·NM=전부 비면역을 검증한다.
+- **난이도별 보상**: 몬스터 레벨 자체는 난이도와 무관하게 고정(명중률 alvl/dlvl 균형
+  보존)이지만, 드롭 아이템레벨(+0/+4/+8)과 킬 경험치(x1.0/x1.25/x1.5)는 난이도에 비례해
+  오른다. Normal은 두 값 모두 항등이라 기존 동작과 완전히 동일하다.
 
 통합 회귀 검사:
 `godot_console --headless --path prototype/game_dungeon --script res://tools/progression_combat_test.gd`

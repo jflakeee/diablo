@@ -93,6 +93,16 @@ static func diff_player_resist_penalty(diff: int) -> int:
 static func diff_hell_physical_floor(diff: int) -> int:
 	return 50 if diff >= 2 else 0
 
+# 몬스터 레벨 자체는 난이도와 무관하게 고정(명중률 alvl/dlvl 균형을 건드리지 않기
+# 위해)이라, 보상(아이템레벨/경험치)만 별도로 난이도에 맞춰 올린다.
+static func diff_reward_ilvl_bonus(diff: int) -> int:
+	var t := [0, 4, 8]
+	return int(t[clampi(diff, 0, 2)])
+
+static func diff_xp_mult(diff: int) -> float:
+	var t := [1.0, 1.25, 1.5]
+	return float(t[clampi(diff, 0, 2)])
+
 # 바바리안 파생 스탯 (Part 1 §2)
 static func warden_max_life(vit: int, level: int) -> int:
 	return int(55 + 4 * vit + 2 * level)

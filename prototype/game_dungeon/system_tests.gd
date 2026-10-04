@@ -72,6 +72,8 @@ static func run() -> Dictionary:
 	_check(Combat.sorc_fcr_frames(0) == 13 and Combat.sorc_fcr_frames(200) == 7, "cast breakpoints", failures)
 	_check(is_equal_approx(Combat.frames_to_sec(25), 1.0), "25 fps timing", failures)
 	_check(Combat.diff_player_resist_penalty(2) == -100 and Combat.diff_hell_physical_floor(2) == 50, "difficulty penalties", failures)
+	_check(Combat.diff_reward_ilvl_bonus(0) == 0 and Combat.diff_reward_ilvl_bonus(1) == 4 and Combat.diff_reward_ilvl_bonus(2) == 8, "difficulty reward ilvl bonus", failures)
+	_check(Combat.diff_xp_mult(0) == 1.0 and Combat.diff_xp_mult(1) == 1.25 and Combat.diff_xp_mult(2) == 1.5, "difficulty xp multiplier", failures)
 	_check(Combat.warden_max_life(25, 1) == 157 and Combat.warden_max_mana(15, 1) == 26, "warden vitals", failures)
 
 	var expected_skills := ["ember_bolt", "frost_shard", "iron_chant", "phase_step", "storm_lance", "sundering_strike", "void_fury", "weapon_discipline"]

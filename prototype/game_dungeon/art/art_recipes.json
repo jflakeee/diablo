@@ -15,6 +15,7 @@
     {"id":"sapphire",   "type":"icon",    "kind":"gem", "seed":1, "scale":2.6},
     {"id":"topaz",      "type":"icon",    "kind":"gem", "seed":2, "scale":2.6},
     {"id":"emerald",    "type":"icon",    "kind":"gem", "seed":3, "scale":2.6},
+    {"id":"skull",      "type":"icon",    "kind":"gem", "seed":4, "scale":2.6},
     {"id":"rune",       "type":"icon",    "kind":"rune", "seed":2, "scale":2.6},
     {"id":"Ember Scout", "type":"hero",   "kind":"scout", "color":"#802633", "seed":7, "scale":2.6}
   ]

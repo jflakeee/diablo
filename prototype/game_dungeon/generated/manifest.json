@@ -1,9 +1,9 @@
 {
   "atlas": "atlas.png",
-  "atlas_md5": "b38ae543e1d0fc963a21909a49cda6ba",
+  "atlas_md5": "37a4c19ffb771de2beb99bd0e1ffefdd",
   "atlas_size": [
     256,
-    448
+    512
   ],
   "cell_size": 64,
   "entries": {
@@ -23,13 +23,13 @@
     },
     "ash_caller": {
       "cell": [
-        1,
+        2,
         4
       ],
       "recipe_id": "ash_caller",
       "recipe_type": "monster",
       "region": [
-        79,
+        143,
         267,
         34,
         42
@@ -37,13 +37,13 @@
     },
     "ash_imp": {
       "cell": [
-        0,
+        1,
         4
       ],
       "recipe_id": "ash_imp",
       "recipe_type": "monster",
       "region": [
-        15,
+        79,
         267,
         34,
         42
@@ -51,13 +51,13 @@
     },
     "blighted_ranger": {
       "cell": [
-        0,
+        1,
         6
       ],
       "recipe_id": "blighted_ranger",
       "recipe_type": "monster",
       "region": [
-        15,
+        79,
         395,
         34,
         42
@@ -65,24 +65,10 @@
     },
     "bone_guard": {
       "cell": [
-        0,
-        5
-      ],
-      "recipe_id": "bone_guard",
-      "recipe_type": "monster",
-      "region": [
-        15,
-        331,
-        34,
-        42
-      ]
-    },
-    "bone_marksman": {
-      "cell": [
         1,
         5
       ],
-      "recipe_id": "bone_marksman",
+      "recipe_id": "bone_guard",
       "recipe_type": "monster",
       "region": [
         79,
@@ -91,16 +77,30 @@
         42
       ]
     },
+    "bone_marksman": {
+      "cell": [
+        2,
+        5
+      ],
+      "recipe_id": "bone_marksman",
+      "recipe_type": "monster",
+      "region": [
+        143,
+        331,
+        34,
+        42
+      ]
+    },
     "brood_matron": {
       "cell": [
-        3,
-        6
+        0,
+        7
       ],
       "recipe_id": "brood_matron",
       "recipe_type": "monster",
       "region": [
-        207,
-        395,
+        15,
+        459,
         34,
         42
       ]
@@ -121,14 +121,14 @@
     },
     "crimson_raptor": {
       "cell": [
-        3,
-        5
+        0,
+        6
       ],
       "recipe_id": "crimson_raptor",
       "recipe_type": "monster",
       "region": [
-        207,
-        331,
+        15,
+        395,
         34,
         42
       ]
@@ -149,14 +149,14 @@
     },
     "ember_scout": {
       "cell": [
-        3,
-        3
+        0,
+        4
       ],
       "recipe_id": "Ember Scout",
       "recipe_type": "hero",
       "region": [
-        208,
-        204,
+        16,
+        268,
         32,
         40
       ]
@@ -191,13 +191,13 @@
     },
     "grave_stalker": {
       "cell": [
-        1,
+        2,
         6
       ],
       "recipe_id": "grave_stalker",
       "recipe_type": "monster",
       "region": [
-        79,
+        143,
         395,
         34,
         42
@@ -219,13 +219,13 @@
     },
     "horned_marauder": {
       "cell": [
-        2,
+        3,
         5
       ],
       "recipe_id": "horned_marauder",
       "recipe_type": "monster",
       "region": [
-        143,
+        207,
         331,
         34,
         42
@@ -261,14 +261,14 @@
     },
     "rotwalker": {
       "cell": [
-        3,
-        4
+        0,
+        5
       ],
       "recipe_id": "rotwalker",
       "recipe_type": "monster",
       "region": [
-        207,
-        267,
+        15,
+        331,
         34,
         42
       ]
@@ -289,13 +289,13 @@
     },
     "rune": {
       "cell": [
-        2,
+        3,
         3
       ],
       "recipe_id": "rune",
       "recipe_type": "icon",
       "region": [
-        144,
+        208,
         208,
         32,
         32
@@ -325,6 +325,20 @@
       "region": [
         16,
         144,
+        32,
+        32
+      ]
+    },
+    "skull": {
+      "cell": [
+        2,
+        3
+      ],
+      "recipe_id": "skull",
+      "recipe_type": "icon",
+      "region": [
+        144,
+        208,
         32,
         32
       ]
@@ -359,13 +373,13 @@
     },
     "thorn_beast": {
       "cell": [
-        2,
+        3,
         4
       ],
       "recipe_id": "thorn_beast",
       "recipe_type": "monster",
       "region": [
-        143,
+        207,
         267,
         34,
         42
@@ -387,13 +401,13 @@
     },
     "venom_husk": {
       "cell": [
-        2,
+        3,
         6
       ],
       "recipe_id": "venom_husk",
       "recipe_type": "monster",
       "region": [
-        143,
+        207,
         395,
         34,
         42
@@ -406,7 +420,7 @@
     "archetypes": "681e5d8777dfe7902b9dafd229670231",
     "monsters": "3ed46ac1a21dabe970632e736fa5760e",
     "palettes": "9577067a933515b7fef5d56f6ebd3254",
-    "recipes": "0dbb46b33ea29b58ac4340f7a2844e74"
+    "recipes": "08bf73a421f8501324966644eae827db"
   },
   "provenance": {
     "direct_edit": false,

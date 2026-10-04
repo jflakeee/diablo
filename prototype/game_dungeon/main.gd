@@ -2497,7 +2497,7 @@ func _merc_fire(tgt: ActorScript) -> void:
 		_flash(_merc.position, tgt.position)
 		if pre_alive and not tgt.alive:
 			_merc_kills += 1
-			_grant_xp(tgt.level * 40)     # 용병 킬도 플레이어 XP(D2)
+			_grant_xp(_kill_xp(tgt.level))     # 용병 킬도 플레이어 XP(D2)
 
 func _merc_melee(tgt: ActorScript) -> void:
 	_merc.play_attack(Vector2(tgt.gx - _merc.gx, tgt.gy - _merc.gy))
@@ -2509,7 +2509,7 @@ func _merc_melee(tgt: ActorScript) -> void:
 		_flash(_merc.position, tgt.position)
 		if pre_alive and not tgt.alive:
 			_merc_kills += 1
-			_grant_xp(tgt.level * 40)
+			_grant_xp(_kill_xp(tgt.level))
 
 func _on_merc_died(_a: Node) -> void:
 	_merc_revive_t = 8.0                    # 8초 후 부활
@@ -3013,7 +3013,7 @@ func _cast_storm_lance(target: ActorScript) -> void:
 	_spawn_text(target.position, "%d LIGHT" % dmg, Color(1, 1, 0.4))
 	_combat_log = "Storm Lance %d / HEX -%d RES (6s)" % [dmg, target.hex_reduction]
 	if not target.alive:
-		_grant_xp(target.level * 40)
+		_grant_xp(_kill_xp(target.level))
 
 func _cast_phase_step(target: ActorScript) -> void:
 	if _player.skill_level("phase_step") <= 0:
@@ -3142,7 +3142,7 @@ func _update_projectiles(delta: float) -> void:
 			_spawn_text(t.position, txt, Color(1, 0.55, 0.15))
 			_fx.elemental_impact(t.position, element, false)
 			if not t.alive:
-				_grant_xp(t.level * 40)
+				_grant_xp(_kill_xp(t.level))
 			n.queue_free()
 			if is_instance_valid(trail): trail.queue_free()
 			_projectiles.erase(p)
@@ -3231,7 +3231,7 @@ func _player_attack(target: ActorScript, skill_id: String) -> void:
 			_spawn_text(target.position + Vector2(16, 0), "CB %d" % cb, Color(1, 0.7, 0.2))
 		_combat_log = "%s > %s %d%s%s" % [label, target.actor_name, dmg, (" CRIT" if crit else ""), (" +CB%d" % cb if cb > 0 else "")]
 		if not target.alive:
-			_grant_xp(target.level * 40)
+			_grant_xp(_kill_xp(target.level))
 	else:
 		_spawn_text(target.position, "miss", Color(0.85, 0.85, 0.85))
 		_combat_log = "%s > %s MISS (%.0f%%)" % [label, target.actor_name, chance]
@@ -3343,6 +3343,10 @@ func _recompute_player() -> void:
 	_player.res_poison = _base_res_poison + rall + int(eq.get("res_poison", 0)) + pen
 	_recompute_vitals(_player)
 
+# 몬스터 레벨 자체는 난이도 무관 고정이라, 킬 경험치만 난이도 배율을 적용한다.
+func _kill_xp(level: int) -> int:
+	return roundi(float(level * 40) * CombatLib.diff_xp_mult(_difficulty))
+
 func _grant_xp(amount: int) -> void:
 	_player.xp += amount
 	var need := _player.level * 100
@@ -3392,7 +3396,7 @@ func _on_monster_died(m: Node) -> void:
 	# 등급별 강화 드롭 (챔피언/유니크 = 더 많은 롤 + MF + ilvl 보너스)
 	var rolls := 1
 	var mf := _player_mf
-	var mlvl := int(m.level)
+	var mlvl := int(m.level) + CombatLib.diff_reward_ilvl_bonus(_difficulty)
 	if rank == "champion":
 		rolls = 2; mf += 120; mlvl += 2
 	elif rank == "unique":
