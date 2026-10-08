@@ -171,12 +171,13 @@ static func add_sockets(materials: Dictionary, it: Dictionary) -> bool:
 const CRAFT_RUNE_CATALYST := "rune_Saal"
 const CRAFT_GEM_CATALYST := "ruby:perfect"
 
-static func can_craft(materials: Dictionary, it: Dictionary) -> bool:
+static func can_craft(materials: Dictionary, it: Dictionary, item_script: GDScript) -> bool:
 	return int(materials.get(CRAFT_RUNE_CATALYST, 0)) >= 1 and int(materials.get(CRAFT_GEM_CATALYST, 0)) >= 1 \
-		and String(it.get("quality", "")) == "magic" and String(it.get("slot", "")) in ["weapon", "armor"]
+		and String(it.get("quality", "")) == "magic" and String(it.get("slot", "")) in ["weapon", "armor"] \
+		and item_script.is_identified(it)
 
 static func craft(rng: RandomNumberGenerator, materials: Dictionary, it: Dictionary, character_level: int, item_script: GDScript) -> bool:
-	if not can_craft(materials, it):
+	if not can_craft(materials, it, item_script):
 		return false
 	for catalyst in [CRAFT_RUNE_CATALYST, CRAFT_GEM_CATALYST]:
 		var available := int(materials.get(catalyst, 0))

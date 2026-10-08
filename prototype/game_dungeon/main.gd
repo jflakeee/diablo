@@ -37,7 +37,7 @@ const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
 const WorldStream := preload("res://world_stream.gd")
-const DEPLOYED_AT_KST := "2026-10-08 18:10 KST"
+const DEPLOYED_AT_KST := "2026-10-08 18:33 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -4733,7 +4733,7 @@ func _rebuild_cube() -> void:
 			var craft_btn := Button.new()
 			craft_btn.text = "Craft"
 			var captured_craftable: Dictionary = bag_item
-			craft_btn.disabled = not Craft.can_craft(_automation.materials, captured_craftable)
+			craft_btn.disabled = not Craft.can_craft(_automation.materials, captured_craftable, Item)
 			craft_btn.pressed.connect(func(): _craft_inventory_item(captured_craftable))
 			_inv_vbox.add_child(craft_btn)
 	var socketable: Array = []

@@ -132,6 +132,11 @@ static func run() -> Dictionary:
 	var non_magic_base := Item.generate(rng, Item.WEAPON_BASES[0], 10, "rare")
 	_check(not Item.craft(rng, non_magic_base, 30), "craft rejects non-magic quality", failures)
 	_check(Automation.new().rank("crafted") > Automation.new().rank("rare") and Automation.new().rank("crafted") < Automation.new().rank("set"), "crafted ranks between rare and set", failures)
+	var unidentified_craft_base := Item.generate(rng, Item.WEAPON_BASES[0], 10, "magic")
+	unidentified_craft_base["identified"] = false
+	var unidentified_craft_materials := {Craft.CRAFT_RUNE_CATALYST: 1, Craft.CRAFT_GEM_CATALYST: 1}
+	var craft_rejected := not Craft.craft(rng, unidentified_craft_materials, unidentified_craft_base, 30, Item)
+	_check(craft_rejected and int(unidentified_craft_materials.get(Craft.CRAFT_RUNE_CATALYST, 0)) == 1 and int(unidentified_craft_materials.get(Craft.CRAFT_GEM_CATALYST, 0)) == 1, "craft rejects unidentified item without consuming materials", failures)
 	var unique_ring := Item.generate(rng, Item.ACCESSORY_BASES[0], 12, "unique")
 	_check(Item.display_name(unique_ring) == "Kindled Circuit (Copper Ring)", "unique accessory identity", failures)
 	_check(String(unique_ring.get("slot", "")) == "ring" and int(unique_ring["affixes"].get("res_fire", 0)) == 20, "accessory fixed affixes", failures)

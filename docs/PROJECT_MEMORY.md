@@ -16,7 +16,7 @@
 
 - `MAP_VARIANTS`: PASS
 - `STREAM`: PASS
-- `SYSTEM`: 119 checks PASS (큐브·감정·저항 효과·참 듀얼 슬롯·난이도 보상·유니크 드롭-once·제작 아이템 회귀 포함, 실행 횟수 자동 집계)
+- `SYSTEM`: 120 checks PASS (큐브·감정·저항 효과·참 듀얼 슬롯·난이도 보상·유니크 드롭-once·제작 아이템 회귀 포함, 실행 횟수 자동 집계)
 - `SAVE`: 24 checks PASS
 - `PROGRESSION_COMBAT`(통합 회귀): PASS
 - Web 릴리스 검사: PASS
@@ -25,13 +25,13 @@
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 소스 커밋: 제작(Crafted) 아이템 큐브 레시피(Saal 시길 + Perfect Ruby + 매직
-  weapon/armor → crafted 품질, 고정 접사 2개 + ilvl 구간별 랜덤 접사 1~4개)
-- 최신 배포 커밋: `db13b7e` (gh-pages)
-- Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`, commit=db13b7e 확인), 루트 HTTP 200 확인
-- 원격 PCK SHA-256: `aec08dacb607ac140df6f55a37051ff33db7f22e1f60392129ff9a3cafa1ee64`, 로컬 빌드 해시 일치 확인
+- 소스 커밋: `can_craft()` 미감정 아이템 가드 추가(advisor 리뷰로 발견된
+  재료 소실 결함 수정, 제작 아이템 라운드 직후 핫픽스)
+- 최신 배포 커밋: `998e931` (gh-pages)
+- Pages 빌드 상태: `built`, 루트 HTTP 200 확인
+- 원격 PCK SHA-256: `bc598107f3c5c0f239e1f352505013e6fa7a74f09adeb86ae1cd76c52ae9fecb`, 로컬 빌드 해시 일치 확인(curl로 직접 fetch)
 - 시각 검증: playwright로 루트 접속 → 클래스 선택 화면 정상 렌더링,
-  `DEPLOYED 2026-10-08 18:10 KST` 표시 확인.
+  `DEPLOYED 2026-10-08 18:33 KST` 표시 확인.
 
 ## 설계 원문(`prompt_diablo.md`) 대비 구현 현황 (2026-10-04 작성)
 
@@ -589,3 +589,16 @@
   로컬/원격 PCK SHA-256(`aec08dac...`) 일치 확인(이번엔 `curl`로 원격 pck를
   직접 fetch해 해시 — 로컬 두 사본끼리 비교하지 않도록 주의), playwright로
   클래스 선택 화면 렌더링과 새 타임스탬프 표시 확인.
+- **배포 후 advisor 리뷰로 발견한 실버그**: `craft.gd can_craft()`가
+  감정 여부를 안 걸러서, 미감정 매직 아이템에 큐브 재료(Saal 시길+Perfect
+  Ruby)를 써도 `Craft.craft()`가 재료를 먼저 소모한 뒤 `Item.craft()`가
+  실패해 아이템은 그대로인데 재료만 사라지는 결함이 있었다(`can_reroll()`은
+  처음부터 `item_script.is_identified(it)` 가드가 있었는데 `can_craft()`만
+  빠뜨림). 실전 영향은 제한적(큐브 UI 필터가 감정된 아이템만 노출하고,
+  `roll_drop()`은 rare만 미감정으로 생성해 현재 드롭 경로로는 미감정 매직
+  아이템이 안 나옴)이었지만 가드 자체는 계약을 어긴 결함이라 즉시 수정 —
+  `can_craft()`에 동일 가드 추가, `system_tests.gd`에 "미감정 아이템은 재료
+  소모 없이 거부" 회귀 추가(`checks=119→120`). 같은 리뷰에서
+  `automation.gd expire_auctions()`가 rank를 서수가 아니라 수량으로 쓰는
+  유일한 소비처라 set/unique 만료 경매 보상이 조용히 +1씩 올랐다는 것도
+  확인(허용 가능한 수준이라 별도 수정 없음, 기록만).

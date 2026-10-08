@@ -102,13 +102,26 @@ weapon/armor 슬롯으로 한정(소켓 레시피와 동일한 범위 판단 —
 - `item.gd repair_cost()`의 `quality_multiplier` 표에 `"crafted": 4`
   추가(rare=3보다 비싸고 set=5(기존 4에서+1)보다 저렴 — set/unique 기존
   값 각각 +1).
+- `automation.gd expire_auctions()`의 판매가(`1 + rank(quality)`)는 rank를
+  서수가 아니라 수량으로 쓰는 유일한 소비처라, set/unique rank가 각각 +1
+  밀리며 만료 경매 보상도 조용히 +1씩 올랐다(의도친 않았지만 금액 자체가
+  크지 않아 허용 — 별도 수정 없음, 기록만 남김).
+- `craft.gd can_craft()`는 최초 구현 시 감정 여부를 안 걸러 `Craft.craft()`가
+  미감정 매직 아이템에 대해 재료를 소모하고도 `Item.craft()`가 실패해
+  롤백되지 않는 결함이 있었다(advisor 리뷰로 발견) — `can_reroll()`과 동일
+  패턴으로 `item_script.is_identified(it)` 가드 추가, 호출부에 `Item` 전달.
 
 ## 6. 검증
 
-- `system_tests.gd`에 신규 체크 추가: 매직 웨폰 생성 → craft() 적용 →
-  품질=crafted, 고정 접사 2개 존재, 랜덤 접사 개수가 ilvl 구간 확률표 범위
-  내(1~4), rank 삽입으로 `should_equip`가 rare보다 crafted를 우선시하는지
-  (QUALITY_RANK 순서 확인).
+- `system_tests.gd`에 신규 체크 추가: 매직 아머 생성 → craft() 적용 →
+  품질=crafted·고정 접사(def/res_all) 존재, 이미 crafted인 아이템/비매직
+  아이템 재적용 거부, 미감정 아이템은 재료 소모 없이 거부(`Craft.craft`
+  경로), QUALITY_RANK 순서(rare < crafted < set). **구현 중 드롭**: "랜덤
+  접사 개수가 ilvl 구간 확률표 범위 내(1~4)"를 distinct-key 개수로 검증하려
+  했으나, 고정 접사와 랜덤 접사가 같은 스탯 키에 겹치면(예: 랜덤이 armor의
+  "Reinforced"=def를 뽑으면 고정 def와 합산되어 새 키가 안 늘어남) distinct
+  키 개수가 실제 롤 개수보다 작아질 수 있어 신뢰할 수 없는 단언이 됨 —
+  해당 체크는 추가하지 않음(고정 접사 존재 확인으로 충분).
 - `main.gd _craft_selftest()`에 craft 레시피 항목 추가 — **반드시 함수
   스코프의 `test_rng`를 사용**([[shared-rng-selftest-pitfall]] 교훈 적용,
   라이브 `_rng` 재사용 금지).
