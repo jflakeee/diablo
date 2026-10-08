@@ -37,7 +37,7 @@ const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
 const WorldStream := preload("res://world_stream.gd")
-const DEPLOYED_AT_KST := "2026-10-04 21:35 KST"
+const DEPLOYED_AT_KST := "2026-10-08 17:13 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -214,6 +214,9 @@ var _boss_nova_cnt := 0
 var _boss_spray_cnt := 0
 var _items_dropped := 0
 var _items_picked := 0
+# D2 원작: 같은 유니크는 한 게임에서 두 번 이상 드롭되지 않는다(베이스명 기준).
+# 새 게임 시작 시 초기화, 저장/로드 간 영속화는 비범위(2026-10-08 설계 문서 참고).
+var _dropped_uniques: Dictionary = {}
 var _compiled_monsters := 0
 var _generated_monsters := 0
 var _run_start := 0
@@ -1855,6 +1858,12 @@ func _data_selftest() -> void:
 	print("[DD] data_selftest verdict=", ("PASS" if ok else "FAIL"))
 
 func _craft_selftest() -> void:
+	# 크래프트 수학 검증용 전용 RNG — 라이브 던전의 _rng와 분리해야 한다. 과거에는
+	# 이 함수가 _rng를 직접 소비해서, 테스트 항목을 추가/수정할 때마다 소비되는
+	# 난수 횟수가 바뀌어 seed=42 검증 런의 이후 몬스터 스폰/드롭까지 밀려버리는
+	# 사고가 있었다(5b 리롤 비용 테스트 추가 시 kills=0으로 틀어진 사례).
+	var test_rng := RandomNumberGenerator.new()
+	test_rng.seed = 1
 	# 1) 보석 소켓 → 스탯 (Perfect Ruby → armor +38 life). 품질 접미사 없는 베어 id는
 	# normal 등급(0.7배)으로 취급하므로, 이 테스트는 명시적으로 ":perfect"를 쓴다.
 	var arm := Item.make_socketed(Item.ARMOR_BASES[1], 3)
@@ -1884,15 +1893,22 @@ func _craft_selftest() -> void:
 	var t4: bool = up == "Ahnor"
 	print("[P4] forge: Ahn x3 to %s (Ahnor) : %s" % [up, str(t4)])
 
-	# 5) 리롤: 토파즈 3개 + 감정된 매직 아이템 → 접사 재굴림 + 재료 소모
-	var reroll_item := Item.generate(_rng, Item.WEAPON_BASES[2], 10, "magic")
-	var reroll_materials := {Craft.REROLL_CATALYST: Craft.REROLL_COST}
-	var t5a := Craft.reroll(_rng, reroll_materials, reroll_item, Item)
+	# 5) 리롤: 토파즈 N개(매직 3/레어 6) + 감정된 아이템 → 접사 재굴림 + 재료 소모
+	var reroll_item := Item.generate(test_rng, Item.WEAPON_BASES[2], 10, "magic")
+	var reroll_materials := {Craft.REROLL_CATALYST: int(Craft.REROLL_COST["magic"])}
+	var t5a := Craft.reroll(test_rng, reroll_materials, reroll_item, Item)
 	var t5: bool = t5a and not reroll_materials.has(Craft.REROLL_CATALYST) and String(reroll_item.get("quality", "")) == "magic" and (reroll_item["affixes"] as Dictionary).size() >= 1
 	print("[P4] reroll: catalyst_consumed=%s quality_kept=%s affixes=%d : %s" % [str(not reroll_materials.has(Craft.REROLL_CATALYST)), str(String(reroll_item.get("quality", "")) == "magic"), (reroll_item["affixes"] as Dictionary).size(), str(t5)])
 
+	# 5b) 레어 리롤은 비용이 2배(6개) — 매직과 다른 비용표를 쓰는지 확인
+	var reroll_rare := Item.generate(test_rng, Item.WEAPON_BASES[2], 10, "rare")
+	var reroll_rare_materials := {Craft.REROLL_CATALYST: int(Craft.REROLL_COST["rare"])}
+	var t5b_cast := Craft.reroll(test_rng, reroll_rare_materials, reroll_rare, Item)
+	var t5b: bool = t5b_cast and not reroll_rare_materials.has(Craft.REROLL_CATALYST) and String(reroll_rare.get("quality", "")) == "rare"
+	print("[P4] reroll_rare: cost=%d catalyst_consumed=%s : %s" % [int(Craft.REROLL_COST["rare"]), str(not reroll_rare_materials.has(Craft.REROLL_CATALYST)), str(t5b)])
+
 	# 6) 소켓 부여: 스컬 3개 + 소켓 없는 일반 무기 → 소켓 2개, 룬 삽입까지 제자리로 이어지는지
-	var socket_item := Item.generate(_rng, Item.WEAPON_BASES[0], 1, "normal")
+	var socket_item := Item.generate(test_rng, Item.WEAPON_BASES[0], 1, "normal")
 	var socket_materials := {Craft.SOCKET_CATALYST: Craft.SOCKET_COST}
 	var t6a := Craft.add_sockets(socket_materials, socket_item)
 	Item.socket_insert(socket_item, {"kind": "rune", "id": "Vey"})
@@ -1902,12 +1918,12 @@ func _craft_selftest() -> void:
 	print("[P4] socket: catalyst_consumed=%s sockets=%d runeword=%s : %s" % [str(not socket_materials.has(Craft.SOCKET_CATALYST)), int(socket_item.get("sockets", 0)), String(socket_item.get("runeword", "")), str(t6)])
 
 	# 7) 보석 품질 차등: Perfect가 Normal보다 효과가 크고, 레거시 베어 id도 정상 동작
-	var quality_item := Item.generate(_rng, Item.ARMOR_BASES[0], 1, "normal")
+	var quality_item := Item.generate(test_rng, Item.ARMOR_BASES[0], 1, "normal")
 	quality_item["sockets"] = 1
 	quality_item["socketed"] = []
 	Item.socket_insert(quality_item, {"kind": "gem", "id": "ruby:perfect"})
 	var e7a := Item.effective_affixes(quality_item)
-	var quality_item2 := Item.generate(_rng, Item.ARMOR_BASES[0], 1, "normal")
+	var quality_item2 := Item.generate(test_rng, Item.ARMOR_BASES[0], 1, "normal")
 	quality_item2["sockets"] = 1
 	quality_item2["socketed"] = []
 	Item.socket_insert(quality_item2, {"kind": "gem", "id": "ruby"})
@@ -1915,7 +1931,7 @@ func _craft_selftest() -> void:
 	var t7: bool = int(e7a.get("life", 0)) > int(e7b.get("life", 0)) and int(e7b.get("life", 0)) > 0
 	print("[P4] gem_quality: perfect_life=%d normal_life=%d : %s" % [int(e7a.get("life", 0)), int(e7b.get("life", 0)), str(t7)])
 
-	_craft_selftest_ok = t1 and t2 and t3 and t4 and t5 and t6 and t7
+	_craft_selftest_ok = t1 and t2 and t3 and t4 and t5 and t5b and t6 and t7
 	print("[P4][RESULT] craft_selftest verdict=", ("PASS" if _craft_selftest_ok else "FAIL"))
 
 func _add_skill_button(ui: Node, id: String, label: String, col: Color, pos: Vector2, control_size: Vector2) -> void:
@@ -3428,7 +3444,7 @@ func _on_monster_died(m: Node) -> void:
 		rolls = 3; mf += 280; mlvl += 3
 	var dropped := 0
 	for i in rolls:
-		var it := Item.roll_drop(_rng, mlvl, mf)
+		var it := Item.roll_drop(_rng, mlvl, mf, _dropped_uniques)
 		if not it.is_empty():
 			_items_dropped += 1
 			dropped += 1
@@ -4678,12 +4694,12 @@ func _rebuild_cube() -> void:
 			rerollable.append(bag_item)
 	if not rerollable.is_empty():
 		var reroll_header := Label.new()
-		reroll_header.text = "REROLL (%s x%d per item)" % [Craft.material_name(Craft.REROLL_CATALYST), Craft.REROLL_COST]
+		reroll_header.text = "REROLL (%s: magic x%d / rare x%d per item)" % [Craft.material_name(Craft.REROLL_CATALYST), int(Craft.REROLL_COST["magic"]), int(Craft.REROLL_COST["rare"])]
 		reroll_header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_inv_vbox.add_child(reroll_header)
 		for bag_item in rerollable:
 			var reroll_label := Label.new()
-			reroll_label.text = "%s / %s" % [Item.display_name(bag_item), Item.affix_text(bag_item)]
+			reroll_label.text = "%s / %s (cost %d)" % [Item.display_name(bag_item), Item.affix_text(bag_item), int(Craft.REROLL_COST.get(String(bag_item.get("quality", "")), 0))]
 			reroll_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			_inv_vbox.add_child(reroll_label)
 			var reroll_btn := Button.new()
@@ -4765,7 +4781,8 @@ func _reroll_inventory_item(it: Dictionary) -> void:
 	if Craft.reroll(_rng, _automation.materials, it, Item):
 		_combat_log = "REROLLED: %s / %s" % [Item.display_name(it), Item.affix_text(it)]
 	else:
-		_combat_log = "Requires %d %s and an identified magic/rare item" % [Craft.REROLL_COST, Craft.material_name(Craft.REROLL_CATALYST)]
+		var cost := int(Craft.REROLL_COST.get(String(it.get("quality", "")), Craft.REROLL_COST["rare"]))
+		_combat_log = "Requires %d %s and an identified magic/rare item" % [cost, Craft.material_name(Craft.REROLL_CATALYST)]
 	_rebuild_inv()
 
 func _transmute_material(id: String) -> void:

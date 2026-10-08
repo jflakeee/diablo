@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-04 (모바일 스킬 버튼 부채꼴 배치 로직 + 스킬 버튼 미연결 발견)
+최종 갱신: 2026-10-08 (유니크 1게임 1드롭 제한 + 리롤 비용 품질별 분리, 셀프테스트 RNG 격리 수정)
 
 ## 맵 생성 상태
 
@@ -16,7 +16,7 @@
 
 - `MAP_VARIANTS`: PASS
 - `STREAM`: PASS
-- `SYSTEM`: 114 checks PASS (큐브·감정·저항 효과·참 듀얼 슬롯·난이도 보상 회귀 포함, 실행 횟수 자동 집계)
+- `SYSTEM`: 115 checks PASS (큐브·감정·저항 효과·참 듀얼 슬롯·난이도 보상·유니크 드롭-once 회귀 포함, 실행 횟수 자동 집계)
 - `SAVE`: 24 checks PASS
 - `PROGRESSION_COMBAT`(통합 회귀): PASS
 - Web 릴리스 검사: PASS
@@ -25,15 +25,13 @@
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 소스 커밋: 모바일 스킬 버튼 부채꼴 배치 로직(본 커밋, 버튼 자체는 미연결 — 위 날짜별
-  섹션 참고)
-- 최신 배포 커밋: `dc1d8a9` (gh-pages)
-- Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`, commit=dc1d8a9 확인), 루트 HTTP 200 확인
-- 원격 PCK SHA-256: `c6e2c26c9b5995d8e8190f2ddb8dcb4ecd001639d5dcb82bcd9749d6a70b14a6`, 로컬 빌드 해시 일치 확인
-- 시각 검증: playwright를 Android UA로 첫 navigate부터 설정 후 `?v=dc1d8a9` 접속 →
-  클래스 선택 화면 정상 렌더링(모바일 프로필 확인, `DEPLOYED 2026-10-04 21:35 KST`
-  표시), 조이스틱/포션/메뉴 스택 등 모바일 HUD 요소 정상 렌더링. 스킬 버튼은 설계대로
-  미연결이라 화면에 없음(기대된 결과).
+- 소스 커밋: 유니크 1게임 1드롭 제한 + 리롤 비용 품질별 분리(매직 3/레어 6, 재료는
+  토파즈 유지) + `_craft_selftest()` RNG 라이브 던전과 격리(아래 날짜별 섹션 참고)
+- 최신 배포 커밋: `a22e59d` (gh-pages)
+- Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`, commit=a22e59d 확인), 루트 HTTP 200 확인
+- 원격 PCK SHA-256: `b43c6350df6de57a3b6108871d6f84c65120e2ce7266740690fc0458883d8b3a`, 로컬 빌드 해시 일치 확인
+- 시각 검증: playwright로 루트 접속 → 클래스 선택 화면 정상 렌더링,
+  `DEPLOYED 2026-10-08 17:13 KST` 표시 확인.
 
 ## 설계 원문(`prompt_diablo.md`) 대비 구현 현황 (2026-10-04 작성)
 
@@ -472,3 +470,46 @@
   바꿀 수 없음 — "Page was already initialized with a different User Agent"
   에러) — 일반 데스크톱 UA/뷰포트 리사이즈만으로는 `prefer_mobile()`이 계속
   데스크톱 프로필로 판정됨.
+
+## 2026-10-08 유니크 1게임 1드롭 제한 + 리롤 비용 품질별 분리 (원격 배포 완료)
+
+- 설계 문서: `docs/superpowers/specs/2026-10-08-unique-drop-limit-and-reroll-cost-design.md`.
+  `classic.battle.net/diablo2exp/items/`와 Tistory 호라드릭 큐브 레시피 블로그를
+  리서치해 `docs/research/d2-item-system-reference.md`,
+  `docs/research/d2-horadric-cube-recipes.md`(둘 다 이전 라운드에 커밋 완료)의
+  "대조용 체크리스트"를 이번 라운드에서 반영했다.
+- 체크리스트 중 3개 항목(소켓 촉매=해골 역할 유지, 소켓 레시피 장비별 세분화,
+  노말/익셉셔널/엘리트 베이스 체계)은 AskUserQuestion으로 확인해 전부 "현재
+  유지/보류"로 확정, 3개 항목(매직 접두/접미사 25/25/50 분할, 접사 그룹 배타,
+  세트 부분 보너스 인프라)은 코드 확인 결과 이미 구조적으로 충족돼 변경 불필요—
+  실제 구현 범위는 (A) 유니크 1게임 1드롭 제한, (B) 리롤 비용 품질별 분리(매직
+  3/레어 6, 원작 비율 유지하되 재료는 토파즈로 유지) 두 가지로 좁혔다.
+- `item.gd roll_drop()`에 `dropped_uniques: Dictionary` 선택 인자 추가 — 이미
+  드롭된 유니크 베이스는 유니크 판정에서 제외되고 기존 `elif` 캐스케이드가
+  자연히 레어/매직/노말로 떨어뜨린다. `main.gd`에 세션 스코프 `_dropped_uniques`
+  멤버 추가(저장/로드 영속화 없음, 몬스터 처치 드롭 경로 1곳만 배선).
+- `craft.gd REROLL_COST`를 고정값에서 `{"magic": 3, "rare": 6}` 딕셔너리로 교체,
+  `can_reroll()`/`reroll()`이 아이템 품질로 비용을 조회하도록 수정.
+- **구현 중 발견한 회귀와 수정**: 5b(레어 리롤 비용) 테스트를
+  `main.gd _craft_selftest()`에 추가한 직후 `autoquit barb`가 `kills=0`으로
+  실패(재현 실행도 동일 결과 — 플레이키 아님). 스태시 베이스라인 대조로
+  확인한 원인: `_craft_selftest()`가 처음부터(5/6/7번 항목) 라이브 던전과
+  같은 `_rng`를 공유해 왔고, `autoquit`은 `_rng.seed = 42`로 고정되는데
+  `_start_game()` 이전에 실행되는 이 함수가 소비하는 난수 횟수가 바뀌면
+  이후 던전의 몬스터 스폰·챔피언 구성까지 전부 다른 분기로 틀어진다 — 신규
+  5b 항목의 `generate`+`reroll` 호출 쌍 하나가 seed=42 한정으로 50초
+  오토퀴트 창 안에 몬스터를 한 번도 마주치지 못하는 레이아웃을 만들어냈다.
+  수정: `_craft_selftest()` 전체가 라이브 `_rng` 대신 함수 스코프의
+  `test_rng`(별도 시드)를 쓰도록 변경해 던전 RNG 스트림과 격리 — 이후
+  동일 시드 재검증에서 `kills=15 verdict=PASS`. **교훈**: pre-game
+  셀프테스트가 라이브 RNG를 공유하는 구조는 테스트 추가/수정마다 같은
+  사고를 반복시킨다. 상세: `[[dead-system-caution]]`과 별개로 새 교훈으로
+  별도 메모리에 기록.
+- 검증: `system_tests.gd` 유니크 드롭-once 체크 신규 추가(`checks=114→115`),
+  barb/sorc 표준 오토퀴트 `verdict=PASS`, `tools/progression_combat_test.gd`
+  PASS, `tools/cube_ui_test.gd` PASS(리롤 버튼 라벨 변경 반영 확인), 전체 로그
+  `verdict=FAIL`/`"ok": false` 스윕 0건.
+- `DEPLOYED_AT_KST` 갱신 후 Web release export → gh-pages 배포 커밋 `a22e59d`,
+  Pages 빌드 `built`(commit 일치 확인), 루트 HTTP 200, 로컬/원격 PCK
+  SHA-256(`b43c6350...`) 일치 확인, playwright로 클래스 선택 화면 렌더링과
+  새 타임스탬프 표시 확인.

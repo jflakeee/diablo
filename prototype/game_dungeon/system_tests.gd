@@ -114,6 +114,17 @@ static func run() -> Dictionary:
 			rare_drops += 1
 			hidden_rares = hidden_rares and not Item.is_identified(drop)
 	_check(rare_drops > 0 and hidden_rares, "new rare drops require identification", failures)
+	var shared_dropped_uniques := {}
+	var unique_name_counts := {}
+	for drop_index in 2000:
+		var drop2 := Item.roll_drop(rng, 30, 2000, shared_dropped_uniques)
+		if String(drop2.get("quality", "")) == "unique":
+			var unique_name := String(drop2.get("prefix", ""))
+			unique_name_counts[unique_name] = int(unique_name_counts.get(unique_name, 0)) + 1
+	var no_duplicate_uniques := not unique_name_counts.is_empty()
+	for unique_name in unique_name_counts:
+		no_duplicate_uniques = no_duplicate_uniques and int(unique_name_counts[unique_name]) == 1
+	_check(no_duplicate_uniques, "unique drops are capped at one per game", failures)
 	var unique_ring := Item.generate(rng, Item.ACCESSORY_BASES[0], 12, "unique")
 	_check(Item.display_name(unique_ring) == "Kindled Circuit (Copper Ring)", "unique accessory identity", failures)
 	_check(String(unique_ring.get("slot", "")) == "ring" and int(unique_ring["affixes"].get("res_fire", 0)) == 20, "accessory fixed affixes", failures)

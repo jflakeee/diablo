@@ -181,7 +181,7 @@ static func requirement_text(it: Dictionary) -> String:
 	return "Req Lv%d STR%d DEX%d" % [int(it.get("req_level", 1)), int(it.get("req_str", 0)), int(it.get("req_dex", 0))]
 
 # 드롭 롤(Part 1 §4 근사 + Part 5 §5 MF): {} = NoDrop
-static func roll_drop(rng: RandomNumberGenerator, monster_level: int, magic_find: int) -> Dictionary:
+static func roll_drop(rng: RandomNumberGenerator, monster_level: int, magic_find: int, dropped_uniques: Dictionary = {}) -> Dictionary:
 	if rng.randf() < 0.40:
 		return {}
 	var base: Dictionary
@@ -203,7 +203,7 @@ static func roll_drop(rng: RandomNumberGenerator, monster_level: int, magic_find
 	var set_chance := 2.5 * (1.0 + set_mf / 100.0)
 	var r := rng.randf() * 100.0
 	var quality := "magic"
-	if r < uniq_chance and UNIQUES.has(String(base["name"])):
+	if r < uniq_chance and UNIQUES.has(String(base["name"])) and not dropped_uniques.has(String(base["name"])):
 		quality = "unique"
 	elif r < uniq_chance + set_chance and SETS.has(String(base["name"])):
 		quality = "set"
@@ -214,6 +214,8 @@ static func roll_drop(rng: RandomNumberGenerator, monster_level: int, magic_find
 	var item := generate(rng, base, ilvl, quality)
 	if quality == "rare":
 		item["identified"] = false
+	if quality == "unique":
+		dropped_uniques[String(base["name"])] = true
 	return item
 
 # Missing flags are legacy, already usable equipment. Identification reveals the

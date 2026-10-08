@@ -112,22 +112,29 @@ static func upgrade_material(id: String) -> String:
 		return ""
 	return String(parts[0]) if next == "normal" else "%s:%s" % [parts[0], next]
 
-# 큐브: 토파즈 3개 + 감정된 매직/레어 아이템 1개 → 아이템 접사 재굴림.
+# 큐브: 토파즈 N개 + 감정된 매직/레어 아이템 1개 → 아이템 접사 재굴림.
 # 토파즈는 소켓 효과가 없어(armor res_all=0) 다른 쓸모가 없는 재료라 리롤 재료로 돌린다.
+# 비용은 원작(최상급 해골 매직 3개/레어 6개)의 1:2 비율을 그대로 따르되 재료는
+# 토파즈 유지(2026-10-08 리서치 대조 — 해골 재료 전환은 사용자가 보류 결정).
 const REROLL_CATALYST := "topaz"
-const REROLL_COST := 3
+const REROLL_COST := {"magic": 3, "rare": 6}
+
+static func _reroll_cost(it: Dictionary) -> int:
+	return int(REROLL_COST.get(String(it.get("quality", "")), 0))
 
 static func can_reroll(materials: Dictionary, it: Dictionary, item_script: GDScript) -> bool:
-	return int(materials.get(REROLL_CATALYST, 0)) >= REROLL_COST and String(it.get("quality", "")) in ["magic", "rare"] and item_script.is_identified(it)
+	var cost := _reroll_cost(it)
+	return cost > 0 and int(materials.get(REROLL_CATALYST, 0)) >= cost and item_script.is_identified(it)
 
 static func reroll(rng: RandomNumberGenerator, materials: Dictionary, it: Dictionary, item_script: GDScript) -> bool:
 	if not can_reroll(materials, it, item_script):
 		return false
+	var cost := _reroll_cost(it)
 	var available := int(materials.get(REROLL_CATALYST, 0))
-	if available == REROLL_COST:
+	if available == cost:
 		materials.erase(REROLL_CATALYST)
 	else:
-		materials[REROLL_CATALYST] = available - REROLL_COST
+		materials[REROLL_CATALYST] = available - cost
 	return item_script.reroll(rng, it)
 
 # 큐브: 스컬 3개 + 소켓 없는 일반(normal) 무기/방어구 → 소켓 2개 부여(제자리 변형).
