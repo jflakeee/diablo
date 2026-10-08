@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-08 (유니크 1게임 1드롭 제한 + 리롤 비용 품질별 분리, 셀프테스트 RNG 격리 수정)
+최종 갱신: 2026-10-08 (죽은 함수 정리 — reveal_global_tile/_retire_oldest/_carve_entry/_farthest_slot 삭제)
 
 ## 맵 생성 상태
 
@@ -513,3 +513,28 @@
   Pages 빌드 `built`(commit 일치 확인), 루트 HTTP 200, 로컬/원격 PCK
   SHA-256(`b43c6350...`) 일치 확인, playwright로 클래스 선택 화면 렌더링과
   새 타임스탬프 표시 확인.
+
+## 2026-10-08 죽은 함수 정리 (소스만 커밋, 재배포 없음)
+
+- 2026-10-04에 보류됐던 죽은 함수 감사(`online_authority.gd`/`world_stream.gd`/
+  `level_gen.gd`/`data.gd`의 단일/0회 grep 후보 6개)를 재개. `main.gd` 범위로
+  좁힌 grep은 false positive를 낼 수 있어 저장소 전체 재검색 + `git log -S`로
+  재검증.
+- **살아있는 코드로 판명(변경 없음)**: `account_id_for_token`/`world_snapshot`
+  (`online_authority.gd`)은 `tools/network_harness.gd`에서, `monster_art_errors`
+  (`data.gd`)는 `tools/asset_compiler.gd`에서 사용 중 — 둘 다 `main.gd` 밖의
+  별도 빌드/네트워크 테스트 툴이라 처음 grep에서 놓쳤다.
+- **삭제(저장소 전체 기준 0회 참조 확인)**: `world_stream.gd`의
+  `reveal_global_tile`(초기 스트리밍 구현부터 한 번도 호출된 적 없는 죽은
+  편의 래퍼), `_retire_oldest`(`retire_farthest`가 범용 `_retire_at(index)`로
+  리팩터되며 생긴 부산물), `_carve_entry`(`2ecff97`에서 청크별
+  entrance_cell/exit_cell 방식으로 의도적으로 대체), `level_gen.gd`의
+  `_farthest_slot`(`243b797`에서 `_slot_distance` 방식으로 의도적으로 대체).
+  뒤 2개는 사용자의 의도적 설계 변경으로 대체된 경우지만, "제거된 기능
+  재연결"이 아니라 "이미 대체되고 남은 죽은 헬퍼 삭제"라 사용자 확인 없이
+  진행(스킬 버튼 사례와는 성격이 다름).
+- 검증: barb/sorc 표준 오토퀴트 PASS(`[MAP_VARIANTS]` 포함), `[SYSTEM]
+  checks=115`(스트리밍 청크 라이프사이클 셀프테스트는 이 집계에 포함돼 있어
+  별도 확인 불필요), `tools/progression_combat_test.gd` PASS, 전체 로그
+  `verdict=FAIL`/`"ok": false` 스윕 0건. 소스 커밋 `2e2bceb`, 웹 동작 변경이
+  전혀 없는 self-test 전용 변경이라 정직 원칙에 따라 gh-pages 재배포 생략.
