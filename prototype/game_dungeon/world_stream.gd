@@ -65,15 +65,6 @@ func reveal_room(chunk_id: String, room: Vector2i) -> Dictionary:
 		return advance()
 	return {}
 
-func reveal_global_tile(global_tile: Vector2i) -> Dictionary:
-	var chunk_coord := Vector2i(floori(float(global_tile.x) / CHUNK_TILE_SIDE), floori(float(global_tile.y) / CHUNK_TILE_SIDE))
-	for chunk in active_chunks:
-		if chunk["coord"] != chunk_coord:
-			continue
-		var local := global_tile - chunk_coord * CHUNK_TILE_SIDE
-		return reveal_room(String(chunk["id"]), Vector2i(local.x / ROOM_SIZE, local.y / ROOM_SIZE))
-	return {}
-
 func advance() -> Dictionary:
 	if active_chunks.is_empty():
 		return {}
@@ -265,9 +256,6 @@ func _append_chunk(coord: Vector2i, entry_direction: Vector2i, entry_side: Strin
 	used_chunk_coords[_coord_key(coord)] = true
 	return chunk
 
-func _retire_oldest() -> Dictionary:
-	return _retire_at(0)
-
 func _retire_at(index: int) -> Dictionary:
 	var chunk: Dictionary = active_chunks.pop_at(index)
 	var summary := {
@@ -335,26 +323,6 @@ func _carve_connection(grid: Array, from_chunk: Dictionary, to_chunk: Dictionary
 		elif direction == Vector2i.UP:
 			grid[from_origin.y][from_origin.x + offset + spread] = LevelGen.FLOOR
 			grid[to_origin.y + CHUNK_TILE_SIDE - 1][to_origin.x + offset + spread] = LevelGen.FLOOR
-
-func _carve_entry(grid: Array, origin: Vector2i, side: String, raw_offset: int) -> Vector2i:
-	var offset := clampi(raw_offset, 2, CHUNK_TILE_SIDE - 3)
-	for spread in [-1, 0, 1]:
-		if side == "east":
-			grid[origin.y + offset + spread][origin.x + CHUNK_TILE_SIDE - 1] = LevelGen.FLOOR
-			grid[origin.y + offset + spread][origin.x + CHUNK_TILE_SIDE - 2] = LevelGen.FLOOR
-		elif side == "north":
-			grid[origin.y][origin.x + offset + spread] = LevelGen.FLOOR
-			grid[origin.y + 1][origin.x + offset + spread] = LevelGen.FLOOR
-		elif side == "south":
-			grid[origin.y + CHUNK_TILE_SIDE - 1][origin.x + offset + spread] = LevelGen.FLOOR
-			grid[origin.y + CHUNK_TILE_SIDE - 2][origin.x + offset + spread] = LevelGen.FLOOR
-		else:
-			grid[origin.y + offset + spread][origin.x] = LevelGen.FLOOR
-			grid[origin.y + offset + spread][origin.x + 1] = LevelGen.FLOOR
-	if side == "east": return origin + Vector2i(CHUNK_TILE_SIDE - 2, offset)
-	if side == "north": return origin + Vector2i(offset, 1)
-	if side == "south": return origin + Vector2i(offset, CHUNK_TILE_SIDE - 2)
-	return origin + Vector2i(1, offset)
 
 func _mixed_seed(sequence: int) -> int:
 	var value := int(run_seed) ^ int(floor_id * 73856093) ^ int(generation_epoch * 19349663) ^ int(sequence * 83492791)

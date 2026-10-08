@@ -317,29 +317,6 @@ static func _edge_key(a: Vector2i, b: Vector2i) -> String:
 		return "%d,%d:%d,%d" % [a.x, a.y, b.x, b.y]
 	return "%d,%d:%d,%d" % [b.x, b.y, a.x, a.y]
 
-static func _farthest_slot(edges: Array, start: Vector2i) -> Dictionary:
-	var adjacency := {}
-	for edge in edges:
-		var a: Vector2i = edge[0]
-		var b: Vector2i = edge[1]
-		if not adjacency.has(a): adjacency[a] = []
-		if not adjacency.has(b): adjacency[b] = []
-		adjacency[a].append(b)
-		adjacency[b].append(a)
-	var distances := {start: 0}
-	var queue: Array[Vector2i] = [start]
-	var farthest := start
-	while not queue.is_empty():
-		var current: Vector2i = queue.pop_front()
-		for raw_next in adjacency.get(current, []):
-			var next: Vector2i = raw_next
-			if distances.has(next): continue
-			distances[next] = int(distances[current]) + 1
-			queue.append(next)
-			if int(distances[next]) > int(distances[farthest]):
-				farthest = next
-	return {"slot": farthest, "distance": int(distances[farthest])}
-
 static func _slot_distance(edges: Array, start: Vector2i, target: Vector2i) -> int:
 	if start == target:
 		return 0
