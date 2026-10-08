@@ -95,6 +95,14 @@ UI 회귀 검사: `godot_console --headless --path prototype/game_dungeon --scri
 표는 perfect 기준값). 승급 재료함의 "Combine 3 -> 다음 등급" 체인이 이제 소켓에 끼우는
 보석의 실제 효과에 반영된다 — 전에는 등급과 무관하게 전부 perfect 효과를 냈다.
 
+**제작(Crafted) 레시피(2026-10-08)**: Saal 시길 1개 + Perfect Ruby 1개 + 가방의
+감정된 매직 무기/방어구 1개 → "crafted" 품질로 변환(고정 접사 2개 + ilvl 구간별
+랜덤 접사 1~4개, 원작의 제작 아이템 접사레벨 공식을 이 프로젝트 구조에 맞게 근사).
+품질 등급은 rare와 set 사이(자동 장착/판매/경매 등급 설정 순환에도 노출됨).
+diamond/amethyst는 아이콘이 없어 재료로 쓰지 않고(2026-10-04 `[ASSET]` 함정
+회피), 이미 드롭·아이콘이 있는 ruby의 perfect 등급을 재사용한다. 제작된 아이템은
+재굴림/소켓 추가 레시피 대상이 아니다(원작처럼 제작 후 고정).
+
 ### Identification and resistance effects
 
 새 몬스터 드롭의 레어 장비는 미감정 상태다. 가방의 `Identify (Free)`로 기존에

@@ -125,6 +125,13 @@ static func run() -> Dictionary:
 	for unique_name in unique_name_counts:
 		no_duplicate_uniques = no_duplicate_uniques and int(unique_name_counts[unique_name]) == 1
 	_check(no_duplicate_uniques, "unique drops are capped at one per game", failures)
+	var craft_base := Item.generate(rng, Item.ARMOR_BASES[0], 40, "magic")
+	var craft_ok := Item.craft(rng, craft_base, 30)
+	_check(craft_ok and String(craft_base.get("quality", "")) == "crafted" and int(craft_base["affixes"].get("def", 0)) >= 10 and int(craft_base["affixes"].get("res_all", 0)) >= 5, "craft fixed affixes applied", failures)
+	_check(not Item.craft(rng, craft_base, 30), "already-crafted item rejects re-crafting", failures)
+	var non_magic_base := Item.generate(rng, Item.WEAPON_BASES[0], 10, "rare")
+	_check(not Item.craft(rng, non_magic_base, 30), "craft rejects non-magic quality", failures)
+	_check(Automation.new().rank("crafted") > Automation.new().rank("rare") and Automation.new().rank("crafted") < Automation.new().rank("set"), "crafted ranks between rare and set", failures)
 	var unique_ring := Item.generate(rng, Item.ACCESSORY_BASES[0], 12, "unique")
 	_check(Item.display_name(unique_ring) == "Kindled Circuit (Copper Ring)", "unique accessory identity", failures)
 	_check(String(unique_ring.get("slot", "")) == "ring" and int(unique_ring["affixes"].get("res_fire", 0)) == 20, "accessory fixed affixes", failures)

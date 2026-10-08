@@ -37,7 +37,7 @@ const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
 const WorldStream := preload("res://world_stream.gd")
-const DEPLOYED_AT_KST := "2026-10-08 17:13 KST"
+const DEPLOYED_AT_KST := "2026-10-08 18:10 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -1931,7 +1931,15 @@ func _craft_selftest() -> void:
 	var t7: bool = int(e7a.get("life", 0)) > int(e7b.get("life", 0)) and int(e7b.get("life", 0)) > 0
 	print("[P4] gem_quality: perfect_life=%d normal_life=%d : %s" % [int(e7a.get("life", 0)), int(e7b.get("life", 0)), str(t7)])
 
-	_craft_selftest_ok = t1 and t2 and t3 and t4 and t5 and t5b and t6 and t7
+	# 8) 제작: 매직 weapon + 룬1 + 퍼펙트 보석1 → crafted 품질(고정 접사 2개 + 랜덤 접사)
+	var craft_item := Item.generate(test_rng, Item.WEAPON_BASES[0], 20, "magic")
+	var craft_materials := {Craft.CRAFT_RUNE_CATALYST: 1, Craft.CRAFT_GEM_CATALYST: 1}
+	var t8_cast := Craft.craft(test_rng, craft_materials, craft_item, 30, Item)
+	var t8: bool = t8_cast and not craft_materials.has(Craft.CRAFT_RUNE_CATALYST) and not craft_materials.has(Craft.CRAFT_GEM_CATALYST) \
+		and String(craft_item.get("quality", "")) == "crafted" and int(craft_item["affixes"].get("ar", 0)) >= 20 and int(craft_item["affixes"].get("cdmg", 0)) >= 3
+	print("[P4] craft: catalyst_consumed=%s quality=%s fixed_ar=%d : %s" % [str(not craft_materials.has(Craft.CRAFT_RUNE_CATALYST)), String(craft_item.get("quality", "")), int(craft_item["affixes"].get("ar", 0)), str(t8)])
+
+	_craft_selftest_ok = t1 and t2 and t3 and t4 and t5 and t5b and t6 and t7 and t8
 	print("[P4][RESULT] craft_selftest verdict=", ("PASS" if _craft_selftest_ok else "FAIL"))
 
 func _add_skill_button(ui: Node, id: String, label: String, col: Color, pos: Vector2, control_size: Vector2) -> void:
@@ -3468,7 +3476,7 @@ func _on_monster_died(m: Node) -> void:
 		_spawn_ground(_make_potion("mana", mini(5, 1 + int(m.level) / 4)), m.gx, m.gy)
 	# 보석/재료는 수량 제한 없이 동일 id로 합쳐진다.
 	if _rng.randf() < 0.12 + pot_bonus:
-		var gems := ["ruby", "sapphire", "topaz", "emerald", "skull", "rune_Ahn", "rune_Vey"]
+		var gems := ["ruby", "sapphire", "topaz", "emerald", "skull", "rune_Ahn", "rune_Vey", "rune_Saal"]
 		_spawn_ground(_make_material(String(gems[_rng.randi_range(0, gems.size() - 1)])), m.gx, m.gy)
 	if _rng.randf() < (0.05 if rank == "" else 0.16):
 		_spawn_ground(_make_vision_relic(), m.gx - 0.25, m.gy + 0.25)
@@ -3503,7 +3511,7 @@ func _make_arc_flask() -> Dictionary:
 # 아이템 판매가(품질 + 접사 수 기반)
 func _item_value(it: Dictionary) -> int:
 	var q := String(it["quality"])
-	var table := {"normal": 8, "magic": 40, "rare": 110, "set": 220, "unique": 300}
+	var table := {"normal": 8, "magic": 40, "rare": 110, "crafted": 160, "set": 220, "unique": 300}
 	var base: int = int(table.get(q, 10))
 	if not Item.is_identified(it):
 		return base
@@ -3936,7 +3944,7 @@ func _build_vendor() -> void:
 	_refresh_vendor()
 
 func _cycle_automation(key: String) -> void:
-	var levels := ["normal", "magic", "rare", "set", "unique"]
+	var levels := ["normal", "magic", "rare", "crafted", "set", "unique"]
 	var current := String(_automation.get(key))
 	_automation.set(key, levels[(levels.find(current) + 1) % levels.size()])
 	_combat_log = "%s / %s" % [key, String(_automation.get(key))]
@@ -4708,6 +4716,26 @@ func _rebuild_cube() -> void:
 			reroll_btn.disabled = not Craft.can_reroll(_automation.materials, captured_item, Item)
 			reroll_btn.pressed.connect(func(): _reroll_inventory_item(captured_item))
 			_inv_vbox.add_child(reroll_btn)
+	var craftable: Array = []
+	for bag_item in _inventory:
+		if String(bag_item.get("quality", "")) == "magic" and String(bag_item.get("slot", "")) in ["weapon", "armor"] and Item.is_identified(bag_item):
+			craftable.append(bag_item)
+	if not craftable.is_empty():
+		var craft_header := Label.new()
+		craft_header.text = "CRAFT (%s x1 + %s x1 per item)" % [Craft.material_name(Craft.CRAFT_RUNE_CATALYST), Craft.material_name(Craft.CRAFT_GEM_CATALYST)]
+		craft_header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_inv_vbox.add_child(craft_header)
+		for bag_item in craftable:
+			var craft_label := Label.new()
+			craft_label.text = "%s / %s" % [Item.display_name(bag_item), Item.affix_text(bag_item)]
+			craft_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_inv_vbox.add_child(craft_label)
+			var craft_btn := Button.new()
+			craft_btn.text = "Craft"
+			var captured_craftable: Dictionary = bag_item
+			craft_btn.disabled = not Craft.can_craft(_automation.materials, captured_craftable)
+			craft_btn.pressed.connect(func(): _craft_inventory_item(captured_craftable))
+			_inv_vbox.add_child(craft_btn)
 	var socketable: Array = []
 	var socketed_open: Array = []
 	for bag_item in _inventory:
@@ -4783,6 +4811,14 @@ func _reroll_inventory_item(it: Dictionary) -> void:
 	else:
 		var cost := int(Craft.REROLL_COST.get(String(it.get("quality", "")), Craft.REROLL_COST["rare"]))
 		_combat_log = "Requires %d %s and an identified magic/rare item" % [cost, Craft.material_name(Craft.REROLL_CATALYST)]
+	_rebuild_inv()
+
+func _craft_inventory_item(it: Dictionary) -> void:
+	var clvl := _player.level if _player != null else 1
+	if Craft.craft(_rng, _automation.materials, it, clvl, Item):
+		_combat_log = "CRAFTED: %s / %s" % [Item.display_name(it), Item.affix_text(it)]
+	else:
+		_combat_log = "Requires %s + %s and an identified magic weapon/armor" % [Craft.material_name(Craft.CRAFT_RUNE_CATALYST), Craft.material_name(Craft.CRAFT_GEM_CATALYST)]
 	_rebuild_inv()
 
 func _transmute_material(id: String) -> void:

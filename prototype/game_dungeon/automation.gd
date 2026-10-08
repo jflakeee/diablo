@@ -1,7 +1,7 @@
 extends RefCounted
 # 파밍 자동화 정책/저장소. UI나 월드 노드와 분리해 결정론적으로 검증한다.
 
-const QUALITY_RANK := {"normal": 0, "magic": 1, "rare": 2, "set": 3, "unique": 4}
+const QUALITY_RANK := {"normal": 0, "magic": 1, "rare": 2, "crafted": 3, "set": 4, "unique": 5}
 
 var pickup_min := "magic"
 var equip_min := "rare"

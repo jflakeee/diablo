@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-08 (죽은 함수 정리 — reveal_global_tile/_retire_oldest/_carve_entry/_farthest_slot 삭제)
+최종 갱신: 2026-10-08 (제작(Crafted) 아이템 큐브 레시피 추가)
 
 ## 맵 생성 상태
 
@@ -16,7 +16,7 @@
 
 - `MAP_VARIANTS`: PASS
 - `STREAM`: PASS
-- `SYSTEM`: 115 checks PASS (큐브·감정·저항 효과·참 듀얼 슬롯·난이도 보상·유니크 드롭-once 회귀 포함, 실행 횟수 자동 집계)
+- `SYSTEM`: 119 checks PASS (큐브·감정·저항 효과·참 듀얼 슬롯·난이도 보상·유니크 드롭-once·제작 아이템 회귀 포함, 실행 횟수 자동 집계)
 - `SAVE`: 24 checks PASS
 - `PROGRESSION_COMBAT`(통합 회귀): PASS
 - Web 릴리스 검사: PASS
@@ -25,13 +25,13 @@
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 소스 커밋: 유니크 1게임 1드롭 제한 + 리롤 비용 품질별 분리(매직 3/레어 6, 재료는
-  토파즈 유지) + `_craft_selftest()` RNG 라이브 던전과 격리(아래 날짜별 섹션 참고)
-- 최신 배포 커밋: `a22e59d` (gh-pages)
-- Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`, commit=a22e59d 확인), 루트 HTTP 200 확인
-- 원격 PCK SHA-256: `b43c6350df6de57a3b6108871d6f84c65120e2ce7266740690fc0458883d8b3a`, 로컬 빌드 해시 일치 확인
+- 소스 커밋: 제작(Crafted) 아이템 큐브 레시피(Saal 시길 + Perfect Ruby + 매직
+  weapon/armor → crafted 품질, 고정 접사 2개 + ilvl 구간별 랜덤 접사 1~4개)
+- 최신 배포 커밋: `db13b7e` (gh-pages)
+- Pages 빌드 상태: `built` (`gh api repos/jflakeee/diablo/pages/builds/latest`, commit=db13b7e 확인), 루트 HTTP 200 확인
+- 원격 PCK SHA-256: `aec08dacb607ac140df6f55a37051ff33db7f22e1f60392129ff9a3cafa1ee64`, 로컬 빌드 해시 일치 확인
 - 시각 검증: playwright로 루트 접속 → 클래스 선택 화면 정상 렌더링,
-  `DEPLOYED 2026-10-08 17:13 KST` 표시 확인.
+  `DEPLOYED 2026-10-08 18:10 KST` 표시 확인.
 
 ## 설계 원문(`prompt_diablo.md`) 대비 구현 현황 (2026-10-04 작성)
 
@@ -538,3 +538,54 @@
   별도 확인 불필요), `tools/progression_combat_test.gd` PASS, 전체 로그
   `verdict=FAIL`/`"ok": false` 스윕 0건. 소스 커밋 `2e2bceb`, 웹 동작 변경이
   전혀 없는 self-test 전용 변경이라 정직 원칙에 따라 gh-pages 재배포 생략.
+
+## 2026-10-08 제작(Crafted) 아이템 큐브 레시피 (원격 배포 완료)
+
+- 설계 문서: `docs/superpowers/specs/2026-10-08-crafted-items-design.md`.
+  `d2-item-system-reference.md` §8 체크리스트의 마지막 미반영 항목을 반영 —
+  연구 문서 §4(베이스=매직, 고정 속성 3~4개 + ilvl 구간별 랜덤 접사 1~4개,
+  접사레벨 공식)를 이 프로젝트 구조에 맞게 근사. 레시피 4계열(Hit Power/
+  Blood/Caster/Safety Items)은 미조사 상태라 단일 범용 레시피로 범위를
+  좁혔고, 신규 주얼류 아이템 타입은 도입하지 않음(드롭/아틀라스 확장 회피).
+- 레시피: 매직 weapon/armor 1개 + Saal 시길 1개 + Perfect Ruby 1개(큐브) →
+  "crafted" 품질로 제자리 변환. 고정 접사 2개(weapon: ar+20~40/cdmg+3~8,
+  armor: def+10~20/res_all+5~10, 전부 combat.gd에서 이미 실전 소비되는 기존
+  스탯 키 재사용) + ilvl 구간별 확률표로 뽑은 랜덤 접사 1~4개(절반은
+  접두사풀/절반은 접미사풀, 기존 `_roll_affixes()` 재사용). 접사레벨 공식은
+  원문의 `ilvl=int(0.5*clvl)+int(0.5*base_ilvl)` 가중평균만 적용하고 qlvl
+  보정은 0으로 근사(이 프로젝트가 qlvl을 모델링하지 않음 — qlvl=0을 원문
+  공식에 대입하면 사실상 항등이 되므로 의미 없는 분기를 코드에 남기지 않음).
+- **재료 선택 중 발견한 함정 회피**: 처음엔 `diamond:perfect`를 보석 촉매로
+  검토했으나 `diamond`/`amethyst`는 `GEM_STATS`에 스탯만 정의돼 있고
+  `art_recipes.json`에 아이콘이 없어(컴파일된 보석 아이콘은 ruby/sapphire/
+  topaz/emerald/skull 5종뿐) 쓰면 2026-10-04의 `[ASSET] "ok": false` 함정을
+  재현할 뻔했다 — 이미 드롭·아이콘·5단계 승급 체인이 전부 작동하는
+  `ruby:perfect`로 교체. 룬은 `Saal`(어떤 룬워드에도 안 쓰임)을 선택했는데,
+  몬스터 드롭 풀(`main.gd`의 `gems` 배열)이 지금까지 `rune_Ahn`/`rune_Vey`만
+  포함해 획득 경로가 아예 없었다는 것도 함께 발견 — 룬 아이콘은 이름 무관
+  범용이라 아틀라스 작업 없이 드롭 풀에 `rune_Saal`만 추가해 해결.
+- **품질 등급 테이블 누락 발견**: "crafted"를 신규 품질 문자열로 도입하며
+  하드코딩된 품질 순서/배율 테이블 3곳이 누락되면 실질 버그가 생긴다는 것을
+  확인 — `automation.gd QUALITY_RANK`(없으면 자동 장착/판매/경매 게이트가
+  crafted를 normal과 동급 취급, 2026-10-04에 활성화한 등급 게이트와 충돌),
+  `main.gd _item_value`(판매가 표 누락 시 기본값으로 저평가), `main.gd
+  _cycle_automation`의 `levels` 배열(UI 순환에서 crafted가 아예 안 보임).
+  전부 rare와 set 사이에 삽입(rank 3, 판매가 160, 등급 순환 노출).
+- **cube_ui_test.gd 실측 중 발견한 버그**: 새 Craft 버튼 핸들러가
+  `_player.level`을 참조했는데, 이 테스트 하네스는 `Main.new()`를
+  `_start_game()` 없이 직접 생성해 `_player`가 Nil — `_player != null`
+  가드(기존 `main.gd:3010`과 동일 패턴) 추가로 수정, 실제 플레이에서는
+  `_player`가 항상 존재해 영향 없음.
+  `game._automation.materials["ruby:perfect"] = 1`로 명시 재설정
+  필요(이전 INSERT 단계에서 소진됨) — 이 또한 cube_ui_test에서 CRAFT 섹션을
+  양성 테스트(버튼 활성화 확인 + 실제 클릭 → 품질 전환/재료 소모 검증)로
+  추가하며 드러남.
+- 검증: barb/sorc 표준 오토퀴트 PASS(`[P4] craft: ... : true` 포함),
+  `[SYSTEM] checks=115→119`, `tools/progression_combat_test.gd` PASS,
+  `tools/cube_ui_test.gd` PASS(1차 실행에서 `_player` Nil 크래시로 FAIL →
+  수정 후 재실행 PASS), 전체 로그 `verdict=FAIL`/`"ok": false` 스윕 0건.
+- `DEPLOYED_AT_KST` 갱신 후 Web release export → gh-pages 배포 커밋
+  `db13b7e`, Pages 빌드 `built`(commit 일치 확인), 루트 HTTP 200,
+  로컬/원격 PCK SHA-256(`aec08dac...`) 일치 확인(이번엔 `curl`로 원격 pck를
+  직접 fetch해 해시 — 로컬 두 사본끼리 비교하지 않도록 주의), playwright로
+  클래스 선택 화면 렌더링과 새 타임스탬프 표시 확인.

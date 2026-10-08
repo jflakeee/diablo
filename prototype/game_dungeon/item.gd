@@ -166,6 +166,53 @@ static func reroll(rng: RandomNumberGenerator, it: Dictionary) -> bool:
 	_apply_quality_roll(rng, it, quality, int(it.get("ilvl", 1)))
 	return true
 
+# 큐브: 매직 weapon/armor + 룬1 + 퍼펙트 보석1 → "crafted" 품질(고정 접사 2개 +
+# ilvl 구간별 랜덤 접사 1~4개). Part 1 §4 제작 규칙 근사 — 상세:
+# docs/superpowers/specs/2026-10-08-crafted-items-design.md
+const CRAFT_FIXED_AFFIXES := {
+	"weapon": [{"stat": "ar", "min": 20, "max": 40}, {"stat": "cdmg", "min": 3, "max": 8}],
+	"armor": [{"stat": "def", "min": 10, "max": 20}, {"stat": "res_all", "min": 5, "max": 10}],
+}
+
+static func _craft_affix_count(rng: RandomNumberGenerator, ilvl: int) -> int:
+	var r := rng.randf() * 100.0
+	if ilvl <= 30:
+		if r < 40.0: return 1
+		elif r < 60.0: return 2
+		elif r < 80.0: return 3
+		return 4
+	if ilvl <= 50:
+		if r < 60.0: return 2
+		elif r < 80.0: return 3
+		return 4
+	if ilvl <= 70:
+		if r < 80.0: return 3
+		return 4
+	return 4
+
+static func craft(rng: RandomNumberGenerator, it: Dictionary, character_level: int) -> bool:
+	var slot := String(it.get("slot", ""))
+	if String(it.get("quality", "")) != "magic" or not is_identified(it) or not CRAFT_FIXED_AFFIXES.has(slot):
+		return false
+	var base_ilvl := int(it.get("ilvl", 1))
+	# 원문 공식의 qlvl 보정은 이 프로젝트가 qlvl을 모델링하지 않아 0으로
+	# 근사(그 경우 공식이 접사레벨=ilvl로 수렴) — clvl/ilvl 가중평균만 적용.
+	var ilvl := mini(99, int(0.5 * character_level) + int(0.5 * base_ilvl))
+	it["quality"] = "crafted"
+	it["ilvl"] = ilvl
+	it["affixes"] = {}
+	it["prefix"] = ""
+	it["suffix"] = ""
+	for fixed in CRAFT_FIXED_AFFIXES[slot]:
+		var stat := String(fixed["stat"])
+		it["affixes"][stat] = int(it["affixes"].get(stat, 0)) + rng.randi_range(int(fixed["min"]), int(fixed["max"]))
+	var n := _craft_affix_count(rng, ilvl)
+	var n_pre := (n + 1) / 2
+	var n_suf := n / 2
+	_roll_affixes(rng, it, PREFIXES, n_pre, ilvl, true)
+	_roll_affixes(rng, it, SUFFIXES, n_suf, ilvl, false)
+	return true
+
 static func requirement_failures(it: Dictionary, character_level: int, strength: int, dexterity: int) -> Array:
 	var failures: Array = []
 	if not is_identified(it): failures.append("Identify first")
@@ -266,6 +313,8 @@ static func quality_color(q: String) -> Color:
 		return Color(0.72, 0.55, 0.28)   # 유니크 금갈색
 	if q == "set":
 		return Color(0.2, 0.85, 0.35)
+	if q == "crafted":
+		return Color(0.8, 0.45, 0.15)   # 구리색 — 매직/레어/유니크/세트와 구분
 	return Color(0.85, 0.85, 0.85)
 
 # 구형 저장에는 내구도 필드가 없다. 해당 아이템은 완전 수리 상태로 간주한다.
@@ -296,7 +345,7 @@ static func repair_cost(it: Dictionary) -> int:
 	if bool(it.get("indestructible", false)):
 		return 0
 	var missing := durability_max(it) - durability(it)
-	var quality_multiplier: int = int({"normal": 1, "magic": 2, "rare": 3, "set": 4, "unique": 5}.get(String(it.get("quality", "normal")), 1))
+	var quality_multiplier: int = int({"normal": 1, "magic": 2, "rare": 3, "crafted": 4, "set": 5, "unique": 6}.get(String(it.get("quality", "normal")), 1))
 	return missing * int(quality_multiplier) * maxi(1, 1 + int(it.get("ilvl", 1)) / 5)
 
 static func repair(it: Dictionary) -> int:

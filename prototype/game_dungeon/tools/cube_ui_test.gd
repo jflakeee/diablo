@@ -90,6 +90,22 @@ func _run() -> void:
 		for child in panel.get_children():
 			if child is Button and child.size.y < 48:
 				failures.append("touch target below 48px")
+	game._automation.materials["rune_Saal"] = 1
+	game._automation.materials["ruby:perfect"] = 1
+	var craft_target := Item.generate(rng, Item.ARMOR_BASES[0], 20, "magic")
+	game._inventory.append(craft_target)
+	game._rebuild_inv()
+	await process_frame
+	var craft_btn: Button
+	for child in panel.get_children():
+		if child is Button and child.text == "Craft":
+			craft_btn = child
+	if craft_btn == null or craft_btn.disabled:
+		failures.append("craft button available")
+	if craft_btn != null:
+		craft_btn.pressed.emit()
+	if game._automation.materials.has("rune_Saal") or game._automation.materials.has("ruby:perfect") or String(craft_target.get("quality", "")) != "crafted":
+		failures.append("craft transaction")
 	game._automation.materials.clear()
 	game._rebuild_inv()
 	var empty_found := false

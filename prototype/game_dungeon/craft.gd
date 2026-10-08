@@ -160,6 +160,32 @@ static func add_sockets(materials: Dictionary, it: Dictionary) -> bool:
 	it["socketed"] = []
 	return true
 
+# 큐브: 매직 weapon/armor + 룬 1개 + 퍼펙트 보석 1개 → "crafted" 품질(고정
+# 접사 + 랜덤 접사). 어떤 룬워드에도 안 쓰이는 Saal(룬 아이콘은 이름 무관
+# 범용이라 드롭 풀에 추가해도 아틀라스 작업 불필요)과, 기존 드롭 가능한 5종
+# 보석 중 하나(ruby)의 perfect 등급을 전용 촉매로 골라 기존 토파즈/스컬
+# 경제와 겹치지 않게 한다. diamond/amethyst는 GEM_STATS에 정의만 있고
+# art_recipes.json에 아이콘이 없어 재료로 쓰면 2026-10-04의
+# `[ASSET] "ok": false` 함정을 재현하므로 의도적으로 배제.
+# 상세: docs/superpowers/specs/2026-10-08-crafted-items-design.md
+const CRAFT_RUNE_CATALYST := "rune_Saal"
+const CRAFT_GEM_CATALYST := "ruby:perfect"
+
+static func can_craft(materials: Dictionary, it: Dictionary) -> bool:
+	return int(materials.get(CRAFT_RUNE_CATALYST, 0)) >= 1 and int(materials.get(CRAFT_GEM_CATALYST, 0)) >= 1 \
+		and String(it.get("quality", "")) == "magic" and String(it.get("slot", "")) in ["weapon", "armor"]
+
+static func craft(rng: RandomNumberGenerator, materials: Dictionary, it: Dictionary, character_level: int, item_script: GDScript) -> bool:
+	if not can_craft(materials, it):
+		return false
+	for catalyst in [CRAFT_RUNE_CATALYST, CRAFT_GEM_CATALYST]:
+		var available := int(materials.get(catalyst, 0))
+		if available == 1:
+			materials.erase(catalyst)
+		else:
+			materials[catalyst] = available - 1
+	return item_script.craft(rng, it, character_level)
+
 static func transmute(materials: Dictionary, id: String) -> bool:
 	var result := upgrade_material(id)
 	var available := int(materials.get(id, 0))
