@@ -126,6 +126,20 @@ unique:500} * (1 + ilvl/20)`. 유니크 등급 티켓도 발급되며, 몬스터
 유니크/세트 생성이 매번 다른 수치로 확정된다(스크랩북 전용 변경 아님).
 상세: `docs/superpowers/specs/2026-10-09-item-scrapbook-design.md`.
 
+**소켓 제거 레시피(2026-10-09)**: `docs/research/d2-horadric-cube-recipes.md`
+§3 체크리스트의 마지막 미반영 항목("소켓 제거/수리류가 이 프로젝트 소모품
+체계와 호환되는지 확인")을 조사한 결과 — 이 프로젝트의 Town Portal은
+가방에 들어가는 두루마리 아이템이 아니라 즉발 버튼이라, 원작 레시피("헬
+룬 + 마을 차원문 두루마리")의 두루마리 쪽은 그대로 가져올 수 없었다.
+두루마리 요구는 빼고 룬만 촉매로 써서 채택: 원작 "헬(Hel)" 룬의 이 프로젝트
+명칭은 `RUNE_ORDER`의 15번째 "Helm"(장비 슬롯 문자열 "helm"과는 동명이의,
+혼동 주의)로, Helm 시길 1개 소모 시 소켓에 끼운 보석/룬이 전부 사라지고
+빈 소켓(개수는 유지)으로 돌아간다. 원작처럼 제거된 내용물은 복구 불가 —
+잘못 끼운 룬워드 조합을 버리고 베이스를 재활용하는 용도. 인벤토리 Cube
+패널에 "REMOVE SOCKETS" 섹션으로 노출(`craft.gd can_remove_sockets/
+remove_sockets`), 룬 아이콘은 이름 무관 범용이라 드롭 풀(`rune_Helm`)
+추가에 별도 아틀라스 작업 불필요.
+
 ### Identification and resistance effects
 
 새 몬스터 드롭의 레어 장비는 미감정 상태다. 가방의 `Identify (Free)`로 기존에

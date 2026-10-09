@@ -187,6 +187,30 @@ static func craft(rng: RandomNumberGenerator, materials: Dictionary, it: Diction
 			materials[catalyst] = available - 1
 	return item_script.craft(rng, it, character_level)
 
+# 큐브: 소켓 내용물 제거(원작은 "헬(Hel)룬 + 마을 차원문 두루마리"지만 이
+# 프로젝트의 Town Portal은 인벤토리 아이템이 아니라 즉발 버튼이라 두루마리
+# 재료가 존재하지 않음 — docs/research/d2-horadric-cube-recipes.md §3
+# 체크리스트 대조 결과, 두루마리 요구는 빼고 룬만 촉매로 사용(원작 "Hel"의
+# 이 프로젝트 내 명칭은 RUNE_ORDER 15번째 "Helm" — 장비 슬롯 문자열과 동명
+# 이의, 혼동 주의). 원작과 동일하게 제거된 소켓 내용물은 돌아오지 않고
+# 소실된다(실수로 잘못 끼운 룬을 버리고 베이스를 재활용하는 용도).
+const SOCKET_REMOVE_CATALYST := "rune_Helm"
+
+static func can_remove_sockets(materials: Dictionary, it: Dictionary) -> bool:
+	return int(materials.get(SOCKET_REMOVE_CATALYST, 0)) >= 1 and not (it.get("socketed", []) as Array).is_empty()
+
+static func remove_sockets(materials: Dictionary, it: Dictionary) -> bool:
+	if not can_remove_sockets(materials, it):
+		return false
+	var available := int(materials.get(SOCKET_REMOVE_CATALYST, 0))
+	if available == 1:
+		materials.erase(SOCKET_REMOVE_CATALYST)
+	else:
+		materials[SOCKET_REMOVE_CATALYST] = available - 1
+	it["socketed"] = []
+	it.erase("runeword")
+	return true
+
 static func transmute(materials: Dictionary, id: String) -> bool:
 	var result := upgrade_material(id)
 	var available := int(materials.get(id, 0))

@@ -77,6 +77,19 @@ func _run() -> void:
 	var socketed_after: Array = socket_target.get("socketed", [])
 	if socketed_after.is_empty() or String((socketed_after[0] as Dictionary).get("id", "")) != "ruby:perfect":
 		failures.append("insert transaction / quality retained")
+	game._automation.materials["rune_Helm"] = 1
+	game._rebuild_inv()
+	await process_frame
+	var remove_btn: Button
+	for child in panel.get_children():
+		if child is Button and child.text == "Remove Sockets":
+			remove_btn = child
+	if remove_btn == null or remove_btn.disabled:
+		failures.append("remove sockets button available")
+	if remove_btn != null:
+		remove_btn.pressed.emit()
+	if game._automation.materials.has("rune_Helm") or not (socket_target.get("socketed", []) as Array).is_empty():
+		failures.append("remove sockets transaction")
 	await process_frame
 	game._accessibility.ui_scale = 1.4
 	game._accessibility.text_scale = 1.25
@@ -114,7 +127,7 @@ func _run() -> void:
 			empty_found = true
 	if not empty_found:
 		failures.append("empty state")
-	print("[CUBE_UI] click=true stale_input=true reroll=true socket=true widths=320/640 failures=%s verdict=%s" % [failures, "PASS" if failures.is_empty() else "FAIL"])
+	print("[CUBE_UI] click=true stale_input=true reroll=true socket=true socket_remove=true widths=320/640 failures=%s verdict=%s" % [failures, "PASS" if failures.is_empty() else "FAIL"])
 	game.free()
 	panel.queue_free()
 	await process_frame

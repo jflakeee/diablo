@@ -38,7 +38,7 @@ const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
 const WorldStream := preload("res://world_stream.gd")
-const DEPLOYED_AT_KST := "2026-10-09 12:31 KST"
+const DEPLOYED_AT_KST := "2026-10-09 13:00 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -1953,7 +1953,21 @@ func _craft_selftest() -> void:
 		and String(craft_item.get("quality", "")) == "crafted" and int(craft_item["affixes"].get("ar", 0)) >= 20 and int(craft_item["affixes"].get("cdmg", 0)) >= 3
 	print("[P4] craft: catalyst_consumed=%s quality=%s fixed_ar=%d : %s" % [str(not craft_materials.has(Craft.CRAFT_RUNE_CATALYST)), String(craft_item.get("quality", "")), int(craft_item["affixes"].get("ar", 0)), str(t8)])
 
-	_craft_selftest_ok = t1 and t2 and t3 and t3b and t4 and t5 and t5b and t6 and t7 and t8
+	# 9) 소켓 제거: Helm 시길 1개 → 소켓 내용물 소실 + 룬워드 라벨도 함께 해제
+	var remove_item := Item.generate(test_rng, Item.WEAPON_BASES[0], 1, "normal")
+	remove_item["sockets"] = 2
+	remove_item["socketed"] = []
+	Item.socket_insert(remove_item, {"kind": "rune", "id": "Vey"})
+	Item.socket_insert(remove_item, {"kind": "rune", "id": "Ahn"})
+	var _e9_pre := Item.effective_affixes(remove_item)
+	var remove_materials := {Craft.SOCKET_REMOVE_CATALYST: 1}
+	var t9a := Craft.remove_sockets(remove_materials, remove_item)
+	var e9 := Item.effective_affixes(remove_item)
+	var t9: bool = t9a and not remove_materials.has(Craft.SOCKET_REMOVE_CATALYST) and (remove_item.get("socketed", []) as Array).is_empty() \
+		and String(remove_item.get("runeword", "")) == "" and int(e9.get("ed", 0)) == 0 and int(remove_item.get("sockets", 0)) == 2
+	print("[P4] socket_remove: catalyst_consumed=%s socketed=%d runeword='%s' sockets_kept=%d : %s" % [str(not remove_materials.has(Craft.SOCKET_REMOVE_CATALYST)), (remove_item.get("socketed", []) as Array).size(), String(remove_item.get("runeword", "")), int(remove_item.get("sockets", 0)), str(t9)])
+
+	_craft_selftest_ok = t1 and t2 and t3 and t3b and t4 and t5 and t5b and t6 and t7 and t8 and t9
 	print("[P4][RESULT] craft_selftest verdict=", ("PASS" if _craft_selftest_ok else "FAIL"))
 
 func _add_skill_button(ui: Node, id: String, label: String, col: Color, pos: Vector2, control_size: Vector2) -> void:
@@ -3492,7 +3506,7 @@ func _on_monster_died(m: Node) -> void:
 		_spawn_ground(_make_potion("mana", mini(5, 1 + int(m.level) / 4)), m.gx, m.gy)
 	# 보석/재료는 수량 제한 없이 동일 id로 합쳐진다.
 	if _rng.randf() < 0.12 + pot_bonus:
-		var gems := ["ruby", "sapphire", "topaz", "emerald", "skull", "rune_Ahn", "rune_Vey", "rune_Saal", "rune_Korr", "rune_Dren", "rune_Pyre"]
+		var gems := ["ruby", "sapphire", "topaz", "emerald", "skull", "rune_Ahn", "rune_Vey", "rune_Saal", "rune_Korr", "rune_Dren", "rune_Pyre", "rune_Helm"]
 		_spawn_ground(_make_material(String(gems[_rng.randi_range(0, gems.size() - 1)])), m.gx, m.gy)
 	if _rng.randf() < (0.05 if rank == "" else 0.16):
 		_spawn_ground(_make_vision_relic(), m.gx - 0.25, m.gy + 0.25)
@@ -4815,12 +4829,15 @@ func _rebuild_cube() -> void:
 			_inv_vbox.add_child(craft_btn)
 	var socketable: Array = []
 	var socketed_open: Array = []
+	var socketed_filled: Array = []
 	for bag_item in _inventory:
 		if String(bag_item.get("slot", "")) in ["weapon", "armor"]:
 			if String(bag_item.get("quality", "")) == "normal" and int(bag_item.get("sockets", 0)) == 0:
 				socketable.append(bag_item)
 			elif (bag_item.get("socketed", []) as Array).size() < int(bag_item.get("sockets", 0)):
 				socketed_open.append(bag_item)
+			if not (bag_item.get("socketed", []) as Array).is_empty():
+				socketed_filled.append(bag_item)
 	if not socketable.is_empty():
 		var socket_header := Label.new()
 		socket_header.text = "ADD SOCKETS (%s x%d per item)" % [Craft.material_name(Craft.SOCKET_CATALYST), Craft.SOCKET_COST]
@@ -4857,12 +4874,35 @@ func _rebuild_cube() -> void:
 				insert_btn.text = "Insert %s" % Craft.material_name(material_id)
 				insert_btn.pressed.connect(func(): _insert_material_into_item(captured_socketed, material_id))
 				_inv_vbox.add_child(insert_btn)
+	if not socketed_filled.is_empty():
+		var remove_header := Label.new()
+		remove_header.text = "REMOVE SOCKETS (%s x1 per item, contents lost)" % Craft.material_name(Craft.SOCKET_REMOVE_CATALYST)
+		remove_header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_inv_vbox.add_child(remove_header)
+		for bag_item in socketed_filled:
+			var remove_label := Label.new()
+			remove_label.text = Item.display_name(bag_item)
+			remove_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_inv_vbox.add_child(remove_label)
+			var remove_btn := Button.new()
+			remove_btn.text = "Remove Sockets"
+			var captured_filled: Dictionary = bag_item
+			remove_btn.disabled = not Craft.can_remove_sockets(_automation.materials, captured_filled)
+			remove_btn.pressed.connect(func(): _remove_sockets_from_item(captured_filled))
+			_inv_vbox.add_child(remove_btn)
 
 func _add_sockets_to_item(it: Dictionary) -> void:
 	if Craft.add_sockets(_automation.materials, it):
 		_combat_log = "SOCKETED: %s (+%d sockets)" % [Item.display_name(it), Craft.SOCKET_COUNT]
 	else:
 		_combat_log = "Requires %d %s and an unsocketed normal weapon/armor" % [Craft.SOCKET_COST, Craft.material_name(Craft.SOCKET_CATALYST)]
+	_rebuild_inv()
+
+func _remove_sockets_from_item(it: Dictionary) -> void:
+	if Craft.remove_sockets(_automation.materials, it):
+		_combat_log = "SOCKETS CLEARED: %s" % Item.display_name(it)
+	else:
+		_combat_log = "Requires 1 %s and an item with filled sockets" % Craft.material_name(Craft.SOCKET_REMOVE_CATALYST)
 	_rebuild_inv()
 
 func _insert_material_into_item(it: Dictionary, material_id: String) -> void:
