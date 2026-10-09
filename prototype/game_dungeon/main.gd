@@ -90,7 +90,7 @@ const RANGED_RANGE := 5.0
 const NOVA_RADIUS := 3.5
 const SPELL_RANGE := 7.0
 const FIREBALL_CD := 0.6
-const EQUIPMENT_SLOTS := ["weapon", "armor", "ring_left", "ring_right", "amulet", "charm_left", "charm_right"]
+const EQUIPMENT_SLOTS := ["weapon", "armor", "helm", "ring_left", "ring_right", "amulet", "charm_left", "charm_right"]
 const ITEM_TOAST_VISIBLE_LIMIT := 3
 const ITEM_EVENT_HISTORY_LIMIT := 24
 
@@ -193,7 +193,7 @@ var _mana_acc := 0.0
 
 var _inventory: Array = []
 var _stash: Array = []
-var _equipped := {"weapon": {}, "armor": {}, "ring_left": {}, "ring_right": {}, "amulet": {}, "charm_left": {}, "charm_right": {}}
+var _equipped := {"weapon": {}, "armor": {}, "helm": {}, "ring_left": {}, "ring_right": {}, "amulet": {}, "charm_left": {}, "charm_right": {}}
 var _eq := {"str": 0, "dex": 0, "ar": 0, "ed": 0, "life": 0, "mana": 0, "def": 0, "res_all": 0}
 var _player_mf := 50
 var _automation := Automation.new()
@@ -2254,7 +2254,7 @@ func _load_game() -> void:
 	_stash = Stash.normalize(state.get("stash", []))
 	var equipped: Dictionary = state.get("equipped", {})
 	var legacy_ring: Dictionary = equipped.get("ring", {})
-	_equipped = {"weapon": (equipped.get("weapon", {}) as Dictionary).duplicate(true), "armor": (equipped.get("armor", {}) as Dictionary).duplicate(true), "ring_left": (equipped.get("ring_left", legacy_ring) as Dictionary).duplicate(true), "ring_right": (equipped.get("ring_right", {}) as Dictionary).duplicate(true), "amulet": (equipped.get("amulet", {}) as Dictionary).duplicate(true), "charm_left": (equipped.get("charm_left", {}) as Dictionary).duplicate(true), "charm_right": (equipped.get("charm_right", {}) as Dictionary).duplicate(true)}
+	_equipped = {"weapon": (equipped.get("weapon", {}) as Dictionary).duplicate(true), "armor": (equipped.get("armor", {}) as Dictionary).duplicate(true), "helm": (equipped.get("helm", {}) as Dictionary).duplicate(true), "ring_left": (equipped.get("ring_left", legacy_ring) as Dictionary).duplicate(true), "ring_right": (equipped.get("ring_right", {}) as Dictionary).duplicate(true), "amulet": (equipped.get("amulet", {}) as Dictionary).duplicate(true), "charm_left": (equipped.get("charm_left", {}) as Dictionary).duplicate(true), "charm_right": (equipped.get("charm_right", {}) as Dictionary).duplicate(true)}
 	_kills = int(state.get("kills", 0))
 	_gold = int(state.get("gold", 0))
 	_belt_hp = clampi(int(state.get("belt_hp", 2)), 0, BELT_MAX)
