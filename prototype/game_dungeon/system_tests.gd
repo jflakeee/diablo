@@ -170,7 +170,7 @@ static func run() -> Dictionary:
 	var merc_equipment := Mercenary.normalize_equipment({"weapon": merc_weapon, "armor": merc_armor, "ring": unique_ring})
 	var merc_stats := Mercenary.stats(10, merc_equipment, Item)
 	_check(Mercenary.can_equip(merc_weapon) and not Mercenary.can_equip(unique_ring), "mercenary slot restrictions", failures)
-	_check(merc_equipment.size() == 2 and not merc_equipment.has("ring"), "mercenary equipment normalization", failures)
+	_check(merc_equipment.size() == 3 and not merc_equipment.has("ring"), "mercenary equipment normalization", failures)
 	_check(int(merc_stats["dmg_max"]) > 42 and int(merc_stats["attack_rating"]) > 300, "mercenary weapon scaling", failures)
 	_check(int(merc_stats["life"]) > 280 and int(merc_stats["defense"]) > 50, "mercenary armor scaling", failures)
 	(merc_equipment["weapon"] as Dictionary)["durability"] = 0

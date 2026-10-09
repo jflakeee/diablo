@@ -4627,6 +4627,7 @@ func _rebuild_inv() -> void:
 	_inv_vbox.add_child(flask_button)
 	var wn := _equipped_label("weapon")
 	var an := _equipped_label("armor")
+	var hn := _equipped_label("helm")
 	var rln := _equipped_label("ring_left")
 	var rrn := _equipped_label("ring_right")
 	var mn := _equipped_label("amulet")
@@ -4634,8 +4635,9 @@ func _rebuild_inv() -> void:
 	var crn := _equipped_label("charm_right")
 	var merc_weapon := Item.display_name(_merc_equipped["weapon"]) if not (_merc_equipped["weapon"] as Dictionary).is_empty() else "-"
 	var merc_armor := Item.display_name(_merc_equipped["armor"]) if not (_merc_equipped["armor"] as Dictionary).is_empty() else "-"
+	var merc_helm := Item.display_name(_merc_equipped["helm"]) if not (_merc_equipped["helm"] as Dictionary).is_empty() else "-"
 	var head := Label.new()
-	head.text = "Weapon: %s\nArmor: %s\nLeft Ring: %s\nRight Ring: %s\nAmulet: %s\nLeft Charm: %s\nRight Charm: %s\nMerc Weapon: %s\nMerc Armor: %s\nBag %d / Stash %d/%d / Materials %d" % [wn, an, rln, rrn, mn, cln, crn, merc_weapon, merc_armor, _inventory.size(), _stash.size(), Stash.CAPACITY, _automation.materials.size()]
+	head.text = "Weapon: %s\nArmor: %s\nHelm: %s\nLeft Ring: %s\nRight Ring: %s\nAmulet: %s\nLeft Charm: %s\nRight Charm: %s\nMerc Weapon: %s\nMerc Armor: %s\nMerc Helm: %s\nBag %d / Stash %d/%d / Materials %d" % [wn, an, hn, rln, rrn, mn, cln, crn, merc_weapon, merc_armor, merc_helm, _inventory.size(), _stash.size(), Stash.CAPACITY, _automation.materials.size()]
 	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_inv_vbox.add_child(head)
 	# 격자 탭 UI: 타일 하나 = 아이템 하나. 탭하면 아래에 그 아이템의 상세
