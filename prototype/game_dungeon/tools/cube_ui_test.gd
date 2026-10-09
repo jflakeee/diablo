@@ -77,6 +77,21 @@ func _run() -> void:
 	var socketed_after: Array = socket_target.get("socketed", [])
 	if socketed_after.is_empty() or String((socketed_after[0] as Dictionary).get("id", "")) != "ruby:perfect":
 		failures.append("insert transaction / quality retained")
+	game._automation.materials["skull"] = 3
+	var helm_target := Item.generate(rng, Item.HELM_BASES[0], 1, "normal")
+	game._inventory.append(helm_target)
+	game._rebuild_inv()
+	await process_frame
+	var helm_socket_btn: Button
+	for child in panel.get_children():
+		if child is Button and child.text == "Add 2 Sockets" and not child.disabled:
+			helm_socket_btn = child
+	if helm_socket_btn == null:
+		failures.append("helm socket button available")
+	if helm_socket_btn != null:
+		helm_socket_btn.pressed.emit()
+	if game._automation.materials.has("skull") or int(helm_target.get("sockets", 0)) != 2:
+		failures.append("helm add sockets transaction")
 	game._automation.materials["rune_Helm"] = 1
 	game._rebuild_inv()
 	await process_frame
