@@ -32,6 +32,7 @@ const Stamina := preload("res://stamina.gd")
 const DeathSystem := preload("res://death_system.gd")
 const Stash := preload("res://stash.gd")
 const CollectionBook := preload("res://collection_book.gd")
+const Scrapbook := preload("res://scrapbook.gd")
 const Visibility := preload("res://visibility.gd")
 const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
@@ -197,6 +198,7 @@ var _eq := {"str": 0, "dex": 0, "ar": 0, "ed": 0, "life": 0, "mana": 0, "def": 0
 var _player_mf := 50
 var _automation := Automation.new()
 var _collection := CollectionBook.new()
+var _scrapbook := Scrapbook.new()
 var _accessibility := Accessibility.new()
 var _automation_last_expire := 0
 var _assets := AssetCatalog.new()
@@ -1414,6 +1416,7 @@ func _start_game() -> void:
 		_waypoint_travel_selftest()
 		_pack_selftest()
 		_immune_selftest()
+		print("[SCRAPBOOK] selftest verdict=", "PASS" if Scrapbook.new().selftest() else "FAIL")
 	print("[GD] ready - class=%s life=%d dungeon=%dx%d entrance=(%d,%d) exit=(%d,%d)" % [
 		_class, _player.max_life, _gw, _gh, _ent_cell.x, _ent_cell.y, _exit_cell.x, _exit_cell.y])
 	if OS.get_cmdline_user_args().has("skill_visual_test"):
@@ -2178,6 +2181,7 @@ func _gather_save_state(reason: String = "manual") -> Dictionary:
 		"corpse_state": _corpse_state.duplicate(true), "player_deaths": _player_deaths,
 		"automation": _automation.snapshot(),
 		"collection_book": _collection.snapshot(),
+		"scrapbook": _scrapbook.snapshot(),
 		"explored_by_floor": _explored_by_floor.duplicate(true),
 		"floor_states": _floor_states.duplicate(true), "town_portal": _town_portal.duplicate(true),
 		"vision_relic_timer": _vision_relic_timer,
@@ -2247,6 +2251,7 @@ func _load_game() -> void:
 	_player_deaths = maxi(0, int(state.get("player_deaths", 0)))
 	_automation.restore(state.get("automation", {}))
 	_collection.restore(state.get("collection_book", {}))
+	_scrapbook.restore(state.get("scrapbook", {}))
 	_explored_by_floor = (state.get("explored_by_floor", {}) as Dictionary).duplicate(true)
 	_floor_states = (state.get("floor_states", {}) as Dictionary).duplicate(true)
 	_town_portal = (state.get("town_portal", {}) as Dictionary).duplicate(true)
@@ -2896,7 +2901,7 @@ func _process(delta: float) -> void:
 		print("[ASSET] monsters compiled=%d fallback=%d runtime=%s" % [_compiled_monsters, _generated_monsters, str(asset_report)])
 		var perf_report := PerformanceBudget.evaluate(elapsed, _logic_ticks, _perf_peak_active, _perf_start_memory, _perf_peak_memory)
 		print("[PERF] logic_hz=%.2f peak_active=%d memory_growth_kib=%.1f failures=%s verdict=%s" % [float(perf_report["logic_hz"]), int(perf_report["peak_active"]), float(perf_report["memory_growth"]) / 1024.0, str(perf_report["failures"]), "PASS" if bool(perf_report["ok"]) else "FAIL"])
-		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and bool(perf_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok and _online_selftest_ok and _coverage_selftest_ok and _waypoint_selftest_ok and _pack_selftest_ok and _boss_room_selftest_ok and ai_cull_ok and Mercenary.selftest() and _craft_selftest_ok and _immune_selftest_ok
+		var ok: bool = (_kills > 0 or _spells_cast > 0) and bool(asset_report["ok"]) and bool(perf_report["ok"]) and _ui_selftest_ok and _identity_selftest_ok and _system_selftest_ok and _save_selftest_ok and _online_selftest_ok and _coverage_selftest_ok and _waypoint_selftest_ok and _pack_selftest_ok and _boss_room_selftest_ok and ai_cull_ok and Mercenary.selftest() and _craft_selftest_ok and _immune_selftest_ok and Scrapbook.new().selftest()
 		print("[GD][RESULT] verdict=", ("PASS" if ok else "FAIL"))
 		_release_runtime_resources()
 		await get_tree().process_frame
@@ -3725,6 +3730,7 @@ func _pickup(n: Node) -> void:
 			item_note = "+%d GOLD" % sale_value
 			_spawn_text(_player.position + Vector2(0, -42), "+%dg AUTO SELL" % sale_value, Color(1.0, 0.85, 0.25))
 	_push_item_event(item_action, it, power_before, _loadout_combat_power(_equipped), item_note)
+	_scrapbook.add_ticket(String(it["name"]), String(it["slot"]), String(it["quality"]), int(it.get("ilvl", 1)))
 	_rebuild_inv()
 
 func _push_item_event(action: String, it: Dictionary, power_before: float, power_after: float, note: String = "") -> void:
@@ -4389,6 +4395,10 @@ func _show_collection() -> void:
 	_inventory_view = "collection"
 	_rebuild_inv()
 
+func _show_scrapbook() -> void:
+	_inventory_view = "scrapbook"
+	_rebuild_inv()
+
 func _show_bag() -> void:
 	_inventory_view = "bag"
 	_rebuild_inv()
@@ -4483,6 +4493,54 @@ func _rebuild_collection() -> void:
 		equip.pressed.connect(func(): _equip_from_collection(captured))
 		_inv_vbox.add_child(equip)
 
+func _rebuild_scrapbook() -> void:
+	var nav := Button.new()
+	nav.text = "Back to Bag"
+	nav.pressed.connect(_show_bag)
+	_inv_vbox.add_child(nav)
+	var title := Label.new()
+	title.text = "SCRAPBOOK\n%d ticket(s) - spend gold to redeem a freshly rolled copy" % _scrapbook.tickets.size()
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title.add_theme_color_override("font_color", Color(0.95, 0.78, 0.3))
+	_inv_vbox.add_child(title)
+	if _scrapbook.tickets.is_empty():
+		var empty := Label.new()
+		empty.text = "No tickets yet - pick up equipment to earn one."
+		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_inv_vbox.add_child(empty)
+		return
+	for ticket in _scrapbook.tickets:
+		var quality := String(ticket.get("quality", ""))
+		var redeem_cost := _scrapbook.cost(ticket)
+		var line := Label.new()
+		line.text = "%s %s Lv.%d" % [quality.capitalize(), String(ticket.get("base_name", "")), int(ticket.get("ilvl", 1))]
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		line.add_theme_color_override("font_color", Item.quality_color(quality))
+		_inv_vbox.add_child(line)
+		var redeem_btn := Button.new()
+		redeem_btn.text = "Restore (%dg)" % redeem_cost
+		var captured_ticket: Dictionary = ticket
+		redeem_btn.disabled = not _scrapbook.can_restore(captured_ticket, _gold)
+		redeem_btn.pressed.connect(func(): _redeem_scrapbook_ticket(captured_ticket))
+		_inv_vbox.add_child(redeem_btn)
+
+func _redeem_scrapbook_ticket(ticket: Dictionary) -> void:
+	if not _scrapbook.can_restore(ticket, _gold):
+		_combat_log = "Not enough gold to restore this item"
+		return
+	var redeem_cost := _scrapbook.cost(ticket)
+	var new_item := _scrapbook.redeem(_rng, ticket, Item)
+	if new_item.is_empty():
+		_combat_log = "Scrapbook restore failed"
+		_rebuild_inv()
+		return
+	_gold -= redeem_cost
+	_inventory.append(new_item)
+	if _collection.accepts(new_item):
+		_collection.register(new_item, _item_combat_power(new_item))
+	_combat_log = "SCRAPBOOK RESTORED: %s / %s" % [Item.display_name(new_item), Item.affix_text(new_item)]
+	_rebuild_inv()
+
 func _rebuild_inv() -> void:
 	if _inv_vbox == null:
 		return
@@ -4497,6 +4555,10 @@ func _rebuild_inv() -> void:
 		_rebuild_collection()
 		_apply_large_panel_text(_inv_vbox)
 		return
+	if _inventory_view == "scrapbook":
+		_rebuild_scrapbook()
+		_apply_large_panel_text(_inv_vbox)
+		return
 	if _inventory_view == "item_log":
 		_rebuild_item_log()
 		_apply_large_panel_text(_inv_vbox)
@@ -4509,6 +4571,10 @@ func _rebuild_inv() -> void:
 	collection_button.text = "Collection & Ranking Book (%d)" % _collection.records.size()
 	collection_button.pressed.connect(_show_collection)
 	_inv_vbox.add_child(collection_button)
+	var scrapbook_button := Button.new()
+	scrapbook_button.text = "Scrapbook (%d)" % _scrapbook.tickets.size()
+	scrapbook_button.pressed.connect(_show_scrapbook)
+	_inv_vbox.add_child(scrapbook_button)
 	var cube_button := Button.new()
 	cube_button.text = "Crafting Cube"
 	cube_button.pressed.connect(func():
