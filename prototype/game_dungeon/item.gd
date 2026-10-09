@@ -272,8 +272,10 @@ static func roll_drop(rng: RandomNumberGenerator, monster_level: int, magic_find
 	var base_roll := rng.randf()
 	if base_roll < 0.38:
 		base = WEAPON_BASES[rng.randi_range(0, WEAPON_BASES.size() - 1)]
-	elif base_roll < 0.72:
+	elif base_roll < 0.62:
 		base = ARMOR_BASES[rng.randi_range(0, ARMOR_BASES.size() - 1)]
+	elif base_roll < 0.72:
+		base = HELM_BASES[rng.randi_range(0, HELM_BASES.size() - 1)]
 	elif base_roll < 0.86:
 		base = ACCESSORY_BASES[rng.randi_range(0, ACCESSORY_BASES.size() - 1)]
 	else:
