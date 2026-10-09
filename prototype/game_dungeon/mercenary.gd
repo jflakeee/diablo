@@ -2,7 +2,7 @@ extends RefCounted
 
 const Item := preload("res://item.gd")
 
-const SLOTS := ["weapon", "armor"]
+const SLOTS := ["weapon", "armor", "helm"]
 
 const TYPE_ORDER := ["scout", "guard", "acolyte"]
 
@@ -31,7 +31,10 @@ const TYPES := {
 }
 
 static func empty_equipment() -> Dictionary:
-	return {"weapon": {}, "armor": {}}
+	var equipment := {}
+	for slot in SLOTS:
+		equipment[slot] = {}
+	return equipment
 
 static func normalize_equipment(raw) -> Dictionary:
 	var equipment := empty_equipment()
@@ -80,7 +83,7 @@ static func stats(level: int, equipment: Dictionary, item_script: GDScript, merc
 		if slot == "weapon" and not item_script.is_broken(item):
 			result["dmg_min"] += int(item.get("dmin", 0))
 			result["dmg_max"] += int(item.get("dmax", 0))
-		elif slot == "armor" and not item_script.is_broken(item):
+		elif slot in ["armor", "helm"] and not item_script.is_broken(item):
 			result["defense"] += int(item.get("defense", 0))
 		var effective: Dictionary = item_script.effective_affixes(item)
 		for stat in effective:
