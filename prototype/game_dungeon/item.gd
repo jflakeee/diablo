@@ -27,25 +27,29 @@ const CHARM_BASES := [
 	{"name": "Sable Charm", "slot": "charm", "req_level": 7, "req_str": 0, "req_dex": 0},
 ]
 
-# 유니크 아이템(고정 스탯) — 베이스명 → 유니크
+# 유니크 아이템(범위 롤) — 베이스명 → 유니크. 각 접사는 [min,max] 범위,
+# generate()가 매번 범위 내 랜덤값으로 확정한다(2026-10-09, 기존 고정값
+# 원본의 ±20% 내외로 설정). 상세: docs/superpowers/specs/2026-10-09-item-scrapbook-design.md
 const UNIQUES := {
-	"Short Sword": {"name": "Emberneedle", "affixes": {"ed": 50, "fdmg": 10, "ar": 40}},
-	"Hand Axe": {"name": "Rift Cleaver", "affixes": {"ed": 70, "ar": 40, "cdmg": 8}},
-	"Mace": {"name": "Storm Knell", "affixes": {"ed": 60, "str": 10, "ldmg": 12}},
-	"Quilted Armor": {"name": "Ashweave", "affixes": {"def": 30, "res_all": 12, "dex": 8, "life": 15}},
-	"Leather Armor": {"name": "Frostveil", "affixes": {"def": 45, "res_cold": 35, "res_all": 10, "life": 25}},
-	"Ring Mail": {"name": "Crownless Mantle", "affixes": {"def": 55, "res_all": 15, "mana": 30, "str": 8}},
-	"Copper Ring": {"name": "Kindled Circuit", "affixes": {"life": 18, "res_fire": 20, "ar": 35}},
-	"Moonstone Ring": {"name": "Pale Orbit", "affixes": {"mana": 24, "res_cold": 20, "dex": 5}},
-	"Ashen Pendant": {"name": "Depthward Seal", "affixes": {"res_all": 16, "str": 5, "life": 12}},
+	"Short Sword": {"name": "Emberneedle", "affixes": {"ed": [40, 60], "fdmg": [8, 12], "ar": [32, 48]}},
+	"Hand Axe": {"name": "Rift Cleaver", "affixes": {"ed": [56, 84], "ar": [32, 48], "cdmg": [6, 10]}},
+	"Mace": {"name": "Storm Knell", "affixes": {"ed": [48, 72], "str": [8, 12], "ldmg": [10, 14]}},
+	"Quilted Armor": {"name": "Ashweave", "affixes": {"def": [24, 36], "res_all": [10, 14], "dex": [6, 10], "life": [12, 18]}},
+	"Leather Armor": {"name": "Frostveil", "affixes": {"def": [36, 54], "res_cold": [28, 42], "res_all": [8, 12], "life": [20, 30]}},
+	"Ring Mail": {"name": "Crownless Mantle", "affixes": {"def": [44, 66], "res_all": [12, 18], "mana": [24, 36], "str": [6, 10]}},
+	"Copper Ring": {"name": "Kindled Circuit", "affixes": {"life": [14, 22], "res_fire": [16, 24], "ar": [28, 42]}},
+	"Moonstone Ring": {"name": "Pale Orbit", "affixes": {"mana": [19, 29], "res_cold": [16, 24], "dex": [4, 6]}},
+	"Ashen Pendant": {"name": "Depthward Seal", "affixes": {"res_all": [13, 19], "str": [4, 6], "life": [10, 14]}},
 }
 
 # 독자 세트 장비. 동일 set_id 두 부위를 함께 장착하면 SET_BONUSES가 활성화된다.
+# 접사는 UNIQUES와 동일하게 [min,max] 범위(2026-10-09). SET_BONUSES(완성 보너스)는
+# 개별 부위 수치가 아니라 "N부위 장착" 보너스라 범위화 대상이 아니다 — 고정값 유지.
 const SETS := {
-	"Short Sword": {"set_id": "ember_oath", "set_name": "Ember Oath", "piece_name": "Oathspark", "affixes": {"ed": 32, "fdmg": 7}},
-	"Quilted Armor": {"set_id": "ember_oath", "set_name": "Ember Oath", "piece_name": "Oathweave", "affixes": {"def": 22, "res_fire": 18}},
-	"Mace": {"set_id": "storm_vigil", "set_name": "Storm Vigil", "piece_name": "Vigil Bell", "affixes": {"ed": 28, "ldmg": 10}},
-	"Ring Mail": {"set_id": "storm_vigil", "set_name": "Storm Vigil", "piece_name": "Vigil Links", "affixes": {"def": 38, "res_light": 22}}
+	"Short Sword": {"set_id": "ember_oath", "set_name": "Ember Oath", "piece_name": "Oathspark", "affixes": {"ed": [26, 38], "fdmg": [6, 8]}},
+	"Quilted Armor": {"set_id": "ember_oath", "set_name": "Ember Oath", "piece_name": "Oathweave", "affixes": {"def": [18, 26], "res_fire": [14, 22]}},
+	"Mace": {"set_id": "storm_vigil", "set_name": "Storm Vigil", "piece_name": "Vigil Bell", "affixes": {"ed": [22, 34], "ldmg": [8, 12]}},
+	"Ring Mail": {"set_id": "storm_vigil", "set_name": "Storm Vigil", "piece_name": "Vigil Links", "affixes": {"def": [30, 46], "res_light": [18, 26]}}
 }
 const SET_BONUSES := {
 	"ember_oath": {2: {"life": 30, "res_all": 12}},
@@ -122,7 +126,8 @@ static func generate(rng: RandomNumberGenerator, base: Dictionary, ilvl: int, qu
 		var u: Dictionary = UNIQUES[String(base["name"])]
 		it["prefix"] = String(u["name"])   # 유니크 이름 저장
 		for k in u["affixes"]:
-			it["affixes"][k] = int(u["affixes"][k])
+			var range_vals: Array = u["affixes"][k]
+			it["affixes"][k] = rng.randi_range(int(range_vals[0]), int(range_vals[1]))
 		return it
 	if quality == "set" and SETS.has(String(base["name"])):
 		var set_piece: Dictionary = SETS[String(base["name"])]
@@ -130,10 +135,30 @@ static func generate(rng: RandomNumberGenerator, base: Dictionary, ilvl: int, qu
 		it["set_name"] = String(set_piece["set_name"])
 		it["prefix"] = String(set_piece["piece_name"])
 		for k in set_piece["affixes"]:
-			it["affixes"][k] = int(set_piece["affixes"][k])
+			var range_vals: Array = set_piece["affixes"][k]
+			it["affixes"][k] = rng.randi_range(int(range_vals[0]), int(range_vals[1]))
 		return it
 	_apply_quality_roll(rng, it, quality, ilvl)
 	return it
+
+# 스크랩북 티켓 복원용 — 베이스명+슬롯으로 원본 베이스 딕셔너리를 역조회한다.
+# 티켓은 베이스 딕셔너리 전체가 아니라 이름만 저장하므로(세이브 용량/데이터
+# 신선도 때문 — WEAPON_BASES 등이 나중에 바뀌어도 티켓은 항상 최신 베이스를
+# 참조), 복원 시점에 매번 이 함수로 찾는다.
+static func find_base(base_name: String, slot: String) -> Dictionary:
+	var pool: Array = []
+	if slot == "weapon":
+		pool = WEAPON_BASES
+	elif slot == "armor":
+		pool = ARMOR_BASES
+	elif slot in ["ring", "amulet"]:
+		pool = ACCESSORY_BASES
+	elif slot == "charm":
+		pool = CHARM_BASES
+	for base in pool:
+		if String(base["name"]) == base_name:
+			return base
+	return {}
 
 static func _apply_quality_roll(rng: RandomNumberGenerator, it: Dictionary, quality: String, ilvl: int) -> void:
 	var n_pre := 0
