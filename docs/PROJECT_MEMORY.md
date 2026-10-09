@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-08 (제작(Crafted) 아이템 큐브 레시피 추가)
+최종 갱신: 2026-10-09 (아이템 스크랩북 + 유니크/세트 수치 범위화)
 
 ## 맵 생성 상태
 
@@ -16,7 +16,8 @@
 
 - `MAP_VARIANTS`: PASS
 - `STREAM`: PASS
-- `SYSTEM`: 120 checks PASS (큐브·감정·저항 효과·참 듀얼 슬롯·난이도 보상·유니크 드롭-once·제작 아이템 회귀 포함, 실행 횟수 자동 집계)
+- `SYSTEM`: 120 checks PASS (큐브·감정·저항 효과·참 듀얼 슬롯·난이도 보상·유니크 드롭-once·제작 아이템·유니크/세트 범위 롤 회귀 포함, 실행 횟수 자동 집계)
+- `SCRAPBOOK`: selftest PASS(티켓 발급/비용 공식/복원/저장-복원 라운드트립), 최종 ok 집계에 배선됨
 - `SAVE`: 24 checks PASS
 - `PROGRESSION_COMBAT`(통합 회귀): PASS
 - Web 릴리스 검사: PASS
@@ -25,13 +26,14 @@
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 소스 커밋: `can_craft()` 미감정 아이템 가드 추가(advisor 리뷰로 발견된
-  재료 소실 결함 수정, 제작 아이템 라운드 직후 핫픽스)
-- 최신 배포 커밋: `998e931` (gh-pages)
+- 소스 커밋: 아이템 스크랩북(소모형 복원 티켓) + 유니크/세트 접사 범위 롤 도입
+  (장비 습득 시 기존 자동감정/자동장착 흐름은 불변, 티켓은 골드로 새로 굴린
+  사본을 수동 장착 전제로 추가 제공)
+- 최신 배포 커밋: `bf55731` (gh-pages)
 - Pages 빌드 상태: `built`, 루트 HTTP 200 확인
-- 원격 PCK SHA-256: `bc598107f3c5c0f239e1f352505013e6fa7a74f09adeb86ae1cd76c52ae9fecb`, 로컬 빌드 해시 일치 확인(curl로 직접 fetch)
+- 원격 PCK SHA-256: `d219a6bdd87ed0a70a9b6574fe25cab23cfb17bc07556dd043582531ad5b8efe`, 로컬 빌드 해시 일치 확인(curl로 직접 fetch)
 - 시각 검증: playwright로 루트 접속 → 클래스 선택 화면 정상 렌더링,
-  `DEPLOYED 2026-10-08 18:33 KST` 표시 확인.
+  `DEPLOYED 2026-10-09 11:47 KST` 표시 확인.
 
 ## 설계 원문(`prompt_diablo.md`) 대비 구현 현황 (2026-10-04 작성)
 
@@ -602,3 +604,53 @@
   `automation.gd expire_auctions()`가 rank를 서수가 아니라 수량으로 쓰는
   유일한 소비처라 set/unique 만료 경매 보상이 조용히 +1씩 올랐다는 것도
   확인(허용 가능한 수준이라 별도 수정 없음, 기록만).
+
+## 2026-10-09 아이템 스크랩북 + 유니크/세트 수치 범위화 (원격 배포 완료)
+
+- 설계 문서: `docs/superpowers/specs/2026-10-09-item-scrapbook-design.md`,
+  구현 계획: `docs/superpowers/plans/2026-10-09-item-scrapbook-plan.md`.
+  사용자가 "아이템습득시 인벤토리 대신 스크랩북에 기록, 골드로 복원"을
+  제안했는데, 브레인스토밍 중 사용자가 직접 정정 — 실제 요구는 "기존
+  습득→자동감정→자동장착 흐름은 그대로 두고, 스크랩북은 같은 종류를 나중에
+  골드로 하나 더 뽑는 별도 소모형 티켓 시스템"이었다. AskUserQuestion으로
+  8차례 확인(범위=장비만, ilvl=드롭 시점 고정, 등급=기록 시점 확정, 복원 후
+  자동장착 안 함(수동), 티켓=소모형(카탈로그 아님), 유니크 중복 지급은 의도된
+  우회, 유니크/세트 수치 범위화도 이번 라운드에 포함)를 거쳐 설계 확정.
+- 구현: `item.gd`의 `UNIQUES`/`SETS` 접사가 고정 정수에서 `[min,max]` 범위로
+  바뀌어 `generate()`가 매번 범위 내 랜덤값을 뽑는다(드롭·스크랩북 복원
+  공통 적용 — 스크랩북 전용 변경 아님). `find_base(name, slot)` 헬퍼 신규
+  추가(스크랩북 티켓이 베이스 딕셔너리 전체가 아니라 이름만 저장하므로
+  복원 시 역조회 필요). 신규 `scrapbook.gd`(`craft.gd`와 동일한 의존성 주입
+  패턴 — `item_script: GDScript`를 받아 `item.gd`를 직접 preload하지 않음):
+  `add_ticket`/`cost`/`can_restore`/`redeem`/`snapshot`/`restore`/`selftest`.
+  `_pickup()` 장비 분기 끝에 `_scrapbook.add_ticket(...)` 한 줄만 추가(기존
+  자동감정/자동장착/자동판매 로직 완전히 불변). 저장 스키마에 `"scrapbook"`
+  키 추가(기존 `collection_book` 패턴과 동일한 additive 방식). 가방 옆에
+  "Scrapbook" 패널 신설(기존 Collection/Cube 패널과 동일 구조).
+- **유니크 1게임 1드롭 제한과의 관계(의도된 우회)**: `redeem()`은
+  `roll_drop()`의 `_dropped_uniques` 추적을 거치지 않고 `generate()`를 직접
+  호출하므로, 2026-10-08에 추가한 "유니크 1게임 1드롭" 제한을 구조적으로
+  우회한다 — 자연 드롭에만 적용되는 제한이고, 골드를 내는 별도 경로의 중복
+  지급은 사용자가 명시적으로 승인한 설계.
+- 검증: `scrapbook.gd` 자체 `selftest()`를 `Mercenary.selftest()`와 동일한
+  패턴(완전히 로컬 RNG만 써서 라이브 `_rng`와 무관 — `test_rng` 래퍼 불필요)
+  으로 최종 `ok` 집계에 직접 연결, `[SCRAPBOOK] selftest verdict=` 출력
+  추가. `system_tests.gd`의 유니크/세트 고정값 단언 4건을 범위 검사로 전환
+  (`checks=120` 유지, 신규 체크 추가가 아니라 기존 체크의 조건만 변경).
+  barb/sorc/progression/cube_ui 전부 PASS. 중간에 `[PERF] logic_hz` 1회
+  FAIL이 있었으나 재실행에서 24.56으로 정상 — RNG 결정론과 무관한 머신 부하
+  플레이키로 판정(재실행 1회로 즉시 확인, [[shared-rng-selftest-pitfall]]의
+  "지문 비교" 절차와는 다른 카테고리의 플레이키라는 점도 기록).
+- `DEPLOYED_AT_KST` 갱신 후 Web release export → gh-pages 배포 커밋
+  `bf55731`, Pages 빌드 `built`, 루트 HTTP 200, 로컬/원격 PCK
+  SHA-256(`d219a6bd...`) 일치 확인(curl로 원격 pck 직접 fetch), playwright로
+  클래스 선택 화면 렌더링과 새 타임스탬프 표시 확인.
+- 브레인스토밍→writing-plans→executing-plans 스킬 체인을 이 세션에서 처음
+  정식으로 사용(이전 라운드들은 설계 문서만 쓰고 바로 구현하는 경량 패턴이었음)
+  — 신규 게임플레이 시스템(죽은 코드 삭제나 버그 수정이 아니라 플레이어가
+  체감하는 새 기능)이라 브레인스토밍의 "일단 설계부터" 게이트가 정당하게
+  작동한 사례. 플랜 자체 점검(self-review)에서 `scrapbook.gd`의
+  `selftest()`를 작성만 하고 실제로 아무데서도 호출하지 않는 배선 누락을
+  실행 전에 미리 잡아냈다 — 이 프로젝트가 반복적으로 겪어온 "셀프테스트
+  추가했는데 최종 ok에 안 묶임" 패턴([[systems-built]] 참고)이 계획 단계에서
+  선제적으로 방지된 첫 사례.
