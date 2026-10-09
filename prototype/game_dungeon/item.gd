@@ -15,6 +15,11 @@ const ARMOR_BASES := [
 	{"name": "Leather Armor", "slot": "armor", "defense": 14, "req_level": 2, "req_str": 15, "req_dex": 0},
 	{"name": "Ring Mail", "slot": "armor", "defense": 26, "req_level": 5, "req_str": 30, "req_dex": 0},
 ]
+const HELM_BASES := [
+	{"name": "Leather Cap", "slot": "helm", "defense": 5, "req_level": 1, "req_str": 8, "req_dex": 0},
+	{"name": "Bone Skullcap", "slot": "helm", "defense": 9, "req_level": 2, "req_str": 12, "req_dex": 0},
+	{"name": "Iron Sallet", "slot": "helm", "defense": 16, "req_level": 5, "req_str": 22, "req_dex": 0},
+]
 const ACCESSORY_BASES := [
 	{"name": "Copper Ring", "slot": "ring", "req_level": 2, "req_str": 0, "req_dex": 0},
 	{"name": "Moonstone Ring", "slot": "ring", "req_level": 4, "req_str": 0, "req_dex": 0},
@@ -40,6 +45,9 @@ const UNIQUES := {
 	"Copper Ring": {"name": "Kindled Circuit", "affixes": {"life": [14, 22], "res_fire": [16, 24], "ar": [28, 42]}},
 	"Moonstone Ring": {"name": "Pale Orbit", "affixes": {"mana": [19, 29], "res_cold": [16, 24], "dex": [4, 6]}},
 	"Ashen Pendant": {"name": "Depthward Seal", "affixes": {"res_all": [13, 19], "str": [4, 6], "life": [10, 14]}},
+	"Leather Cap": {"name": "Scoutlight Hood", "affixes": {"def": [16, 24], "dex": [8, 12], "ar": [20, 30]}},
+	"Bone Skullcap": {"name": "Marrowguard", "affixes": {"def": [28, 42], "life": [16, 24], "str": [6, 10]}},
+	"Iron Sallet": {"name": "Warden's Judgment", "affixes": {"def": [40, 60], "res_all": [12, 18], "mana": [14, 20]}},
 }
 
 # 독자 세트 장비. 동일 set_id 두 부위를 함께 장착하면 SET_BONUSES가 활성화된다.
@@ -84,7 +92,9 @@ const SUFFIXES := [
 static func _eligible(table: Array, ilvl: int, slot: String) -> Array:
 	var out: Array = []
 	for a in table:
-		if int(a["alvl"]) <= ilvl and (a["slot"] == "any" or a["slot"] == slot):
+		var a_slot := String(a["slot"])
+		var matches := a_slot == "any" or a_slot == slot or (a_slot == "armor" and slot == "helm")
+		if int(a["alvl"]) <= ilvl and matches:
 			out.append(a)
 	return out
 
@@ -151,6 +161,8 @@ static func find_base(base_name: String, slot: String) -> Dictionary:
 		pool = WEAPON_BASES
 	elif slot == "armor":
 		pool = ARMOR_BASES
+	elif slot == "helm":
+		pool = HELM_BASES
 	elif slot in ["ring", "amulet"]:
 		pool = ACCESSORY_BASES
 	elif slot == "charm":
@@ -296,7 +308,7 @@ static func is_identified(it: Dictionary) -> bool:
 	return bool(it.get("identified", true))
 
 static func identify(it: Dictionary) -> bool:
-	if is_identified(it) or String(it.get("slot", "")) not in ["weapon", "armor", "ring", "amulet", "charm"]:
+	if is_identified(it) or String(it.get("slot", "")) not in ["weapon", "armor", "helm", "ring", "amulet", "charm"]:
 		return false
 	it["identified"] = true
 	return true
