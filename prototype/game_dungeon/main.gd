@@ -4845,7 +4845,7 @@ func _rebuild_cube() -> void:
 	var socketed_open: Array = []
 	var socketed_filled: Array = []
 	for bag_item in _inventory:
-		if String(bag_item.get("slot", "")) in ["weapon", "armor"]:
+		if String(bag_item.get("slot", "")) in ["weapon", "armor", "helm"]:
 			if String(bag_item.get("quality", "")) == "normal" and int(bag_item.get("sockets", 0)) == 0:
 				socketable.append(bag_item)
 			elif (bag_item.get("socketed", []) as Array).size() < int(bag_item.get("sockets", 0)):
