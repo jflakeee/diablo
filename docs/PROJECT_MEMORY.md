@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-09 (Korr/Dren/Pyre 룬 드롭 풀 추가 — Veiled Step 룬워드 실전 도달 가능)
+최종 갱신: 2026-10-09 (소켓 제거 큐브 레시피 추가 — Helm 시길로 소켓 내용물 초기화)
 
 ## 맵 생성 상태
 
@@ -18,7 +18,11 @@
 - `STREAM`: PASS
 - `SYSTEM`: 120 checks PASS (큐브·감정·저항 효과·참 듀얼 슬롯·난이도 보상·유니크 드롭-once·제작 아이템·유니크/세트 범위 롤 회귀 포함, 실행 횟수 자동 집계)
 - `SCRAPBOOK`: selftest PASS(티켓 발급/비용 공식/복원/저장-복원 라운드트립), 최종 ok 집계에 배선됨
-- `[P4] sigil: Dren+Saal to Veiled Step`: PASS(2026-10-09 신규, `_craft_selftest_ok`에 배선)
+- `[P4] sigil: Dren+Saal to Veiled Step`: PASS
+- `[P4] socket_remove`: PASS(2026-10-09 신규, Helm 시길 소모 시 소켓
+  내용물·룬워드 라벨 함께 초기화 확인, `_craft_selftest_ok`에 배선)
+- `CUBE_UI`: PASS(`socket_remove=true` — Remove Sockets 버튼 클릭/비활성화
+  상태/머티리얼 소모까지 실제 UI 신호로 검증)
 - `SAVE`: 24 checks PASS
 - `PROGRESSION_COMBAT`(통합 회귀): PASS
 - Web 릴리스 검사: PASS
@@ -27,12 +31,13 @@
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 소스 커밋: Korr/Dren/Pyre 룬을 몬스터 드롭 풀에 추가(`RUNE_STATS`에 개별
-  소켓 효과가 정의돼 있었지만 드롭 경로가 없어 영구히 획득 불가능했던 3종),
-  "Veiled Step" 룬워드(Dren+Saal) 회귀 테스트 신규 추가
-- 최신 배포 커밋: `92aace1` (gh-pages)
+- 소스 커밋: 소켓 제거 큐브 레시피 신규(`craft.gd can_remove_sockets/
+  remove_sockets`, 촉매 `rune_Helm` 드롭 풀 추가), Cube 패널 "REMOVE
+  SOCKETS" 섹션, `d2-horadric-cube-recipes.md` §3 체크리스트 마지막 항목
+  반영 완료
+- 최신 배포 커밋: `2d6a27d` (gh-pages)
 - Pages 빌드 상태: `built`, 루트 HTTP 200 확인
-- 원격 PCK SHA-256: `3ba6910727a25c4587fe07214cb7359edf2dde21b84ad2ad1e0c922267a4b244`, 로컬 빌드 해시 일치 확인(curl로 직접 fetch)
+- 원격 PCK SHA-256: `d6a67dfa93d64c1426036fb46096886e827f798da1b70fd775880e6f5147f18c`, 로컬 빌드 해시 일치 확인(curl로 직접 fetch), playwright 스크린샷으로 "DEPLOYED 2026-10-09 13:00 KST" 렌더링 확인
 - 시각 검증: playwright로 루트 접속 → 클래스 선택 화면 정상 렌더링,
   `DEPLOYED 2026-10-09 12:31 KST` 표시 확인.
 
@@ -708,3 +713,50 @@
   release export → gh-pages 배포 커밋 `92aace1`, Pages 빌드 `built`, 루트
   HTTP 200, 로컬/원격 PCK SHA-256(`3ba69107...`) 일치 확인(curl 직접 fetch),
   playwright로 클래스 선택 화면과 새 타임스탬프 확인.
+
+## 2026-10-09 소켓 제거 큐브 레시피 추가 (원격 배포 완료)
+
+- 룬 드롭 풀 라운드 뒤 advisor 리뷰를 거친 뒤, 헬름 슬롯처럼 브레인스토밍
+  게이트가 필요한 큰 작업으로 바로 들어가기 전에 더 작은 미착수 후보가
+  있는지 먼저 훑는 정찰 라운드를 돌렸다. 설계 표(22항목)는 #3(동일 아이템
+  겹침)만 미착수였고, `docs/research/` 체크리스트 대조에서
+  `d2-horadric-cube-recipes.md` §3의 마지막 미체크 항목("소켓 제거/수리
+  류의 '두루마리 소모' 레시피가 이 프로젝트 소모품 체계와 호환되는지
+  확인")을 찾아 이번 라운드로 처리했다.
+- **조사 결과**: 원작 레시피는 "아이템 + 헬(Hel)룬 + 마을 차원문 두루마리"
+  인데, 이 프로젝트의 Town Portal은 `main.gd`에 `town_button`(즉발 버튼)
+  으로만 존재 — 인벤토리에 들어가는 두루마리 아이템 자체가 없어(`grep -rni
+  "scroll"` 결과 0건) 원작 그대로는 이식 불가. 두루마리 요구만 빼고 룬
+  단독 촉매로 채택: 원작 "Hel" 룬의 이 프로젝트 명칭은 `RUNE_ORDER`의
+  15번째 "Helm"(장비 슬롯 문자열 "helm"과 동명이의 — 이 프로젝트 룬
+  이름은 D2 원작 33종 순서를 그대로 유지하며 상표 회피용으로 개명된
+  목록이라 El→Ahn, Eld→Ahnor … Hel→Helm, Io→Iora 식으로 1:1 대응).
+  같은 체크리스트의 "수리/충전" 레시피는 이 프로젝트에 이미 상인 패널
+  "Repair Equipped Gear"(골드 기반, `item.gd repair()/repair_cost()`)가
+  구현돼 있어 중복이고, 충전식 완드/스태프 개념 자체가 없어 둘 다
+  의도적으로 비범위로 남김 — `d2-horadric-cube-recipes.md`에 근거와 함께
+  체크 완료로 기록.
+- **구현**: `craft.gd`에 `SOCKET_REMOVE_CATALYST := "rune_Helm"`,
+  `can_remove_sockets()`/`remove_sockets()` 추가(기존 `add_sockets()`와
+  동일하게 item_script 의존성 없이 순수 dict 조작 — 소켓 삽입/제거는
+  item.gd의 생성 로직을 거치지 않아도 되는 연산이라 DI 패턴이 불필요).
+  `remove_sockets()`는 `it["socketed"] = []`뿐 아니라 `it.erase("runeword")`
+  도 호출 — `effective_affixes()`가 룬워드 완성 시에만 `it["runeword"]`를
+  쓰고 해제 시에는 지우지 않는 기존 동작(latent 캐시 버그, 지금까지는
+  룬워드를 "되돌리는" 경로가 없어 드러나지 않았음)을 처음으로 건드리는
+  기능이라 명시적으로 정리해야 했다. 몬스터 드롭 풀(`gems` 배열)에
+  `rune_Helm` 추가(룬 아이콘은 범용이라 아틀라스 작업 불필요, 이전
+  Saal/Korr/Dren/Pyre 라운드와 동일 패턴). 인벤토리 Cube 패널에 "REMOVE
+  SOCKETS" 섹션 신규(소켓에 내용물이 1개 이상 찬 무기/방어구에만 노출).
+- **검증**: `_craft_selftest()`에 테스트 9(Vey+Ahn으로 Tempered Edge
+  룬워드를 완성한 뒤 Helm 시길로 제거 → `socketed`가 비고 `runeword`가
+  빈 문자열로 돌아오는지, `sockets` 개수(2)는 유지되는지 확인) 추가,
+  `cube_ui_test.gd`에 Remove Sockets 버튼 클릭 시나리오 추가(버튼
+  활성화 상태 + 클릭 후 머티리얼 소모 + 소켓 비워짐을 실제 UI 신호로
+  검증). barb/sorc 오토퀴트, `cube_ui_test.gd`, `progression_combat_test.gd`
+  전부 PASS(`[SYSTEM] checks=120` 불변 — 드롭 풀/큐브 레시피 추가는 신규
+  SYSTEM 체크를 유발하지 않음, 기존 패턴과 동일).
+- 배포: `DEPLOYED_AT_KST`를 "2026-10-09 13:00 KST"로 갱신 후 Web release
+  export → gh-pages 배포 커밋 `2d6a27d`, Pages 빌드 `built`, 루트 HTTP
+  200, 로컬/원격 PCK SHA-256(`d6a67dfa...`) 일치 확인(curl 직접 fetch),
+  playwright로 새 타임스탬프 렌더링 + 콘솔 에러 0건 확인.
