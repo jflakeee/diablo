@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-09 (소켓 제거 큐브 레시피 추가 — Helm 시길로 소켓 내용물 초기화)
+최종 갱신: 2026-10-09 (헬름 장비 슬롯 신규 추가 — Gloom Crown 룬워드 실전 완성 가능)
 
 ## 맵 생성 상태
 
@@ -16,13 +16,16 @@
 
 - `MAP_VARIANTS`: PASS
 - `STREAM`: PASS
-- `SYSTEM`: 120 checks PASS (큐브·감정·저항 효과·참 듀얼 슬롯·난이도 보상·유니크 드롭-once·제작 아이템·유니크/세트 범위 롤 회귀 포함, 실행 횟수 자동 집계)
+- `SYSTEM`: **123 checks** PASS(이전 120 + 헬름 유니크 범위 롤 검증 3건 신규 —
+  큐브·감정·저항 효과·참 듀얼 슬롯·난이도 보상·유니크 드롭-once·제작 아이템·
+  유니크/세트 범위 롤·헬름 유니크 범위 롤 회귀 포함, 실행 횟수 자동 집계)
 - `SCRAPBOOK`: selftest PASS(티켓 발급/비용 공식/복원/저장-복원 라운드트립), 최종 ok 집계에 배선됨
 - `[P4] sigil: Dren+Saal to Veiled Step`: PASS
-- `[P4] socket_remove`: PASS(2026-10-09 신규, Helm 시길 소모 시 소켓
-  내용물·룬워드 라벨 함께 초기화 확인, `_craft_selftest_ok`에 배선)
-- `CUBE_UI`: PASS(`socket_remove=true` — Remove Sockets 버튼 클릭/비활성화
-  상태/머티리얼 소모까지 실제 UI 신호로 검증)
+- `[P4] socket_remove`: PASS
+- `[P4] sigil: Korr+Vey to Gloom Crown`: PASS(2026-10-09 신규, def=68
+  mana=1 — 룬워드 완성 보너스+개별 소켓 효과 합산, `_craft_selftest_ok`에 배선)
+- `CUBE_UI`: PASS(`socket=true` — 헬름 아이템에 대한 "Add Sockets" 버튼
+  클릭/비활성화 상태/머티리얼 소모까지 실제 UI 신호로 검증, `socket_remove=true` 기존 유지)
 - `SAVE`: 24 checks PASS
 - `PROGRESSION_COMBAT`(통합 회귀): PASS
 - Web 릴리스 검사: PASS
@@ -31,15 +34,15 @@
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 소스 커밋: 소켓 제거 큐브 레시피 신규(`craft.gd can_remove_sockets/
-  remove_sockets`, 촉매 `rune_Helm` 드롭 풀 추가), Cube 패널 "REMOVE
-  SOCKETS" 섹션, `d2-horadric-cube-recipes.md` §3 체크리스트 마지막 항목
-  반영 완료
-- 최신 배포 커밋: `2d6a27d` (gh-pages)
+- 소스 커밋: 헬름(투구) 장비 슬롯 신규 추가(`item.gd HELM_BASES`/유니크 3종,
+  드롭 브래킷 재조정, `craft.gd RUNE_STATS`/`GEM_STATS` helm 열, `main.gd`/
+  `mercenary.gd` 장착 통합), Gloom Crown 룬워드 회귀 테스트, 헬름 유니크
+  범위 롤 검증, 큐브 UI 헬름 소켓 시나리오. 서브에이전트 기반 실행 중 발견한
+  계획 외 버그 2건(`mercenary.gd empty_equipment()` 하드코딩, `main.gd
+  _rebuild_cube()` UI 후보 필터 누락)도 함께 수정
+- 최신 배포 커밋: `cd37412` (gh-pages)
 - Pages 빌드 상태: `built`, 루트 HTTP 200 확인
-- 원격 PCK SHA-256: `d6a67dfa93d64c1426036fb46096886e827f798da1b70fd775880e6f5147f18c`, 로컬 빌드 해시 일치 확인(curl로 직접 fetch), playwright 스크린샷으로 "DEPLOYED 2026-10-09 13:00 KST" 렌더링 확인
-- 시각 검증: playwright로 루트 접속 → 클래스 선택 화면 정상 렌더링,
-  `DEPLOYED 2026-10-09 12:31 KST` 표시 확인.
+- 원격 PCK SHA-256: `3e867e836909bae1f489acbffa2f0073bf0871c99ec9bbe6d9a1e5df41eebb9d`, 로컬 빌드 해시 일치 확인(curl로 직접 fetch), playwright 스크린샷으로 "DEPLOYED 2026-10-09 20:06 KST" 렌더링 확인, 콘솔 에러 0건
 
 ## 설계 원문(`prompt_diablo.md`) 대비 구현 현황 (2026-10-04 작성)
 
@@ -343,7 +346,9 @@
   검증 추가.
 - 비범위로 명시: 소켓 개수 가변화, 보석 품질별 효과 차등화(기존 `GEM_STATS`가 품질
   무관 고정값인 한계를 그대로 둠), Gloom Crown 룬워드(헬름 슬롯 자체가 없어 도달
-  불가능 — 건드리지 않음).
+  불가능 — 건드리지 않음). **2026-10-09 갱신: 헬름 슬롯이 이후 별도 라운드로
+  신규 추가되어 Gloom Crown도 실전 완성 가능해짐 — 아래 "2026-10-09 헬름(투구)
+  장비 슬롯 신규 추가" 섹션 참고.**
 - 검증: `[P4] socket: ... : true` + `[P4][RESULT] craft_selftest verdict=PASS`가
   barb/sorc 둘 다 최종 ok에 영향(지난 라운드에 이미 `_craft_selftest_ok`로 편입해둠),
   `[CUBE_UI] ... socket=true verdict=PASS`.
@@ -773,3 +778,74 @@
   export → gh-pages 배포 커밋 `2d6a27d`, Pages 빌드 `built`, 루트 HTTP
   200, 로컬/원격 PCK SHA-256(`d6a67dfa...`) 일치 확인(curl 직접 fetch),
   playwright로 새 타임스탬프 렌더링 + 콘솔 에러 0건 확인.
+
+## 2026-10-09 헬름(투구) 장비 슬롯 신규 추가 (원격 배포 완료)
+
+- 소켓 제거 라운드 뒤 advisor가 제안한 "헬름 슬롯은 브레인스토밍 게이트가
+  필요한 신규 기능" 판단에 따라 `superpowers:brainstorming` →
+  `superpowers:writing-plans` → `superpowers:subagent-driven-development`
+  스킬 체인을 처음부터 끝까지 정식 사용(스크랩북 라운드에 이어 이 세션
+  두 번째 서브에이전트 기반 구현 — 9개 태스크 각각 구현 서브에이전트 1개
+  + 스펙 준수 리뷰 서브에이전트 1개 + 코드 품질 리뷰 서브에이전트 1개,
+  총 27개 서브에이전트 디스패치로 실행).
+- **설계 핵심 발견**: 탐색 결과 `_equipment_slot_for_item()`(ring/charm만
+  특별 처리, 나머지는 `item_slot` 그대로 반환), `_recompute_player()`
+  (`EQUIPMENT_SLOTS` 순회), 아이콘 렌더링(weapon만 "sword", 나머지 전부
+  기본값 "shield")이 전부 제네릭 구조라 "helm" 문자열만 각 리스트에 추가하면
+  대부분 자동 연동됨을 확인 — 새 아키텍처 설계가 아니라 기존 구조에 데이터를
+  채우는 작업으로 범위가 좁혀짐. 덕분에 설계 문서 자체가 "건드릴 필요 없는
+  곳" 절을 포함할 수 있었고, 이게 실제로 각 태스크의 스펙 리뷰 효율을 높임.
+- **구현**: `item.gd HELM_BASES`(3종: Leather Cap/Bone Skullcap/Iron
+  Sallet, 베이스명에 "Helm" 단어를 쓰지 않음 — `RUNE_ORDER`의 룬 이름
+  "Helm"과의 동명이의 혼동을 한 겹 더 쌓지 않기 위해) + 유니크 3종,
+  `roll_drop()` 드롭 브래킷에서 armor 몫 10%p를 helm으로 분리(34%→24%+10%,
+  seed=42 오토퀴트 지문의 합법적 이동 — RNG 공유 버그 아님), `craft.gd
+  RUNE_STATS`/`GEM_STATS`에 helm 전용 개별 소켓 효과 열(armor 값의 약
+  55~65% 축소) 신설, `can_add_sockets()` 슬롯 화이트리스트에 helm 추가
+  (`can_remove_sockets()`는 애초에 슬롯 필터가 없어 변경 불필요 — 설계
+  문서 자체가 사전에 이 점을 틀리게 서술했다가 self-review로 정정한 사례),
+  `main.gd`/`mercenary.gd`의 `EQUIPMENT_SLOTS`/`SLOTS`에 helm 추가(세이브
+  스키마는 `.get("helm", {})` 기본값 패턴으로 완전히 additive, 버전 번호
+  변경 없음), `_eligible()`에 armor/helm 접사 동치 처리(+def 접두사
+  "Reinforced"가 helm에도 적용되도록).
+- **서브에이전트 실행 중 발견한 계획 외 버그 2건**(둘 다 자체 발견→수정→
+  재검증까지 서브에이전트가 독립적으로 처리, 컨트롤러는 사후 검증만 수행):
+  1. Task 5에서 `mercenary.gd empty_equipment()`가 `SLOTS`를 순회하지
+     않고 `{"weapon":{},"armor":{}}`로 하드코딩돼 있었음(설계 문서 자체가
+     "이미 제네릭하다"고 잘못 서술한 부분 — `normalize_equipment()`만
+     제네릭이고 `empty_equipment()`는 아니었음). `SLOTS` 순회로 일반화해
+     해결. 같은 커밋에서 `system_tests.gd`의 `merc_equipment.size() == 2`
+     하드코딩 단언도 발견해 `== Mercenary.SLOTS.size()`로 고침(코드 품질
+     리뷰에서 "`== 3`도 여전히 매직넘버, 다음 슬롯 추가 때 또 깨진다"는
+     Important 지적을 받아 한 번 더 수정 — 재검토 통과).
+  2. Task 8(큐브 UI에서 실제로 "Add Sockets" 버튼을 클릭하는 테스트)에서
+     `main.gd _rebuild_cube()`의 UI 후보 필터가 `craft.gd
+     can_add_sockets()`와는 **별개로** `["weapon","armor"]`만 허용하고
+     있어, 승인 로직 자체는 helm을 허용해도 버튼이 헬름 아이템엔 전혀
+     렌더링되지 않는 UI 레이어 버그를 발견(Task 3의 `can_craft`
+     스타일 데이터 레이어 테스트만으로는 못 잡는 유형 — 이번 라운드에서
+     Task 8을 "데이터 레이어 함수 호출"이 아니라 "실제 패널에서 버튼을
+     찾아 클릭"으로 설계한 것이 직접 보상받은 사례). 1줄 수정으로 해결,
+     프로덕션 커밋과 테스트 커밋을 분리.
+  3. (비차단, 후속 과제로 기록) 코드 품질 리뷰가 "`can_add_sockets()`와
+     `_rebuild_cube()`가 `["weapon","armor","helm"]`을 각자 하드코딩하고
+     있어 다음 슬롯 추가 때 똑같은 버그가 재발할 수 있다"며
+     `Craft.SOCKETABLE_SLOTS` 같은 공유 상수 도입을 Important로 제안했으나,
+     "Ready to merge: Yes"로 비차단 처리됨 — 다음에 네 번째 장비 슬롯을
+     추가할 일이 생기면 가장 먼저 검토할 것.
+- **Gloom Crown 회귀 테스트**(`_craft_selftest()` 테스트 10): Korr+Vey
+  소켓 완성 시 `def=68`(룬워드 완성 보너스 +50 + Korr 개별 helm 소켓
+  효과 +18), `mana=1`(Vey 개별 helm 소켓 효과) — 2026-10-09 앞선 라운드에서
+  배운 "완성 보너스+개별 소켓 효과 합산" 규칙을 처음부터 정확히 적용해
+  작성, 스펙 리뷰가 룬 순서 반전·`can_add_sockets` 화이트리스트 누락 두
+  시나리오를 직접 되짚어 테스트가 vacuous하지 않음을 확인.
+- **검증**: barb/sorc 오토퀴트, `progression_combat_test.gd`,
+  `cube_ui_test.gd` 전부 PASS. `[SYSTEM] checks=123`(헬름 유니크 범위 롤
+  검증 3건 신규 — 120→123). `[P4] sigil: Korr+Vey to Gloom Crown (def=68
+  mana=1) : true`. `gems`(소켓 재료 드롭 풀) 배열은 이번 라운드에서
+  변경 없음 — 드롭 풀 희석 노트 갱신 불필요.
+- 배포: `DEPLOYED_AT_KST`를 "2026-10-09 20:06 KST"로 갱신 후 Web release
+  export → gh-pages 배포 커밋 `cd37412`, Pages 빌드 `built`, 루트 HTTP
+  200, 로컬/원격 PCK SHA-256(`3e867e83...`) 일치 확인(curl 직접 fetch),
+  playwright로 새 타임스탬프 렌더링 + 콘솔 에러 0건 확인. 소스 커밋은
+  `2e04cb5`(설계)부터 `93bd5ce`(Task 8)까지 10개, 양쪽 브랜치 푸시.
