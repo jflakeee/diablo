@@ -785,9 +785,11 @@
   필요한 신규 기능" 판단에 따라 `superpowers:brainstorming` →
   `superpowers:writing-plans` → `superpowers:subagent-driven-development`
   스킬 체인을 처음부터 끝까지 정식 사용(스크랩북 라운드에 이어 이 세션
-  두 번째 서브에이전트 기반 구현 — 9개 태스크 각각 구현 서브에이전트 1개
-  + 스펙 준수 리뷰 서브에이전트 1개 + 코드 품질 리뷰 서브에이전트 1개,
-  총 27개 서브에이전트 디스패치로 실행).
+  두 번째 서브에이전트 기반 구현 — Task 9는 컨트롤러가 직접 처리해
+  서브에이전트 없이 수행, 나머지 8개 태스크 각각 구현 서브에이전트 1개
+  + 스펙 준수 리뷰 서브에이전트 1개 + 코드 품질 리뷰 서브에이전트 1개 +
+  Task5/8 fix-reverify 2회, 총 24개 서브에이전트 디스패치로 실행. "27개"는
+  advisor 교차검증 중 발견된 오기였음).
 - **설계 핵심 발견**: 탐색 결과 `_equipment_slot_for_item()`(ring/charm만
   특별 처리, 나머지는 `item_slot` 그대로 반환), `_recompute_player()`
   (`EQUIPMENT_SLOTS` 순회), 아이콘 렌더링(weapon만 "sword", 나머지 전부
@@ -849,3 +851,19 @@
   200, 로컬/원격 PCK SHA-256(`3e867e83...`) 일치 확인(curl 직접 fetch),
   playwright로 새 타임스탬프 렌더링 + 콘솔 에러 0건 확인. 소스 커밋은
   `2e04cb5`(설계)부터 `93bd5ce`(Task 8)까지 10개, 양쪽 브랜치 푸시.
+- **스킬 플로우 이탈 기록(advisor 확인)**: `subagent-driven-development`는
+  전체 태스크 종료 후 "최종 통합 리뷰어 1개" 디스패치와
+  `finishing-a-development-branch` 호출을 요구하지만, 이 라운드는 둘 다
+  건너뛰고 Task 9(컨트롤러 직접 수행: 4종 테스트 재실행+배포+문서화+
+  cherry-pick)로 대체함. 8개 태스크 각각의 dual review(스펙+품질)와 전체
+  테스트 스위트 재실행이 사실상 최종 리뷰를 커버했고, 이 프로젝트의
+  cherry-pick to main 관행이 finishing 단계 역할을 대신했다는 판단 — 의도적
+  대체였음을 다음 라운드를 위해 명시(생략이 아니라 결정).
+- **커버리지 공백 2건(기록, 비차단)**: (1) 용병이 helm을 실제로 장착하는
+  경로(`mercenary.gd stats()`의 `elif slot in ["armor","helm"]` 중 helm
+  분기)는 자동 테스트 픽스처가 weapon+armor+ring만 장착해 한 번도 실행된
+  적 없음. (2) `item.gd find_base()`의 helm 분기를 스크랩북 티켓 교환
+  경로로 태우는 테스트도 없음. 둘 다 1줄짜리 `_check()` 추가로 끝나는
+  멤버십 코드이며, 이미 배포된 라운드를 재오픈할 사안은 아님 —
+  `Craft.SOCKETABLE_SLOTS` 리팩터와 함께 "다음 4번째 슬롯 추가" 시점에
+  같이 검토.
