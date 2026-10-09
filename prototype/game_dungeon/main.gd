@@ -1967,7 +1967,19 @@ func _craft_selftest() -> void:
 		and String(remove_item.get("runeword", "")) == "" and int(e9.get("ed", 0)) == 0 and int(remove_item.get("sockets", 0)) == 2
 	print("[P4] socket_remove: catalyst_consumed=%s socketed=%d runeword='%s' sockets_kept=%d : %s" % [str(not remove_materials.has(Craft.SOCKET_REMOVE_CATALYST)), (remove_item.get("socketed", []) as Array).size(), String(remove_item.get("runeword", "")), int(remove_item.get("sockets", 0)), str(t9)])
 
-	_craft_selftest_ok = t1 and t2 and t3 and t3b and t4 and t5 and t5b and t6 and t7 and t8 and t9
+	# 10) Gloom Crown 룬워드(Korr+Vey, helm): 헬름 소켓 완성 시 def/mana가
+	# 룬워드 완성 보너스(def+50) + 개별 룬 소켓 효과(Korr def+18, Vey mana+1)
+	# 합산으로 나오는지 확인 — 2026-10-09 룬 드롭 라운드에서 배운 합산 규칙 적용.
+	var helm_item := Item.generate(test_rng, Item.HELM_BASES[2], 1, "normal")
+	var helm_materials := {Craft.SOCKET_CATALYST: Craft.SOCKET_COST}
+	var t10a := Craft.add_sockets(helm_materials, helm_item)
+	Item.socket_insert(helm_item, {"kind": "rune", "id": "Korr"})
+	Item.socket_insert(helm_item, {"kind": "rune", "id": "Vey"})
+	var e10 := Item.effective_affixes(helm_item)
+	var t10: bool = t10a and String(helm_item.get("runeword", "")) == "Gloom Crown" and int(e10.get("def", 0)) == 68 and int(e10.get("mana", 0)) == 1
+	print("[P4] sigil: Korr+Vey to %s (def=%d mana=%d) : %s" % [String(helm_item.get("runeword", "")), int(e10.get("def", 0)), int(e10.get("mana", 0)), str(t10)])
+
+	_craft_selftest_ok = t1 and t2 and t3 and t3b and t4 and t5 and t5b and t6 and t7 and t8 and t9 and t10
 	print("[P4][RESULT] craft_selftest verdict=", ("PASS" if _craft_selftest_ok else "FAIL"))
 
 func _add_skill_button(ui: Node, id: String, label: String, col: Color, pos: Vector2, control_size: Vector2) -> void:
