@@ -1,6 +1,6 @@
 # 프로젝트 메모리
 
-최종 갱신: 2026-10-09 (아이템 스크랩북 + 유니크/세트 수치 범위화)
+최종 갱신: 2026-10-09 (Korr/Dren/Pyre 룬 드롭 풀 추가 — Veiled Step 룬워드 실전 도달 가능)
 
 ## 맵 생성 상태
 
@@ -18,6 +18,7 @@
 - `STREAM`: PASS
 - `SYSTEM`: 120 checks PASS (큐브·감정·저항 효과·참 듀얼 슬롯·난이도 보상·유니크 드롭-once·제작 아이템·유니크/세트 범위 롤 회귀 포함, 실행 횟수 자동 집계)
 - `SCRAPBOOK`: selftest PASS(티켓 발급/비용 공식/복원/저장-복원 라운드트립), 최종 ok 집계에 배선됨
+- `[P4] sigil: Dren+Saal to Veiled Step`: PASS(2026-10-09 신규, `_craft_selftest_ok`에 배선)
 - `SAVE`: 24 checks PASS
 - `PROGRESSION_COMBAT`(통합 회귀): PASS
 - Web 릴리스 검사: PASS
@@ -26,14 +27,14 @@
 ## 배포 정보
 
 - 플레이 URL: https://jflakeee.github.io/diablo/
-- 소스 커밋: 아이템 스크랩북(소모형 복원 티켓) + 유니크/세트 접사 범위 롤 도입
-  (장비 습득 시 기존 자동감정/자동장착 흐름은 불변, 티켓은 골드로 새로 굴린
-  사본을 수동 장착 전제로 추가 제공)
-- 최신 배포 커밋: `bf55731` (gh-pages)
+- 소스 커밋: Korr/Dren/Pyre 룬을 몬스터 드롭 풀에 추가(`RUNE_STATS`에 개별
+  소켓 효과가 정의돼 있었지만 드롭 경로가 없어 영구히 획득 불가능했던 3종),
+  "Veiled Step" 룬워드(Dren+Saal) 회귀 테스트 신규 추가
+- 최신 배포 커밋: `92aace1` (gh-pages)
 - Pages 빌드 상태: `built`, 루트 HTTP 200 확인
-- 원격 PCK SHA-256: `d219a6bdd87ed0a70a9b6574fe25cab23cfb17bc07556dd043582531ad5b8efe`, 로컬 빌드 해시 일치 확인(curl로 직접 fetch)
+- 원격 PCK SHA-256: `3ba6910727a25c4587fe07214cb7359edf2dde21b84ad2ad1e0c922267a4b244`, 로컬 빌드 해시 일치 확인(curl로 직접 fetch)
 - 시각 검증: playwright로 루트 접속 → 클래스 선택 화면 정상 렌더링,
-  `DEPLOYED 2026-10-09 11:47 KST` 표시 확인.
+  `DEPLOYED 2026-10-09 12:31 KST` 표시 확인.
 
 ## 설계 원문(`prompt_diablo.md`) 대비 구현 현황 (2026-10-04 작성)
 
@@ -654,3 +655,46 @@
   실행 전에 미리 잡아냈다 — 이 프로젝트가 반복적으로 겪어온 "셀프테스트
   추가했는데 최종 ok에 안 묶임" 패턴([[systems-built]] 참고)이 계획 단계에서
   선제적으로 방지된 첫 사례.
+
+## 2026-10-09 Korr/Dren/Pyre 룬 드롭 풀 추가 (원격 배포 완료)
+
+- 스크랩북 라운드의 advisor 리뷰가 남긴 후속 발견("Korr가 드롭 풀에 없어
+  Gloom Crown 룬워드가 죽은 콘텐츠")을 재조사하다가 더 큰 그림을 발견했다:
+  `RUNE_STATS`에 개별 소켓 효과가 정의된 룬 6종(Ahn/Vey/Korr/Saal/Dren/Pyre)
+  중 드롭 가능한 건 Ahn/Vey/Saal 3종뿐이었고, 나머지 Korr/Dren/Pyre는 애초에
+  획득 경로가 전혀 없었다. 특히 `RUNEWORDS`의 "Veiled Step"(Dren+Saal,
+  slot=armor)은 **슬롯 자체는 존재하는데 재료(Dren)가 안 나와서** 소켓/룬워드
+  시스템이 전부 구현돼 있었음에도 실전에서 한 번도 완성될 수 없었다 — 기존
+  "이미 구현됐지만 실전 연결 안 된 시스템" 패턴([[systems-built]])의 또 다른
+  사례.
+- `main.gd`의 몬스터 드롭 풀(`gems` 배열)에 `rune_Korr`/`rune_Dren`/
+  `rune_Pyre` 추가(룬 아이콘은 이름 무관 범용이라 Saal 때와 동일하게 아틀라스
+  작업 불필요). `_craft_selftest()`에 Veiled Step 회귀 테스트 신규 추가.
+- **Gloom Crown(Korr+Vey, slot="helm")은 이번에 고치지 않음** — `git log
+  -S"\"helm\""`으로 확인한 결과 이 문자열은 최초 캡스톤 커밋 이후 단 한 번도
+  수정된 적이 없다. 즉 "한때 구현됐다가 제거된" 게 아니라 **애초에 헬름
+  장비 슬롯 자체가 구현된 적이 없는 미완성 설계**(ARMOR_BASES는 전부
+  slot="armor"뿐, "helm"은 코드 전체에서 이 한 줄에만 등장). Korr를 드롭
+  풀에만 추가해서는 Gloom Crown이 여전히 도달 불가능하므로(헬름 아이템
+  자체가 생성될 수 없음), 룬 자체(개별 소켓 효과는 있음)만 드롭 가능하게
+  하고 룬워드 완성은 손대지 않았다. `coverage.json`의
+  `"minimum_words": 3`도 확인 — Gloom Crown을 단순 삭제하면 `RUNEWORDS.size()`
+  가 2로 줄어 `[COVERAGE]` 셀프테스트가 FAIL하므로 삭제도 간단한 선택지가
+  아니었다. **진짜 수정은 헬름 장비 슬롯 신규 추가**(HELM_BASES 배열,
+  장착 슬롯 디스패치, UI, 드롭 풀, 자동장착 계산 전부 연동)인데, 이건 "아이템
+  스크랩북"급의 별도 기능 라운드 — 다음에 D2 동일성(#22) 축으로 다시 다룰
+  후보로 기록.
+- **테스트 작성 중 발견한 버그 아닌 함정**: Veiled Step 회귀 테스트를
+  `mana==15`(룬워드 보너스 그대로)로 처음 작성했다가 FAIL — 실제로는
+  `mana=18`이 맞다. `effective_affixes()`는 룬워드 완성 보너스에 **개별 룬
+  자체의 소켓 효과를 추가로 합산**한다(Saal 개별 mana+3 위에 룬워드 mana+15가
+  더해짐) — 이미 기존 Tempered Edge 테스트의 `ar=100`(룬워드+50, Ahn 개별+50)
+  에서도 같은 합산 방식이 적용되고 있었는데 그 값은 `_check`로 단언되지
+  않고 print만 됐던 터라 이번에야 명시적으로 검증됨. 내 테스트 기댓값 계산
+  실수였지, 엔진 로직 결함이 아니었음.
+- 검증: barb/sorc/progression/cube_ui 전부 PASS(`[P4] sigil: Dren+Saal to
+  Veiled Step ... : true`), `[SYSTEM] checks=120`(드롭 풀 변경은 신규
+  시스템 체크 유발 안 함, 기존 120 유지). `DEPLOYED_AT_KST` 갱신 후 Web
+  release export → gh-pages 배포 커밋 `92aace1`, Pages 빌드 `built`, 루트
+  HTTP 200, 로컬/원격 PCK SHA-256(`3ba69107...`) 일치 확인(curl 직접 fetch),
+  playwright로 클래스 선택 화면과 새 타임스탬프 확인.

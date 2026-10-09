@@ -38,7 +38,7 @@ const FogOverlay := preload("res://fog_overlay.gd")
 const TemplateTheme := preload("res://ui/template_theme.gd")
 const CombatFX := preload("res://combat_fx.gd")
 const WorldStream := preload("res://world_stream.gd")
-const DEPLOYED_AT_KST := "2026-10-09 11:47 KST"
+const DEPLOYED_AT_KST := "2026-10-09 12:31 KST"
 
 var _grid: Array = []
 var _astar: AStarGrid2D
@@ -1891,6 +1891,17 @@ func _craft_selftest() -> void:
 	var t3: bool = String(wpn2.get("runeword", "")) == ""
 	print("[P4] order: Ahn+Vey must not create a sigilword ('%s'): %s" % [String(wpn2.get("runeword", "")), str(t3)])
 
+	# 3b) 독자 각인 조합 Dren + Saal (armor 2소켓) — 2026-10-09 드롭 풀에 Dren 추가로
+	# Veiled Step이 처음으로 실전 도달 가능해짐(그전엔 재료 자체가 안 나왔음).
+	# mana=18은 룬워드 보너스(+15) + Saal 개별 소켓 효과(+3) 합산 — Tempered Edge의
+	# ar=100(룬워드+50, Ahn 개별+50)과 같은 기존 effective_affixes() 합산 방식.
+	var arm2 := Item.make_socketed(Item.ARMOR_BASES[0], 2)
+	Item.socket_insert(arm2, {"kind": "rune", "id": "Dren"})
+	Item.socket_insert(arm2, {"kind": "rune", "id": "Saal"})
+	var e3b := Item.effective_affixes(arm2)
+	var t3b: bool = String(arm2.get("runeword", "")) == "Veiled Step" and int(e3b.get("dex", 0)) == 6 and int(e3b.get("mana", 0)) == 18
+	print("[P4] sigil: Dren+Saal to %s (dex=%d mana=%d) : %s" % [String(arm2.get("runeword", "")), int(e3b.get("dex", 0)), int(e3b.get("mana", 0)), str(t3b)])
+
 	# 4) 변환: Ahn×3 → Ahnor
 	var up := Craft.upgrade_rune("Ahn")
 	var t4: bool = up == "Ahnor"
@@ -1942,7 +1953,7 @@ func _craft_selftest() -> void:
 		and String(craft_item.get("quality", "")) == "crafted" and int(craft_item["affixes"].get("ar", 0)) >= 20 and int(craft_item["affixes"].get("cdmg", 0)) >= 3
 	print("[P4] craft: catalyst_consumed=%s quality=%s fixed_ar=%d : %s" % [str(not craft_materials.has(Craft.CRAFT_RUNE_CATALYST)), String(craft_item.get("quality", "")), int(craft_item["affixes"].get("ar", 0)), str(t8)])
 
-	_craft_selftest_ok = t1 and t2 and t3 and t4 and t5 and t5b and t6 and t7 and t8
+	_craft_selftest_ok = t1 and t2 and t3 and t3b and t4 and t5 and t5b and t6 and t7 and t8
 	print("[P4][RESULT] craft_selftest verdict=", ("PASS" if _craft_selftest_ok else "FAIL"))
 
 func _add_skill_button(ui: Node, id: String, label: String, col: Color, pos: Vector2, control_size: Vector2) -> void:
@@ -3481,7 +3492,7 @@ func _on_monster_died(m: Node) -> void:
 		_spawn_ground(_make_potion("mana", mini(5, 1 + int(m.level) / 4)), m.gx, m.gy)
 	# 보석/재료는 수량 제한 없이 동일 id로 합쳐진다.
 	if _rng.randf() < 0.12 + pot_bonus:
-		var gems := ["ruby", "sapphire", "topaz", "emerald", "skull", "rune_Ahn", "rune_Vey", "rune_Saal"]
+		var gems := ["ruby", "sapphire", "topaz", "emerald", "skull", "rune_Ahn", "rune_Vey", "rune_Saal", "rune_Korr", "rune_Dren", "rune_Pyre"]
 		_spawn_ground(_make_material(String(gems[_rng.randi_range(0, gems.size() - 1)])), m.gx, m.gy)
 	if _rng.randf() < (0.05 if rank == "" else 0.16):
 		_spawn_ground(_make_vision_relic(), m.gx - 0.25, m.gy + 0.25)
