@@ -11,24 +11,24 @@ const RUNE_ORDER := [
 
 # 룬 소켓 스탯(슬롯별) — 룬워드에 쓰이는 룬 위주 부분집합
 const RUNE_STATS := {
-	"Ahn": {"weapon": {"ar": 50}, "armor": {"def": 15}},
-	"Vey": {"weapon": {"mana": 2}, "armor": {"mana": 2}},
-	"Korr": {"weapon": {}, "armor": {"def": 30}},
-	"Saal": {"weapon": {}, "armor": {"mana": 3}},
-	"Dren": {"weapon": {}, "armor": {"res_all": 5}},
-	"Pyre": {"weapon": {"res_all": 5}, "armor": {"res_all": 5}},
+	"Ahn": {"weapon": {"ar": 50}, "armor": {"def": 15}, "helm": {"def": 10}},
+	"Vey": {"weapon": {"mana": 2}, "armor": {"mana": 2}, "helm": {"mana": 1}},
+	"Korr": {"weapon": {}, "armor": {"def": 30}, "helm": {"def": 18}},
+	"Saal": {"weapon": {}, "armor": {"mana": 3}, "helm": {"mana": 2}},
+	"Dren": {"weapon": {}, "armor": {"res_all": 5}, "helm": {"res_all": 3}},
+	"Pyre": {"weapon": {"res_all": 5}, "armor": {"res_all": 5}, "helm": {"res_all": 3}},
 }
 
 # Perfect 보석 스탯(슬롯별) — Part 6 §2 (매핑 가능한 stat만). 값은 전부 perfect 등급
 # 기준이며, 소켓 시 실제 효과는 GEM_QUALITY_SCALE로 등급에 맞게 축소된다.
 const GEM_STATS := {
-	"amethyst": {"weapon": {"ar": 150}, "armor": {"str": 10}},
-	"diamond": {"weapon": {"ar": 100}, "armor": {"res_all": 19}},
-	"ruby": {"weapon": {}, "armor": {"life": 38}},
-	"sapphire": {"weapon": {}, "armor": {"mana": 38}},
-	"emerald": {"weapon": {}, "armor": {"dex": 10}},
-	"topaz": {"weapon": {}, "armor": {"res_all": 0}},
-	"skull": {"weapon": {}, "armor": {"life": 0}},
+	"amethyst": {"weapon": {"ar": 150}, "armor": {"str": 10}, "helm": {"str": 6}},
+	"diamond": {"weapon": {"ar": 100}, "armor": {"res_all": 19}, "helm": {"res_all": 12}},
+	"ruby": {"weapon": {}, "armor": {"life": 38}, "helm": {"life": 24}},
+	"sapphire": {"weapon": {}, "armor": {"mana": 38}, "helm": {"mana": 24}},
+	"emerald": {"weapon": {}, "armor": {"dex": 10}, "helm": {"dex": 6}},
+	"topaz": {"weapon": {}, "armor": {"res_all": 0}, "helm": {"res_all": 0}},
+	"skull": {"weapon": {}, "armor": {"life": 0}, "helm": {"life": 0}},
 }
 
 # 품질별 효과 배율(perfect=1.0 기준 역산). chipped/flawed는 현재 드롭 테이블에
@@ -146,7 +146,7 @@ const SOCKET_COST := 3
 const SOCKET_COUNT := 2
 
 static func can_add_sockets(materials: Dictionary, it: Dictionary) -> bool:
-	return int(materials.get(SOCKET_CATALYST, 0)) >= SOCKET_COST and String(it.get("quality", "")) == "normal" and String(it.get("slot", "")) in ["weapon", "armor"] and int(it.get("sockets", 0)) == 0
+	return int(materials.get(SOCKET_CATALYST, 0)) >= SOCKET_COST and String(it.get("quality", "")) == "normal" and String(it.get("slot", "")) in ["weapon", "armor", "helm"] and int(it.get("sockets", 0)) == 0
 
 static func add_sockets(materials: Dictionary, it: Dictionary) -> bool:
 	if not can_add_sockets(materials, it):
