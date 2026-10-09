@@ -140,6 +140,31 @@ unique:500} * (1 + ilvl/20)`. 유니크 등급 티켓도 발급되며, 몬스터
 remove_sockets`), 룬 아이콘은 이름 무관 범용이라 드롭 풀(`rune_Helm`)
 추가에 별도 아틀라스 작업 불필요.
 
+**헬름(투구) 장비 슬롯 신규 추가(2026-10-09)**: 2026-10-09 룬 드롭 라운드에서
+발견한 대로 "Gloom Crown" 룬워드(Korr+Vey, `slot: "helm"`)는 헬름 장비 슬롯
+자체가 이 프로젝트에 한 번도 구현된 적이 없어(최초 캡스톤 커밋부터 "helm"
+문자열이 `craft.gd`의 룬워드 정의 한 줄에서만 등장) 완성 불가능한 상태였다.
+브레인스토밍→설계→계획 스킬 체인(스크랩북 라운드 이후 이 세션 두 번째 정식
+사용)을 거쳐 신규 슬롯을 추가: `item.gd HELM_BASES`(3종) + 유니크 3개,
+`roll_drop()` 드롭 브래킷에서 armor 몫 10%p를 helm으로 분리(34%→24%+10%),
+`craft.gd RUNE_STATS`/`GEM_STATS`에 helm 전용 개별 소켓 효과 열 신설,
+`main.gd`/`mercenary.gd`의 `EQUIPMENT_SLOTS`/`SLOTS`에 helm 추가(둘 다
+리스트 순회 기반 제네릭 구조라 장착 디스패치·스탯 합산·아이콘 렌더링은
+추가 코드 없이 자동 연동됨). 서브에이전트 기반 실행(스펙 리뷰→코드 품질
+리뷰 2단계) 중 계획에 없던 실제 버그 2건을 발견·수정: (1) `mercenary.gd
+empty_equipment()`가 `SLOTS`를 순회하지 않고 `{"weapon":{},"armor":{}}`로
+하드코딩돼 있어 헬름 키가 비어 UI 라벨 참조 시 런타임 에러 위험(제네릭화로
+해결), (2) `main.gd _rebuild_cube()`의 UI 후보 필터가 `craft.gd
+can_add_sockets()`와는 별개로 `["weapon","armor"]`만 허용하고 있어, 소켓
+부여 레시피의 실제 승인 로직은 helm을 허용해도 "Add Sockets" 버튼 자체가
+헬름 아이템엔 전혀 렌더링되지 않는 UI 레이어 버그(헬름에 실제로 소켓을
+끼우는 UI 클릭 테스트를 작성하다 발견 — 데이터 레이어 테스트만으로는 못
+잡는 유형). Gloom Crown 회귀 테스트: Korr+Vey 소켓 완성 시 `def=68`(룬워드
++50 + Korr 개별 helm+18), `mana=1`(Vey 개별 helm+1) — 2026-10-09 룬 드롭
+라운드에서 배운 "완성 보너스+개별 소켓 효과 합산" 규칙 적용.
+상세: `docs/superpowers/specs/2026-10-09-helm-equipment-slot-design.md`,
+`docs/superpowers/plans/2026-10-09-helm-equipment-slot-plan.md`.
+
 ### Identification and resistance effects
 
 새 몬스터 드롭의 레어 장비는 미감정 상태다. 가방의 `Identify (Free)`로 기존에
